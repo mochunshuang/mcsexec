@@ -1,0 +1,139 @@
+{
+    "editor.formatOnPaste": true,
+    "editor.formatOnSave": true,
+    "editor.formatOnType": true,
+    "clangd.path": "D:/mysoftware/gcc-14.1.0-llvm-18.1.7-mingw-w64ucrt-12.0.0/mingw32/bin/clangd.exe",
+    // "clangd.path": "D:/mysoftware/clang+llvm-18.1.8-x86_64-pc-windows-msvc/bin/clangd.exe",
+    "query-drivers": [
+        "D:/mysoftware/clangd_18.1.3/bin/clangd.exe",
+        "D:/mysoftware/llvm-mingw-20231128-ucrt-x86_64/bin/clangd.exe",
+        "D:/mysoftware/x86_64-13.2.0-release-posix-seh-ucrt-rt_v11-rev1/mingw64/bin/g++.exe",
+        "D:/mysoftware/llvm-mingw-20231128-ucrt-x86_64/bin/g++.exe",
+        "D:/mysoftware/gcc-v14.1.0-mingw-v11.0.1-x86_64/bin/g++.exe",
+        "D:/mysoftware/gcc-14.1.0-llvm-18.1.7-mingw-w64ucrt-12.0.0/mingw32/bin/g++.exe",
+        "D:/mysoftware/gcc-14.1.0-llvm-18.1.7-mingw-w64ucrt-12.0.0/mingw32/bin/clang++.exe"
+    ],
+    "terminal.integrated.profiles.windows": {
+    "PowerShell -NoProfile": {
+      "source": "PowerShell",
+      "args": ["-NoProfile",
+        "-NoExit",
+        "-Command",
+        "chcp 65001"
+       ]
+    }
+  },
+  "terminal.integrated.defaultProfile.windows": "PowerShell -NoProfile",
+    "clangd.arguments": [
+        "--compile-commands-dir=${workspaceFolder}/build",
+        "--query-driver=D:/mysoftware/gcc-14.1.0-llvm-18.1.7-mingw-w64ucrt-12.0.0/mingw32/bin/g++.exe",
+        "--log=verbose",
+        "--pretty",
+        "--all-scopes-completion",
+        "--completion-style=bundled",
+        "--cross-file-rename",
+        "--header-insertion=iwyu",
+        "--header-insertion-decorators",
+        "--background-index",
+        "--clang-tidy",
+        "--clang-tidy-checks=cppcoreguidelines-*,performance-*,bugprone-*,portability-*,modernize-*,google-*",
+        "-j=2",
+        "--pch-storage=disk",
+        "--function-arg-placeholders=false"
+    ],
+    "cmake.generator": "Ninja",
+    // 注意cmaketool 要配置为Debug
+    // "cmake.debugConfig": {
+    //     "type": "lldb",
+    //     "miDebuggerPath": "D:/mysoftware/gcc-14.1.0-llvm-18.1.7-mingw-w64ucrt-12.0.0/mingw32/bin/lldb.exe",
+    // },
+    "cmake.debugConfig": {
+        "type": "cppdbg",
+        "miDebuggerPath": "D:/mysoftware/gcc-14.1.0-llvm-18.1.7-mingw-w64ucrt-12.0.0/mingw32/bin/gdb.exe",
+    },
+    // clangd 或 c_cpp
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "C_Cpp.default.cppStandard": "gnu++20",
+    "editor.semanticTokenColorCustomizations": {
+        "enabled": true,
+        "[Default Dark Modern]": {
+        "enabled": true,
+        "rules": {
+            "operator": "#dd1735"
+        }
+        }
+    },
+    "editor.tokenColorCustomizations": {
+        "textMateRules": [
+            {
+                "scope" : "markup.other.log.error",
+                "settings": { "foreground": "#FF0000" }
+            },
+            {
+                "scope" : "markup.other.log.warn",
+                "settings": { "foreground": "#c500f7cc" }
+            },
+            {
+                "scope" : "markup.other.log.info",
+                "settings": { "foreground": "#2cd0d3" }
+            },
+            {
+                "scope" : "markup.other.log.debug",
+                "settings": { "foreground": "#888585" }
+            },
+            {
+                "scope" : "markup.other.log.highlight",
+                "settings": { "foreground": "#19ff04" }
+            }
+        ]
+    },
+    "files.associations": {
+        "iostream": "cpp",
+        "type_traits": "cpp",
+        "array": "cpp",
+        "atomic": "cpp",
+        "bit": "cpp",
+        "*.tcc": "cpp",
+        "cctype": "cpp",
+        "clocale": "cpp",
+        "cmath": "cpp",
+        "compare": "cpp",
+        "concepts": "cpp",
+        "cstddef": "cpp",
+        "cstdint": "cpp",
+        "cstdio": "cpp",
+        "cstdlib": "cpp",
+        "ctime": "cpp",
+        "cwchar": "cpp",
+        "cwctype": "cpp",
+        "deque": "cpp",
+        "string": "cpp",
+        "unordered_map": "cpp",
+        "vector": "cpp",
+        "exception": "cpp",
+        "algorithm": "cpp",
+        "functional": "cpp",
+        "iterator": "cpp",
+        "memory": "cpp",
+        "memory_resource": "cpp",
+        "numeric": "cpp",
+        "optional": "cpp",
+        "random": "cpp",
+        "string_view": "cpp",
+        "system_error": "cpp",
+        "tuple": "cpp",
+        "utility": "cpp",
+        "initializer_list": "cpp",
+        "iomanip": "cpp",
+        "iosfwd": "cpp",
+        "istream": "cpp",
+        "limits": "cpp",
+        "new": "cpp",
+        "numbers": "cpp",
+        "ostream": "cpp",
+        "sstream": "cpp",
+        "stdexcept": "cpp",
+        "streambuf": "cpp",
+        "typeinfo": "cpp"
+    }
+}
