@@ -1,0 +1,107 @@
+If: # 收集信息的范围
+  PathMatch: [include/.*,src/.*,test/.*] # to all headers...
+  PathExclude: [include/llvm-c/.*,plugin/.*] # except those under include/llvm-c/
+
+CompileFlags: # Tweak the parse settings
+  # List of flags to append to the compile command.d
+  Add: [
+    -xc++, -Wall,-std=c++23
+    # ,-std=gnu++20
+  ] # treat all files as C++, enable more warnings
+  # Remove: -W* # strip all other warning-related flags
+  # 全局移除编译参数:Clangd 无法解析的命令参数如下：
+  Remove: [-fmodules-ts,-fdeps-format=p1689r5,-fmodule-mapper*]
+
+Diagnostics:
+  ClangTidy:
+    Add: [cppcoreguidelines-*,google-*,misc-*,performance-*,bugprone-*,portability-*,hicpp-*,readability-*,modernize-*,portability-*,clang-analyzer-*,concurrency-*,cert-*]
+    Remove: 
+    [
+      modernize-use-trailing-return-type,
+      # 允许不用{}包裹语句
+      readability-braces-around-statements,google-readability-braces-around-statements,hicpp-braces-around-statements,
+      # 使用goto
+      cppcoreguidelines-avoid-goto,hicpp-avoid-goto,
+      # 允许if里面赋值
+      bugprone-assignment-in-if-condition,
+      # 没有gsl::owner<T*>
+      cppcoreguidelines-owning-memory,
+      # 使用指针算数
+      cppcoreguidelines-pro-bounds-pointer-arithmetic,
+      # 使用裸数组指针，因为是C库，无法避免
+      cppcoreguidelines-pro-bounds-array-to-pointer-decay,hicpp-no-array-decay,
+      # 允许默认参数的函数调用
+      fuchsia-default-arguments-calls,fuchsia-default-arguments-declarations,
+      # for 带变量是正常的
+      altera-unroll-loops,
+      # 允许位运算
+      hicpp-signed-bitwise,
+      # 允许双下划线开头
+      cert-dcl37-c,bugprone-reserved-identifier,cert-dcl51-cpp
+    ]
+    CheckOptions:
+      readability-identifier-length.MinimumParameterNameLength: 1
+      readability-identifier-length.MinimumVariableNameLength: 1 #变量的长度限制激活，默认至少3各字符
+      readability-identifier-naming.VariableCase: camelBack,lower_case
+      readability-identifier-naming.GlobalVariableCase: lower_case
+      readability-identifier-naming.GlobalVariablePrefix: g_
+      readability-identifier-naming.PrivateMemberPrefix: m_
+      # ui 例外
+      readability-identifier-naming.PrivateMemberIgnoredRegexp: ^ui,
+      # 函数名
+      readability-identifier-naming.ProtectedMemberPrefix: m_
+      # 结构体成员下划线
+      readability-identifier-naming.PublicMemberCase: lower_case
+      readability-identifier-naming.ProtectedMemberCase: camelBack
+      readability-identifier-naming.PrivateMemberCase: camelBack
+      readability-identifier-naming.ClassMemberPrefix: m_
+      readability-identifier-naming.ValueTemplateParameterSuffix.VariableHungarianPrefix: _
+      # 常量
+      readability-identifier-naming.ConstantCase: lower_case
+      readability-identifier-naming.ConstantPrefix: k_
+      readability-identifier-naming.EnumCase: UPPER_CASE,Status
+      readability-identifier-naming.EnumConstantCase: UPPER_CASE
+      # 宏定义
+      readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
+      # 类
+      readability-identifier-naming.ClassCase: CamelCase
+      readability-identifier-naming.StructCase: CamelCase,lower_case
+      # 函数方法
+      readability-identifier-naming.FunctionCase: lower_case
+      readability-identifier-naming.ClassMethodCase: camelBack
+      readability-identifier-naming.MethodCase: camelBack
+      # 概念
+      readability-identifier-naming.ConceptCase: lower_case
+      # readability-identifier-naming.ConceptPrefix: is_
+      # 函数名忽略
+      readability-identifier-naming.MethodIgnoredRegexp: "^(signal_|slots_).*"
+      # 结构体名忽略
+      readability-identifier-naming.StructIgnoredRegexp: "(__.*|.*_t)"
+      # 库例外
+      readability-identifier-naming.GlobalFunctionIgnoredRegexp: "^__.*"
+
+      
+  UnusedIncludes: Strict
+  MissingIncludes: None
+  Includes:
+    IgnoreHeader: Python\.h
+
+Index:
+  Background: Skip     # Disable slow background indexing of these files.
+
+# https://clangd.llvm.org/config#completion
+InlayHints:
+  BlockEnd: No
+  Designators: Yes
+  Enabled: Yes
+  ParameterNames: Yes
+  DeducedTypes: Yes
+  TypeNameLimit: 24
+# 悬停卡
+Hover:
+  ShowAKA: No
+
+# 配置语义高亮
+SemanticTokens:
+  DisabledKinds: []
+  DisabledModifiers: []

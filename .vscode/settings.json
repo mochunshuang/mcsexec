@@ -63,6 +63,23 @@
         }
         }
     },
+    "editor.bracketPairColorization.enabled": true,
+    "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
+    // 高亮的对括号
+    "[cpp]": {
+        // "editor.language.brackets": [
+        //     ["(",")"],
+        //     ["{","}"],
+        //     ["[","]"],
+        //     ["<",">"]
+        // ],
+        "editor.language.colorizedBracketPairs": [
+            ["(",")"],
+            ["{","}"],
+            ["[","]"],
+            ["<",">"]
+        ]
+    },
     "editor.tokenColorCustomizations": {
         "textMateRules": [
             {
@@ -85,8 +102,69 @@
                 "scope" : "markup.other.log.highlight",
                 "settings": { "foreground": "#19ff04" }
             }
-        ]
+        ],
+        "[Default Dark Modern]": {
+            "textMateRules": [
+                {
+                    "scope": "entity.name.namespace.cpp",
+                    "settings": {
+                        "foreground": "#d4d3d3"
+                    }
+                },
+                // :: 命名空间
+                {
+                    "scope": "punctuation.separator.scope-resolution.cpp",
+                    "settings": {
+                        "foreground": "#d4d3d3"
+                    }
+                },
+                {
+                    "scope": "punctuation.separator.scope-resolution.function.call.cpp",
+                    "settings": {
+                        "foreground": "#d4d3d3"
+                    }
+                },
+                // 参数
+                {
+                    "scope": "entity.name.type.parameter",
+                    "settings": {
+                        "foreground": "#f66ecd"
+                    }
+                },
+                // 函数部分
+                {
+                    "scope": "entity.name.function.cpp",
+                    "settings": {
+                        "foreground": "#e3e775"
+                    }
+                },
+                {
+                    "scope": "entity.name.function.member.cpp",
+                    "settings": {
+                        "foreground": "#e3e775"
+                    }
+                }
+                // 概念，结构化绑定部分
+                // {
+                //     "scope": "meta.block.cpp",
+                //     "settings": {
+                //         "foreground": "#9CDCFE"
+                //     }
+                // }
+            ]
+        }
     },
+    "better-comments.tags": [
+        {
+            "tag": "Note:",
+            "color": "#00cc44", // 你可以选择任何你喜欢的颜色
+            "strikethrough": false,
+            "underline": false,
+            "backgroundColor": "transparent",
+            "bold": true,
+            "italic": true
+        }
+    ],
     "files.associations": {
         "iostream": "cpp",
         "type_traits": "cpp",

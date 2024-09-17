@@ -1,0 +1,11 @@
+set(EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/output/${CMAKE_BUILD_TYPE}/bin)
+set(LIBRARY_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/output/${CMAKE_BUILD_TYPE}/lib)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/output/${CMAKE_BUILD_TYPE}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/output/${CMAKE_BUILD_TYPE}/bin)
+
+add_custom_target(clean_all
+    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_SOURCE_DIR}/build --config ${CMAKE_BUILD_TYPE} --target clean
+    COMMAND ${CMAKE_COMMAND} -E echo "clean_all done!"
+    COMMENT "Cleaning all targets"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
