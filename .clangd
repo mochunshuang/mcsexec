@@ -1,5 +1,5 @@
 If: # 收集信息的范围
-  PathMatch: [include/.*,src/.*,test/.*] # to all headers...
+  PathMatch: [include/.*,src/.*,test/.*,example/*] # to all headers...
   PathExclude: [include/llvm-c/.*,plugin/.*] # except those under include/llvm-c/
 
 CompileFlags: # Tweak the parse settings
