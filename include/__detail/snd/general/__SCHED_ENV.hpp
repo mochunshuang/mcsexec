@@ -13,17 +13,7 @@ namespace mcs::execution::snd::general
         Scheduler sched; // NOLINT
 
       public:
-        template <typename S>
-        explicit SCHED_ENV(S &&s) : sched(::std::forward<S>(s))
-        {
-        }
-        // delete by SCHED_ENV(S &&s)
-        SCHED_ENV(const SCHED_ENV &) = default;
-        SCHED_ENV(SCHED_ENV &&) noexcept = default;
-
-        ~SCHED_ENV() noexcept = default;
-        SCHED_ENV &operator=(const SCHED_ENV &) = default;
-        SCHED_ENV &operator=(SCHED_ENV &&) noexcept = default;
+        explicit SCHED_ENV(Scheduler &&s) : sched(::std::forward<Scheduler>(s)) {}
 
         constexpr auto query(queries::get_scheduler_t const & /*unused*/) const noexcept
         {

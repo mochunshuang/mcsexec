@@ -1,5 +1,6 @@
 #pragma once
 
+#include "./__query_or_default.hpp"
 #include "../../__core_types.hpp"
 
 #include "../../queries/__get_domain.hpp"
@@ -14,13 +15,13 @@ namespace mcs::execution::snd::general
         Scheduler sched; // NOLINT
 
       public:
-        template <typename S>
+        template <typename S> // need by get_env() -> const &
         explicit SCHED_ATTRS(S &&s) : sched(std::forward<S>(s))
         {
         }
-        // delete by SCHED_ATTRS(S &&s)
-        SCHED_ATTRS(const SCHED_ATTRS &) = delete;
-        SCHED_ATTRS(SCHED_ATTRS &&) noexcept = delete;
+        // delete by SCHED_ATTRS(S &&s). so Forced generation
+        SCHED_ATTRS(const SCHED_ATTRS &) = default;
+        SCHED_ATTRS(SCHED_ATTRS &&) noexcept = default;
 
         ~SCHED_ATTRS() noexcept = default;
         SCHED_ATTRS &operator=(const SCHED_ATTRS &) = default;
@@ -37,7 +38,10 @@ namespace mcs::execution::snd::general
 
         constexpr auto query(queries::get_domain_t const &q) const noexcept
         {
-            return sched.query(q);
+            // Note: :ctx::run_loop::scheduler' has no member named 'query'
+            // TODO(mcs): just()也没有，或许是
+            // return sched.query(q);
+            return query_or_default(q, sched, default_domain());
         }
     };
 

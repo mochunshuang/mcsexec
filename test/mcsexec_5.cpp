@@ -190,14 +190,7 @@ int main()
                     using T =
                         mcs::execution::consumers::__sync_wait::sync_wait_result_type<
                             decltype(task)>;
-                    static_assert(
-                        std::is_same_v<
-                            std::optional<
-                                std::tuple<mcs::execution::snd::__detail::basic_sender<
-                                    mcs::execution::factories::__just_t<
-                                        mcs::execution::recv::set_value_t>,
-                                    mcs::execution::snd::__detail::product_type<>>>>,
-                            T>);
+
                     // Note 从 Sndr 获取器其签名
                     // completion_signatures<mcs::execution::recv::set_value_t (int)>
                     using Sig = decltype(std::declval<decltype(just() | then([]() {

@@ -1,14 +1,11 @@
 #pragma once
 
-#include "../sched/__scheduler.hpp"
-#include "../snd/__transform_sender.hpp"
-#include "../snd/__make_sender.hpp"
-
-#include "../snd/general/__JOIN_ENV.hpp"
-#include "../snd/general/__SCHED_ATTRS.hpp"
-#include "../snd/general/__FWD_ENV.hpp"
-#include "../snd/general/__get_domain_early.hpp"
 #include <utility>
+#include "./__schedule_from.hpp"
+
+#include "../snd/general/__get_domain_early.hpp"
+
+#include "../pipeable/__sender_adaptor.hpp"
 
 namespace mcs::execution
 {
@@ -22,19 +19,40 @@ namespace mcs::execution
         // subexpressions sch and sndr, if decltype((sch)) does not satisfy scheduler, or
         // decltype((sndr)) does not satisfy sender, continues_on(sndr, sch) is
         // ill-formed.
+        // Note: The execution::continues_on algorithm will not care where the given
+        // Note: sender is going to be [ started ], but will ensure that the
+        // Note: completion-signal Note: of will be transferred to the given context
         struct continues_on_t
         {
             // make_sender provides tag_of_t will-format
-            template <typename Sndr, typename Sch>
-                requires(snd::sender<Sndr> && sched::scheduler<Sch>)
+            template <snd::sender Sndr, sched::scheduler Sch>
             auto operator()(Sndr &&sndr, Sch &&sch) const
             {
                 return snd::transform_sender(snd::general::get_domain_early(sndr),
-                                             snd::make_sender(this,
+                                             snd::make_sender(*this,
                                                               std::forward<Sch>(sch),
                                                               std::forward<Sndr>(sndr)));
             }
+
+            template <sched::scheduler Sch>
+            auto operator()(Sch &&sch) const
+                -> pipeable::sender_adaptor<continues_on_t, Sch>
+            {
+                return {*this, std::forward<Sch>(sch)};
+            }
+
+            // Note: The default implementation of continues_on(snd, sched) is
+            // Note: schedule_from(sched, snd).
+            template <snd::sender Sndr, typename Env>
+            auto transform_sender(Sndr &&sndr, const Env & /*env*/) noexcept // NOLINT
+                requires(snd::sender_for<decltype((sndr)), continues_on_t>)
+            {
+                return sndr.apply([](auto, auto data, auto child) {
+                    return schedule_from(std::move(data), std::move(child));
+                });
+            }
         };
+
         inline constexpr continues_on_t continues_on{}; // NOLINT
 
     }; // namespace adapt
@@ -42,11 +60,19 @@ namespace mcs::execution
     template <>
     struct snd::general::impls_for<adapt::continues_on_t> : snd::__detail::default_impls
     {
+        // used by get_env()
         static constexpr auto get_attrs = // NOLINT
             [](const auto &data, const auto &child) noexcept -> decltype(auto) {
             return snd::general::JOIN_ENV(snd::general::SCHED_ATTRS(data),
-                                          snd::general::FWD_ENV(get_env(child)));
+                                          snd::general::FWD_ENV(queries::get_env(child)));
         };
+    };
+
+    template <typename Sched, typename Sndr, typename Env>
+    struct cmplsigs::completion_signatures_for_impl<
+        snd::__detail::basic_sender<adapt::continues_on_t, Sched, Sndr>, Env>
+    {
+        using type = snd::completion_signatures_of_t<Sndr, Env>;
     };
 
 }; // namespace mcs::execution

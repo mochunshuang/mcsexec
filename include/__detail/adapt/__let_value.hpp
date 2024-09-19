@@ -148,9 +148,9 @@ namespace mcs::execution
         namespace __detail
         {
             template <typename _Sig>
-            struct as_tuple;
+            struct as_tuple_no_tag;
             template <typename Tag, typename... Args>
-            struct as_tuple<Tag(Args...)>
+            struct as_tuple_no_tag<Tag(Args...)>
             {
                 using type = ::mcs::execution::decayed_tuple<Args...>;
             };
@@ -162,7 +162,7 @@ namespace mcs::execution
         struct compute_args_variant_t<std::tuple<Sig...>>
         {
             using type = typename tfxcmplsigs::unique_variadic_template<std::variant<
-                std::monostate, typename __detail::as_tuple<Sig>::type...>>::type;
+                std::monostate, typename __detail::as_tuple_no_tag<Sig>::type...>>::type;
         };
 
         ////////////////////////////////////////////////////////////////

@@ -31,7 +31,7 @@ namespace mcs::execution::conn
             requires(snd::sender<decltype((sndr))> && receiver<decltype((rcvr))>)
         {
 
-            decltype(auto) new_sndr = snd::transform_sender(
+            auto new_sndr = snd::transform_sender(
                 decltype(snd::general::get_domain_late(sndr, queries::get_env(rcvr))){},
                 std::forward<Sndr>(sndr), queries::get_env(rcvr));
 
