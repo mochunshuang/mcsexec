@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../../__core_types.hpp"
-#include "./mate_type/__get_state.hpp"
 
 #include "../../queries/__get_env.hpp"
 #include "../../opstate/__start.hpp"
@@ -16,26 +15,30 @@ namespace mcs::execution::snd::__detail
         static constexpr auto get_attrs = // NOLINT
             [](const auto &, const auto &...child) noexcept -> decltype(auto) {
             if constexpr (sizeof...(child) == 1)
-                return (mcs::execution::snd::general::FWD_ENV(queries::get_env(child)),
+                return (::mcs::execution::snd::general::FWD_ENV(
+                            ::mcs::execution::queries::get_env(child)),
                         ...);
             else
-                return mcs::execution::empty_env();
+                return ::mcs::execution::empty_env();
         };
 
         static constexpr auto get_env = // NOLINT
             [](auto, auto &, const auto &rcvr) noexcept -> decltype(auto) {
-            return general::FWD_ENV(queries::get_env(rcvr));
+            return ::mcs::execution::snd::general::FWD_ENV(
+                ::mcs::execution::queries::get_env(rcvr));
         };
 
         static constexpr auto get_state = // NOLINT
-            []<class Sndr, class Rcvr>(Sndr &&__sndr,
+            []<class Sndr, class Rcvr>(Sndr &&sndr,
                                        Rcvr & /*rcvr*/) noexcept -> decltype(auto) {
-            return std::forward_like<Sndr>(__sndr.apply(mate_type::__get_state()));
+            return sndr.apply([](auto &, auto &data, auto &&...) -> decltype(auto) {
+                return std::forward_like<Sndr>(data);
+            });
         };
 
         // NOLINTNEXTLINE
         static constexpr auto start = [](auto &, auto &, auto &...ops) noexcept -> void {
-            (opstate::start(ops), ...);
+            (::mcs::execution::opstate::start(ops), ...);
         };
 
         static constexpr auto complete = // NOLINT

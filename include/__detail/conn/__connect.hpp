@@ -30,18 +30,23 @@ namespace mcs::execution::conn
         constexpr auto operator()(Sndr &&sndr, Rcvr rcvr) const noexcept
             requires(snd::sender<decltype((sndr))> && receiver<decltype((rcvr))>)
         {
-
-            auto new_sndr = snd::transform_sender(
-                decltype(snd::general::get_domain_late(sndr, queries::get_env(rcvr))){},
-                std::forward<Sndr>(sndr), queries::get_env(rcvr));
+            // Note: lambda: for lazy
+            // warning: possibly dangling reference to a temporary [-Wdangling-reference]
+            // avoid warning by delete decltype(auto)
+            auto new_sndr = [&]() {
+                return snd::transform_sender(
+                    decltype(snd::general::get_domain_late(
+                        std::as_const(sndr), queries::get_env(std::as_const(rcvr)))){},
+                    std::forward<Sndr>(sndr), queries::get_env(std::as_const(rcvr)));
+            };
 
             if constexpr (requires {
                               {
-                                  new_sndr.connect(std::move(rcvr))
+                                  new_sndr().connect(std::move(rcvr))
                               } -> opstate::operation_state;
                           })
             {
-                return new_sndr.connect(std::move(rcvr)); // copy
+                return new_sndr().connect(std::move(rcvr));
             }
             else
             {
@@ -53,7 +58,7 @@ namespace mcs::execution::conn
                 using awaitables::await_result_type;
 
                 using RCVR = decltype((rcvr));
-                using DS = std::decay_t<decltype((new_sndr))>;
+                using DS = std::decay_t<decltype((new_sndr()))>;
                 using DR = std::decay_t<RCVR>;
                 using V = await_result_type<DS, connect_awaitable_promise<DS, DR>>;
 
@@ -66,7 +71,7 @@ namespace mcs::execution::conn
                     connect_awaitable_promise<DS, DR>::operation_state_task;
 
                 return connect_awaitable<operation_state_task, DS, DR, Sigs, V>(
-                    std::move(new_sndr), std::move(rcvr));
+                    new_sndr(), std::move(rcvr));
             }
         };
     };

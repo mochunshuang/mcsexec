@@ -22,14 +22,4 @@ namespace mcs::execution::tfxcmplsigs
                                         AdditionalSignatures, SetValue, SetError,
                                         SetStopped>;
 
-    template <snd::sender Sndr, class Env = ::mcs::execution::empty_env,
-              cmplsigs::valid_completion_signatures AdditionalSignatures =
-                  cmplsigs::completion_signatures<>,
-              template <class...> class SetValue = default_set_value,
-              template <class> class SetError = default_set_error,
-              cmplsigs::valid_completion_signatures SetStopped =
-                  cmplsigs::completion_signatures<set_stopped_t()>>
-        requires snd::sender_in<Sndr, Env>
-    using transform_completion_signatures_of_test_ags = int;
-
 }; // namespace mcs::execution::tfxcmplsigs

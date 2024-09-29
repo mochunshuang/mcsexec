@@ -13,7 +13,7 @@ namespace mcs::execution::snd
         };
 
         template <typename Sndr, typename Env>
-        concept has_transform_env = requires(Sndr &&sndr, const Env &&env) {
+        concept has_transform_env = requires(Sndr &&sndr, Env &&env) {
             {
                 tag_of_t<Sndr>().transform_env(std::forward<Sndr>(sndr),
                                                std::forward<Env>(env))
@@ -27,9 +27,11 @@ namespace mcs::execution::snd
 
     struct default_domain
     {
+        /////////////////////////////////////////////////////
+        // transform_sender
         template <sender Sndr, queryable... Env>
             requires(sizeof...(Env) <= 1) && __detail::has_transform_sender<Sndr, Env...>
-        static constexpr sender decltype(auto) transform_sender( // NOLINT
+        static constexpr sender auto transform_sender( // NOLINT
             Sndr &&sndr,
             const Env &...env) noexcept(noexcept(tag_of_t<Sndr>()
                                                      .transform_sender(
@@ -41,17 +43,18 @@ namespace mcs::execution::snd
         template <sender Sndr, queryable... Env>
             requires(sizeof...(Env) <= 1) &&
                     (not __detail::has_transform_sender<Sndr, Env...>)
-        static constexpr sender decltype(auto) transform_sender( // NOLINT
+        static constexpr sender auto transform_sender( // NOLINT
             Sndr &&sndr,
             const Env &.../*env*/) noexcept(noexcept(std::forward<Sndr>(sndr)))
         {
             return std::forward<Sndr>(sndr);
         }
 
+        /////////////////////////////////////////////////////
+        // transform_env
         template <sender Sndr, queryable Env>
             requires(__detail::has_transform_env<Sndr, Env>) // NOLINTNEXTLINE
-        static constexpr queryable decltype(auto) transform_env(Sndr &&sndr,
-                                                                Env &&env) noexcept
+        static constexpr queryable auto transform_env(Sndr &&sndr, Env &&env) noexcept
         {
             return tag_of_t<Sndr>().transform_env(std::forward<Sndr>(sndr),
                                                   std::forward<Env>(env));
@@ -61,15 +64,17 @@ namespace mcs::execution::snd
                     requires(Sndr &&sndr, Env &&env) {
                         { static_cast<Env>(std::forward<Env>(env)) } noexcept;
                     } // NOLINTNEXTLINE
-        static constexpr queryable decltype(auto) transform_env(Sndr && /*sndr*/,
-                                                                Env &&env) noexcept
+        static constexpr queryable auto transform_env(Sndr && /*sndr*/,
+                                                      Env &&env) noexcept
         {
             return static_cast<Env>(std::forward<Env>(env));
         }
 
+        /////////////////////////////////////////////////////
+        // apply_sender
         template <class Tag, sender Sndr, class... Args>
             requires __detail::has_apply_sender<Tag, Sndr, Args...>
-        static constexpr decltype(auto) apply_sender( // NOLINT
+        static constexpr auto apply_sender( // NOLINT
             Tag /*unused*/, Sndr &&sndr,
             Args &&...args) noexcept(noexcept(Tag().apply_sender(std::forward<Sndr>(sndr),
                                                                  std::forward<Args>(

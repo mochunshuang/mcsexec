@@ -14,10 +14,10 @@ namespace mcs::execution::opstate
         struct start_t
         {
             template <typename O>
-                requires(not std::is_rvalue_reference_v<O>) && requires(O &o) {
+            constexpr void operator()(O &&o) const noexcept
+                requires(not std::is_rvalue_reference_v<decltype(o)>) && requires(O &o) {
                     { o.start() } noexcept -> std::same_as<void>;
                 }
-            constexpr void operator()(O &o) const noexcept
             {
                 o.start();
             }

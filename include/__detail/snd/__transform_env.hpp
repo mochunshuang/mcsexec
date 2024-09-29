@@ -8,8 +8,7 @@ namespace mcs::execution::snd
     /////////////////////////////////////////////
     // [exec.snd.transform.env], environment transformations
     template <class Domain, sender Sndr, queryable Env>
-    constexpr queryable decltype(auto) transform_env(Domain dom, Sndr &&sndr,
-                                                     Env &&env) noexcept
+    constexpr queryable auto transform_env(Domain dom, Sndr &&sndr, Env &&env) noexcept
     {
         if constexpr (requires {
                           {

@@ -186,9 +186,6 @@ namespace mcs::execution::ctx
             };
 
           public:
-            // Note: expose for test
-            using sender = sender;
-
             scheduler() = default;
             using scheduler_concept = scheduler_t; // models scheduler
 
@@ -207,9 +204,6 @@ namespace mcs::execution::ctx
         void push_back(Node *) noexcept; // NOLINT// exposition only
 
       public:
-        // Note: expose for test
-        using scheduler = scheduler;
-
         // [exec.run.loop.ctor] construct/copy/destroy
         run_loop() noexcept = default;
         run_loop(run_loop &&) = delete;

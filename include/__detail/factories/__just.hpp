@@ -25,7 +25,8 @@ namespace mcs::execution
         struct __just_t
         {
             template <movable_value... Ts>
-                requires __detail::just_completion<Completion, Ts...>
+                requires __detail::just_completion<Completion, Ts...> &&
+                         (movable_value<Ts> && ...)
             constexpr auto operator()(Ts &&...ts) const noexcept
             {
                 return snd::make_sender(
@@ -48,9 +49,8 @@ namespace mcs::execution
     {
         static constexpr auto start = // NOLINT
             []<class State>(State &state, auto &rcvr) noexcept -> void {
-            [&]<std::size_t... I>(std::index_sequence<I...>) {
-                Completion()(std::move(rcvr), std::move(state.template get<I>())...);
-            }(std::make_index_sequence<State::size()>{});
+            return state.apply(
+                [&](auto &...ts) { Completion()(std::move(rcvr), std::move(ts)...); });
         };
     };
 

@@ -25,10 +25,10 @@ namespace mcs::execution::queries
         using __self_t = get_completion_scheduler_t<CompletionTag>;
 
         template <typename T>
-            requires requires(T env) {
+            requires requires(T &&env) {
                 { std::as_const(env).query(std::declval<__self_t>()) } noexcept;
             }
-        constexpr auto operator()(const T &env) const noexcept -> auto
+        constexpr auto operator()(T &&env) const noexcept -> auto
         {
             return std::as_const(env).query(*this);
         }

@@ -13,7 +13,7 @@ namespace mcs::execution::queries
             requires requires(T &&o) { // concepts sender defined need const T &
                 { std::as_const(o).get_env() } noexcept;
             }
-        constexpr auto operator()(const T &o) const noexcept -> queryable auto
+        constexpr auto operator()(T &&o) const noexcept -> queryable auto
         {
             return std::as_const(o).get_env();
         }

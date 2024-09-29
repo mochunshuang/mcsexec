@@ -19,40 +19,38 @@ namespace mcs::execution
             template <sched::scheduler Sched, snd::sender Sndr>
             auto operator()(Sched &&sch, Sndr &&sndr) const
             {
+                auto dom = snd::general::query_or_default(
+                    queries::get_domain, std::as_const(sch), snd::default_domain());
                 return snd::transform_sender(
-                    snd::general::query_or_default(queries::get_domain, sch,
-                                                   snd::default_domain()),
-                    snd::make_sender(*this, std::forward<Sched>(sch),
-                                     std::forward<Sndr>(sndr)));
+                    dom, snd::make_sender(*this, std::forward<Sched>(sch),
+                                          std::forward<Sndr>(sndr)));
             };
 
+            // for default_domain
             template <snd::sender OutSndr, typename Env>
                 requires(snd::sender_for<OutSndr, starts_on_t>)
-            auto transform_env(OutSndr &&sndr, Env &&env) noexcept // NOLINT
+            auto transform_env(OutSndr &&out_sndr, Env &&env) noexcept // NOLINT
             {
-                return std::forward<OutSndr>(sndr).apply(
-                    [&]<typename Sched>(auto &&, Sched &&sch, auto &&) {
-                        return snd::general::JOIN_ENV(
-                            snd::general::SCHED_ENV(std::forward<Sched>(sch)),
-                            snd::general::FWD_ENV(std::forward<Env>(env)));
-                    });
+                auto &&[_, sch, __] = out_sndr;
+                return snd::general::JOIN_ENV(
+                    snd::general::SCHED_ENV(sch),
+                    snd::general::FWD_ENV(std::forward<Env>(env)));
             }
 
-            template <snd::sender Sndr, typename Env>
-            auto transform_sender(Sndr &&out_sndr, const Env & /*env*/) noexcept // NOLINT
+            // for connect
+            template <snd::sender Sndr, typename Env> // NOLINTNEXTLINE
+            auto transform_sender(Sndr &&out_sndr, const Env & /*env*/) noexcept
                 requires(snd::sender_for<decltype((out_sndr)), starts_on_t>)
             {
                 using OutSndr = decltype((out_sndr));
-                return std::forward<OutSndr>(out_sndr).apply(
-                    [&]<typename Sched>(auto &&, Sched &&sch, auto &&sndr) {
-                        return let_value(
-                            factories::schedule(sch),
-                            [s = std::forward_like<OutSndr>(sndr)]() mutable noexcept(
-                                std::is_nothrow_move_constructible_v<OutSndr>) {
-                                return std::move(s);
-                            });
-                        ;
+                auto &&[_, sch, sndr] = out_sndr;
+                return adapt::let_value(
+                    factories::schedule(sch),
+                    [sndr = std::forward_like<OutSndr>(sndr)]() mutable noexcept(
+                        std::is_nothrow_move_constructible_v<decltype(sndr)>) {
+                        return std::move(sndr);
                     });
+                ;
             }
         };
 

@@ -107,17 +107,17 @@ namespace mcs::execution::consumers
         struct sync_wait_t
         {
             template <typename Sndr>
-                requires requires(Sndr &&sndr, sync_wait_t const &self) {
+            auto operator()(Sndr &&sndr) const
+                requires requires() {
                     typename sync_wait_result_type<Sndr>;
                     {
-                        snd::apply_sender(snd::general::get_domain_early(sndr), self,
+                        snd::apply_sender(snd::general::get_domain_early(sndr), *this,
                                           ::std::forward<Sndr>(sndr))
                     } -> ::std::same_as<sync_wait_result_type<Sndr>>;
                 }
-            auto operator()(Sndr &&sndr) const
             {
-                return snd::apply_sender(snd::general::get_domain_early(sndr), *this,
-                                         std::forward<Sndr>(sndr));
+                auto dom = snd::general::get_domain_early(sndr);
+                return snd::apply_sender(dom, *this, std::forward<Sndr>(sndr));
             }
 
             // no const because: Tag() is not const

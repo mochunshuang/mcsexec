@@ -23,6 +23,9 @@ namespace mcs::execution::snd::__detail
         }
 
         template <decays_to<basic_sender> Self, receiver Rcvr>
+            requires(std::is_rvalue_reference_v<Self &&> ||
+                     (std::is_lvalue_reference_v<Self &&> &&
+                      std::copy_constructible<Self>))
         auto connect(this Self &&self, Rcvr rcvr) noexcept(noexcept(
             std::is_nothrow_constructible_v<basic_operation<Self, Rcvr>, Self, Rcvr>))
             -> basic_operation<Self, Rcvr>
@@ -39,3 +42,18 @@ namespace mcs::execution::snd::__detail
         }
     };
 }; // namespace mcs::execution::snd::__detail
+namespace std
+{
+    template <typename... T>
+    struct tuple_size<::mcs::execution::snd::__detail::basic_sender<T...>> // NOLINT
+        : tuple_size<::mcs::execution::snd::__detail::product_type<T...>>
+    {
+    };
+
+    template <::std::size_t I, typename... T>
+    struct tuple_element<I, ::mcs::execution::snd::__detail::basic_sender<T...>> // NOLINT
+        : tuple_element<I, ::mcs::execution::snd::__detail::product_type<T...>>
+    {
+    };
+
+}; // namespace std

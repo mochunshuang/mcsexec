@@ -27,6 +27,4 @@ namespace mcs::execution
 
     using tfxcmplsigs::__detail::__completion_signatures_set;
 
-    using tfxcmplsigs::transform_completion_signatures_of_test_ags;
-
 }; // namespace mcs::execution

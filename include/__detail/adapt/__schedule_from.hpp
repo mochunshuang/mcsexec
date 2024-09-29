@@ -22,6 +22,7 @@
 #include "../queries/__env_of_t.hpp"
 
 #include "../tfxcmplsigs/__unique_variadic_template.hpp"
+#include "../tfxcmplsigs/__transform_completion_signatures.hpp"
 
 #include "../conn/__connect_result_t.hpp"
 
@@ -46,11 +47,11 @@ namespace mcs::execution
             template <sched::scheduler Sched, snd::sender Sndr>
             auto operator()(Sched &&sch, Sndr &&sndr) const
             {
+                auto dom = snd::general::query_or_default(
+                    queries::get_domain, std::as_const(sch), snd::default_domain());
                 return snd::transform_sender(
-                    snd::general::query_or_default(queries::get_domain, sch,
-                                                   snd::default_domain()),
-                    snd::make_sender(*this, std::forward<Sched>(sch),
-                                     std::forward<Sndr>(sndr)));
+                    dom, snd::make_sender(*this, std::forward<Sched>(sch),
+                                          std::forward<Sndr>(sndr)));
             };
         };
         inline constexpr schedule_from_t schedule_from{}; // NOLINT
@@ -144,15 +145,17 @@ namespace mcs::execution
             requires(snd::sender_in<snd::__detail::mate_type::child_type<OutSndr>,
                                     queries::env_of_t<OutRcvr>>)
         {
-            return sndr.apply([&](auto &, auto &sch, auto &child) {
-                using sched_t = decltype(auto(sch));
-                using Sndr = decltype(auto(child));
-                using Sigs =
-                    snd::completion_signatures_of_t<Sndr, queries::env_of_t<OutRcvr>>;
-                using state_type = adapt::state_type<Sigs, OutRcvr, sched_t>;
+            auto &[_, sch, child] = sndr;
+            using sched_t = decltype(auto(sch));
 
-                return state_type{sch, rcvr};
-            });
+            // Note: add Sigs for like just() | then that need add Sigs for sync_wait
+            using Sigs = tfxcmplsigs::transform_completion_signatures<
+                snd::completion_signatures_of_t<OutSndr, queries::env_of_t<OutRcvr>>,
+                cmplsigs::completion_signatures<set_error_t(std::exception_ptr),
+                                                set_stopped_t()>>;
+            using state_type = adapt::state_type<Sigs, OutRcvr, sched_t>;
+
+            return state_type{sch, rcvr};
         };
 
         static constexpr auto complete = // NOLINT
@@ -189,7 +192,10 @@ namespace mcs::execution
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<adapt::schedule_from_t, Sched, Sndr>, Env>
     {
-        using type = snd::completion_signatures_of_t<Sndr, Env>;
+        using type = tfxcmplsigs::transform_completion_signatures<
+            snd::completion_signatures_of_t<Sndr, Env>,
+            cmplsigs::completion_signatures<set_error_t(std::exception_ptr),
+                                            set_stopped_t()>>;
     };
 
 }; // namespace mcs::execution

@@ -11,9 +11,10 @@ namespace mcs::execution::snd::__detail
 {
     constexpr auto connect_all = // NOLINT
         []<class Sndr, class Rcvr, std::size_t... Is>(
-            basic_state<Sndr, Rcvr> *op, Sndr &&sndr,
-            std::index_sequence<Is...>) noexcept -> decltype(auto) {
-        return std::forward<Sndr>(sndr).apply(
+            basic_state<Sndr, Rcvr> *op, Sndr &&sndr, // Note: noexcept can`t calculation
+            std::index_sequence<Is...>) noexcept(true) -> decltype(auto) {
+        // Note: sndr must be lvalue <=> auto&; std::forward_like<Sndr> => obj <=> obj.mb
+        return sndr.apply(
             [&]<typename... Child>(auto &, auto &,
                                    Child &...child) noexcept -> decltype(auto) {
                 return product_type{conn::connect(

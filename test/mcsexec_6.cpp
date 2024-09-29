@@ -84,6 +84,8 @@ int main()
             // (), mcs::execution::recv::set_error_t
             // (std::__exception_ptr::exception_ptr), mcs::execution::recv::set_stopped_t
             // ()>
+            // Note: public runloop的内部类才行
+#if 0
             using T0 = completion_signatures_for_impl_2<decltype(task), empty_env>::type;
             using T1 =
                 completion_signatures_for_impl_2<decltype(task), empty_env>::type_fun;
@@ -101,6 +103,7 @@ int main()
             static_assert(
                 std::is_same_v<T3, cmplsigs::completion_signatures<
                                        mcs::execution::recv::set_value_t(int)>>);
+#endif
         }
     }
     {
@@ -117,8 +120,8 @@ int main()
         scheduler auto sched6 = thread_pool.get_scheduler();
         sender auto start = schedule(sched6);
         sender auto task = let_value(start, fun);
-        // auto [a] = mcs::this_thread::sync_wait(task).value();
-        // std::cout << "sync_wait: " << a << "\n";
+        auto [a] = mcs::this_thread::sync_wait(task).value();
+        std::cout << "sync_wait: " << a << "\n";
 
         {
             using Sndr = decltype(task);

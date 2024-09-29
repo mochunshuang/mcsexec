@@ -10,7 +10,6 @@ namespace mcs::execution::snd::__detail
     struct product_type_element
     {
         T value; // NOLINT
-        auto operator==(product_type_element const &) const -> bool = default;
     };
 
     template <typename, typename...>
@@ -50,7 +49,7 @@ namespace mcs::execution::snd::__detail
             return this->element_get<J>(*this);
         }
         template <::std::size_t J>
-        auto get() && -> decltype(auto)
+        auto get() && -> auto
         {
             return this->element_get<J>(::std::move(*this));
         }
@@ -73,11 +72,8 @@ namespace mcs::execution::snd::__detail
         {
             return
                 [&]<::std::size_t... I>(::std::index_sequence<I...>) -> decltype(auto) {
-                    // TODO(mcs): clangd 目前不支持forward_like,idea爆红不好
-                    // return ::std::forward<Fn>(fn)(::std::forward_like<Self>(
-                    //     (static_cast<Self &>(self)).template get<I>())...);
                     return ::std::forward<Fn>(fn)(
-                        ::std::forward<Self>(self).template get<I>()...);
+                        ::std::forward_like<Self>(self.template get<I>())...);
                 }(::std::index_sequence_for<T...>{});
         }
     };

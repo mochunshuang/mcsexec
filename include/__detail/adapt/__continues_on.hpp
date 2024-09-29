@@ -28,10 +28,10 @@ namespace mcs::execution
             template <snd::sender Sndr, sched::scheduler Sch>
             auto operator()(Sndr &&sndr, Sch &&sch) const
             {
-                return snd::transform_sender(snd::general::get_domain_early(sndr),
-                                             snd::make_sender(*this,
-                                                              std::forward<Sch>(sch),
-                                                              std::forward<Sndr>(sndr)));
+                auto dom = snd::general::get_domain_early(std::as_const(sndr));
+                return snd::transform_sender(
+                    dom, snd::make_sender(*this, std::forward<Sch>(sch),
+                                          std::forward<Sndr>(sndr)));
             }
 
             template <sched::scheduler Sch>
@@ -43,13 +43,12 @@ namespace mcs::execution
 
             // Note: The default implementation of continues_on(snd, sched) is
             // Note: schedule_from(sched, snd).
-            template <snd::sender Sndr, typename Env>
-            auto transform_sender(Sndr &&sndr, const Env & /*env*/) noexcept // NOLINT
+            template <snd::sender Sndr, typename Env> // NOLINTNEXTLINE
+            auto transform_sender(Sndr &&sndr, const Env & /*env*/) noexcept
                 requires(snd::sender_for<decltype((sndr)), continues_on_t>)
             {
-                return sndr.apply([](auto, auto data, auto child) {
-                    return schedule_from(std::move(data), std::move(child));
-                });
+                auto [_, data, child] = sndr;
+                return schedule_from(std::move(data), std::move(child));
             }
         };
 

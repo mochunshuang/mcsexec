@@ -1,9 +1,11 @@
 #include "../include/execution.hpp"
+#include <algorithm>
 #include <concepts>
 #include <exception>
 #include <iostream>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 
 using namespace mcs::execution;
 
@@ -22,6 +24,30 @@ struct Tuple
 
 int main()
 {
+    {
+        static_thread_pool<3> thread_pool;
+        scheduler auto sched6 = thread_pool.get_scheduler();
+
+        // sender auto begin = just();
+        // auto r = product_type<decltype(begin)>{std::move(begin)};
+
+        sender auto s7 = schedule(sched6) //
+                         | then([]() {
+                               std::cout << "thread_id: " << std::this_thread::get_id()
+                                         << std::endl;
+                               return 42;
+                           }) //
+                         | then([](int i) { return i + 1; });
+
+        using T = decltype(s7.get_completion_signatures(empty_env{}));
+        // Note: then 仅仅是延续修改 set_value_t 签名
+        static_assert(std::is_same_v<mcs::execution::cmplsigs::completion_signatures<
+                                         mcs::execution::recv::set_value_t(int),
+                                         mcs::execution::recv::set_error_t(
+                                             std::__exception_ptr::exception_ptr),
+                                         mcs::execution::recv::set_stopped_t()>,
+                                     T>);
+    }
     {
         mcs::execution::sender auto snd2 = mcs::execution::just();
         mcs::this_thread::sync_wait(std::move(snd2));
@@ -60,7 +86,9 @@ int main()
         }
 
         using State =
-            decltype(snd2.apply(mcs::execution::snd::__detail::mate_type::__get_state()));
+            decltype(snd2.apply([](auto &, auto &data, auto &&...) -> decltype(auto) {
+                return std::forward_like<decltype(snd2)>(data);
+            }));
         {
             using namespace mcs::execution;
             // tfxcmplsigs::gather_signatures<>;
@@ -134,6 +162,27 @@ int main()
         auto s7 = schedule(sched6) | then([] {});
         mcs::this_thread::sync_wait(s7);
         std::cout << "s7 done\n";
+    }
+    {
+        // TODO 一样是失败的。基础不行.
+        // Note: 原因找到了，简单的无话可说。写错了。没想到吧
+        static_thread_pool<3> thread_pool;
+        scheduler auto sched6 = thread_pool.get_scheduler();
+        std::vector<double> partials = {0, 0, 0, 0, 0};
+        auto task = just(std::move(partials)) | then([](std::vector<double> p) {
+                        std::cout << std::this_thread::get_id()
+                                  << " I am running on cpu_ctx\n";
+                        for (std::size_t i = 0; i < p.size(); ++i)
+                        {
+                            p[i] = i;
+                        }
+                        return std::move(p);
+                    });
+        auto [p] = mcs::this_thread::sync_wait(task).value();
+        for (std::size_t i = 0; i < p.size(); ++i)
+        {
+            assert(p[i] == i);
+        }
     }
     // make_sender();
     std::cout << "main done\n";

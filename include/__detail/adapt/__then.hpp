@@ -27,7 +27,8 @@ namespace mcs::execution
             template <snd::sender Sndr, movable_value Fun>
             auto operator()(Sndr &&sndr, Fun &&f) const // noexcept
             {
-                return snd::transform_sender(snd::general::get_domain_early(sndr),
+                auto dom = snd::general::get_domain_early(std::as_const(sndr));
+                return snd::transform_sender(dom,
                                              snd::make_sender(*this, std::forward<Fun>(f),
                                                               std::forward<Sndr>(sndr)));
             }
@@ -88,15 +89,15 @@ namespace mcs::execution
     {
         namespace __detail
         {
-            template <typename Fun_Return>
+            template <typename Completion, typename Fun_Return>
             struct then_sig
             {
-                using type = recv::set_value_t(Fun_Return);
+                using type = Completion(Fun_Return);
             };
-            template <>
-            struct then_sig<void>
+            template <typename Completion>
+            struct then_sig<Completion, void>
             {
-                using type = recv::set_value_t();
+                using type = Completion();
             };
 
             template <typename Fun, typename Completion, typename Sig>
@@ -115,7 +116,8 @@ namespace mcs::execution
             struct compute_then_result<Fun, Completion, Completion(Args...)>
             {
                 using type =
-                    typename then_sig<functional::call_result_t<Fun, Args...>>::type;
+                    typename then_sig<Completion,
+                                      functional::call_result_t<Fun, Args...>>::type;
             };
         }; // namespace __detail
 
@@ -133,9 +135,8 @@ namespace mcs::execution
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<adapt::__then_t<Completion>, Fun, Sender>, Env>
     {
-        using type =
-            adapt::compute_then_sigs<Fun, Completion,
-                                     snd::completion_signatures_of_t<Sender, Env>>::type;
+        using type = typename adapt::compute_then_sigs<
+            Fun, Completion, snd::completion_signatures_of_t<Sender, Env>>::type;
     };
 
 }; // namespace mcs::execution

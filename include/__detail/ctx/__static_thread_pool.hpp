@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <atomic>
+#include <iostream>
 #include <latch>
+#include <memory>
 #include <thread>
 #include <random>
 #include <array>
@@ -21,7 +23,10 @@ namespace mcs::execution::ctx
 
         class thread_item // NOLINT
         {
+            friend class static_thread_pool;
+
             std::size_t id;                  // NOLINT
+            std::thread::id t_id;            // NOLINT
             std::jthread worker;             // NOLINT
             thread_context run_loop;         // NOLINT
             static_thread_pool *thread_pool; // NOLINT
@@ -47,6 +52,7 @@ namespace mcs::execution::ctx
 
                 worker = std::jthread{[&](const std::stop_token &stoken) {
                     worker_started.count_down();
+                    t_id = std::this_thread::get_id();
 
                     run_loop.state.store(run_loop::State::running,
                                          std::memory_order_release);
@@ -132,6 +138,16 @@ namespace mcs::execution::ctx
         [[nodiscard]] auto get_scheduler() noexcept -> sched::scheduler auto // NOLINT
         {
             return pool[dist(rd)].get_scheduler();
+        }
+
+        void printInfo() const
+        {
+            for (std::size_t i = 0; i < pool.size(); i++)
+            {
+                std::cout << "index: " << i << ", thead_id: " << pool[i].t_id
+                          << ", run_loop_address: " << std::addressof(pool[i].run_loop)
+                          << '\n';
+            }
         }
 
       private:

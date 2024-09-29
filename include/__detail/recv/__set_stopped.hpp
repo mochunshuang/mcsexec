@@ -9,14 +9,13 @@ namespace mcs::execution::recv
     struct set_stopped_t
     {
         template <typename R>
-            requires(not(std::is_lvalue_reference_v<R> ||
-                         (std::is_rvalue_reference_v<R> &&
-                          std::is_const_v<std::remove_reference_t<R>>)))
-        constexpr auto operator()(R &&r) const noexcept
+        constexpr auto operator()(R &&rcvr) const noexcept
+            requires(std::is_rvalue_reference_v<decltype(rcvr)> &&
+                     not std::is_const_v<std::remove_reference_t<decltype(rcvr)>>)
         {
-            return std::forward<R>(r).set_stopped();
+            return std::forward<R>(rcvr).set_stopped();
         }
     };
-    constexpr inline set_stopped_t set_stopped; // NOLINT
+    constexpr inline set_stopped_t set_stopped{}; // NOLINT
 
 }; // namespace mcs::execution::recv

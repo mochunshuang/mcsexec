@@ -9,17 +9,18 @@ namespace mcs::execution::recv
     struct set_value_t
     {
         template <typename R, typename... Ts>
-            requires(not(std::is_lvalue_reference_v<R> ||
-                         (std::is_rvalue_reference_v<R> &&
-                          std::is_const_v<std::remove_reference_t<R>>)))
         constexpr auto operator()(R &&rcvr, Ts &&...vs) const noexcept
-            requires(requires {
-                { std::forward<R>(rcvr).set_value(std::forward<Ts>(vs)...) } noexcept;
-            })
+            requires(std::is_rvalue_reference_v<decltype(rcvr)> &&
+                     not std::is_const_v<std::remove_reference_t<decltype(rcvr)>> //
+                     && requires {
+                            {
+                                std::forward<R>(rcvr).set_value(std::forward<Ts>(vs)...)
+                            } noexcept;
+                        })
         {
             return std::forward<R>(rcvr).set_value(std::forward<Ts>(vs)...);
         }
     };
-    constexpr inline set_value_t set_value; // NOLINT
+    constexpr inline set_value_t set_value{}; // NOLINT
 
 }; // namespace mcs::execution::recv

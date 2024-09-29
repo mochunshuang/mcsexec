@@ -33,6 +33,8 @@
 
 #include "../opstate/__start.hpp"
 
+#include "../pipeable/__sender_adaptor.hpp"
+
 namespace mcs::execution
 {
     namespace adapt
@@ -43,7 +45,7 @@ namespace mcs::execution
         {
 
             template <snd::sender Sndr>
-            auto operator()(const Sndr &sndr) const // noexcept
+            decltype(auto) operator()(const Sndr &sndr) const // noexcept
             {
                 // functional::decayed_typeof<recv::set_value> is Completion respectively
                 if constexpr (requires() {
@@ -85,17 +87,26 @@ namespace mcs::execution
             template <snd::sender Sndr, movable_value Fun>
             auto operator()(Sndr &&sndr, Fun &&f) const
             {
-                return snd::transform_sender(snd::general::get_domain_early(sndr),
+                auto dom = snd::general::get_domain_early(std::as_const(sndr));
+                return snd::transform_sender(dom,
                                              snd::make_sender(*this, std::forward<Fun>(f),
                                                               std::forward<Sndr>(sndr)));
             }
+
+            template <movable_value Fun>
+            auto operator()(Fun &&fun) const -> pipeable::sender_adaptor<__let_t, Fun>
+            {
+                return {*this, std::forward<Fun>(fun)};
+            }
+
             template <snd::sender Sndr, typename Env>
                 requires(snd::sender_for<Sndr, __let_t>)
             auto transform_env(Sndr &&sndr, Env &&env) noexcept // NOLINT
             {
-                auto l_env = adapt::let_env_t<Completion>{};
+                using E = adapt::let_env_t<Completion>;
                 return snd::general::JOIN_ENV(
-                    l_env(sndr), snd::general::FWD_ENV(std::forward<Env>(env)));
+                    E{}(std::as_const(sndr)),
+                    snd::general::FWD_ENV(std::forward<Env>(env)));
             }
         };
 
@@ -136,7 +147,7 @@ namespace mcs::execution
             decltype(auto) get_env() const noexcept // NOLINT
             {
                 return snd::general::JOIN_ENV(
-                    env, snd::general::FWD_ENV(queries::get_env(rcvr)));
+                    env, snd::general::FWD_ENV(queries::get_env(std::as_const(rcvr))));
             }
 
             Rcvr &rcvr; // exposition only // NOLINT
@@ -251,42 +262,40 @@ namespace mcs::execution
                         })))>::type;
             })
         {
-            return sndr.apply([](auto &, auto &fn, auto &child) {
-                constexpr auto let_env = adapt::let_env_t<Completion>(); // NOLINT
+            auto &[_, fn, child] = sndr;
+            constexpr auto let_env = adapt::let_env_t<Completion>(); // NOLINT
 
-                using Fn = std::decay_t<decltype(fn)>;
-                using Env = decltype(let_env(child));
+            using Fn = std::decay_t<decltype(fn)>;
+            using Env = decltype(let_env(child));
 
-                // Sigs is type : completion_signatures<completion(As...)...>
-                using Sigs = snd::completion_signatures_of_t<
-                    snd::__detail::mate_type::child_type<Sndr>, queries::env_of_t<Rcvr>>;
+            // Sigs is type : completion_signatures<completion(As...)...>
+            using Sigs = snd::completion_signatures_of_t<
+                snd::__detail::mate_type::child_type<Sndr>, queries::env_of_t<Rcvr>>;
 
-                // std::tuple<Sig...>,the sig tag is Completion
-                using LetSigs = typename cmplsigs::__detail::filter_tuple<
-                    cmplsigs::__detail::select_tag<Completion>::template predicate,
-                    cmplsigs::__detail::tpl_param_trnsfr_t<std::tuple, Sigs>>::type;
+            // std::tuple<Sig...>,the sig tag is Completion
+            using LetSigs = typename cmplsigs::__detail::filter_tuple<
+                cmplsigs::__detail::select_tag<Completion>::template predicate,
+                cmplsigs::__detail::tpl_param_trnsfr_t<std::tuple, Sigs>>::type;
 
-                // Let as-tuple be an alias template such that as-tuple<Tag(Args...)>
-                // denotes the type decayed-tuple<Args...>. Then args_variant_t denotes
-                // the type variant<monostate, as-tuple<LetSigs>...> except with duplicate
-                // types removed.
-                using args_variant_t =
-                    typename adapt::compute_args_variant_t<LetSigs>::type;
+            // Let as-tuple be an alias template such that as-tuple<Tag(Args...)>
+            // denotes the type decayed-tuple<Args...>. Then args_variant_t denotes
+            // the type variant<monostate, as-tuple<LetSigs>...> except with duplicate
+            // types removed.
+            using args_variant_t = typename adapt::compute_args_variant_t<LetSigs>::type;
 
-                // Varint<monostate,connect_result_t<as_sndr2,Reciver2>...>,
-                // and as_sndr2 is result_t by call fun with ags...
-                // and as_sndr2 is Sndr
-                using ops2_variant_t =
-                    typename adapt::compute_ops2_variant_t<Fn, LetSigs, Rcvr, Env>::type;
-                struct state_type
-                {
-                    Fn fn;               // exposition only
-                    Env env;             // exposition only
-                    args_variant_t args; // exposition only
-                    ops2_variant_t ops2; // exposition only
-                };
-                return state_type{std::forward_like<Sndr>(fn), let_env(child), {}, {}};
-            });
+            // Varint<monostate,connect_result_t<as_sndr2,Reciver2>...>,
+            // and as_sndr2 is result_t by call fun with ags...
+            // and as_sndr2 is Sndr
+            using ops2_variant_t =
+                typename adapt::compute_ops2_variant_t<Fn, LetSigs, Rcvr, Env>::type;
+            struct state_type
+            {
+                Fn fn;               // exposition only
+                Env env;             // exposition only
+                args_variant_t args; // exposition only
+                ops2_variant_t ops2; // exposition only
+            };
+            return state_type{std::forward_like<Sndr>(fn), let_env(child), {}, {}};
         };
 
         // initialized with a callable object
