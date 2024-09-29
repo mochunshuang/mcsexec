@@ -42,7 +42,8 @@ namespace mcs::execution
             auto transform_sender(Sndr &&out_sndr, const Env & /*env*/) noexcept
                 requires(snd::sender_for<decltype((out_sndr)), starts_on_t>)
             {
-                using OutSndr = decltype((out_sndr));
+                // Note: optimization for no copy
+                using OutSndr = decltype(out_sndr);
                 auto &&[_, sch, sndr] = out_sndr;
                 return adapt::let_value(
                     factories::schedule(sch),

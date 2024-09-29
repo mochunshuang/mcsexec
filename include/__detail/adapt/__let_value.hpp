@@ -45,7 +45,7 @@ namespace mcs::execution
         {
 
             template <snd::sender Sndr>
-            decltype(auto) operator()(const Sndr &sndr) const // noexcept
+            auto operator()(const Sndr &sndr) const // noexcept
             {
                 // functional::decayed_typeof<recv::set_value> is Completion respectively
                 if constexpr (requires() {

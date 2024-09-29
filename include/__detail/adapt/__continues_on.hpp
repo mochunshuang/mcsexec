@@ -47,8 +47,11 @@ namespace mcs::execution
             auto transform_sender(Sndr &&sndr, const Env & /*env*/) noexcept
                 requires(snd::sender_for<decltype((sndr)), continues_on_t>)
             {
-                auto [_, data, child] = sndr;
-                return schedule_from(std::move(data), std::move(child));
+                // Note: optimization for no copy
+                using OutSndr = decltype(sndr);
+                auto &&[_, data, child] = sndr;
+                return schedule_from(std::forward_like<OutSndr>(data),
+                                     std::forward_like<OutSndr>(child));
             }
         };
 

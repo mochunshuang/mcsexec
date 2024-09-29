@@ -159,10 +159,20 @@ void base_test()
             });
         auto task = starts_on(sch, std::move(out_sndr));
         std::cout << "sync_wait: \n";
-        auto [p] = mcs::this_thread::sync_wait(task).value();
+        auto [p] = mcs::this_thread::sync_wait(std::move(task)).value(); // Note: 一样复制
         for (std::size_t i = 0; i < p.size(); ++i)
         {
-            assert(p[i].data == i);
+            assert(p[i].data == (int)i);
         }
     }
+    /**
+     * @brief 无法0抽象开销：存在复制。 原因是lambda 捕获是复制。= 右边是左值
+     *
+     */
+    // Note: 标准是这么设计的，或许可以考虑优化。 可以优化，目前符合0抽象开销
+    int &&a = 0;
+    static_assert(std::is_same_v<decltype((a)), int &>); // Note: 原因
+    [](int &&a) {
+        static_assert(std::is_same_v<decltype((a)), int &>); // Note: 原因
+    }(int{0});
 }
