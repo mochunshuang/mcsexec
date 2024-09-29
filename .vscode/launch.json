@@ -89,6 +89,31 @@
         "target": "${fileDirname}/output/${fileBasenameNoExtension}.exe",
         "cwd": "${workspaceRoot}",
         "valuesFormatting": "parseText"
-       }
+       },
+       {
+            "name": "(gdb) single",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${fileDirname}/output/${fileBasenameNoExtension}.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "D:/mysoftware/gcc-v14.2.0-mingw-v12.0.0-x86_64/bin/gdb.exe",
+            "setupCommands": [
+                {
+                    "description": "为 gdb 启用整齐打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "将反汇编风格设置为 Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
     ]
 }
