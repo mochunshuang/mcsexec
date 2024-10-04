@@ -1,12 +1,18 @@
 #pragma once
-#include "./__declarations.hpp"
+
 #include <type_traits>
+
+#include "./__inplace_callback_base.hpp"
+#include "./__invocable_destructible.hpp"
 
 namespace mcs::execution::stoptoken
 {
+    class inplace_stop_token;
+    class inplace_stop_source;
+
     // Mandates: CallbackFn satisfies both invocable and destructible.
-    template <class CallbackFn>
-    class inplace_stop_callback
+    template <__detail::invocable_destructible CallbackFn>
+    class inplace_stop_callback final : public inplace_callback_base // NOLINT
     {
       public:
         using callback_type = CallbackFn;
@@ -31,7 +37,7 @@ namespace mcs::execution::stoptoken
             Initializer &&
                 init) noexcept(std::is_nothrow_constructible_v<CallbackFn, Initializer>);
         // Effects: Executes a stoppable callback deregistration ([stoptoken.concepts]).
-        ~inplace_stop_callback();
+        ~inplace_stop_callback() override;
 
         inplace_stop_callback(inplace_stop_callback &&) = delete;
         inplace_stop_callback(const inplace_stop_callback &) = delete;
@@ -39,7 +45,10 @@ namespace mcs::execution::stoptoken
         inplace_stop_callback &operator=(const inplace_stop_callback &) = delete;
 
       private:
-        CallbackFn callback_fn; // NOLINT // exposition only
+        CallbackFn callback_fn;                    // NOLINT // exposition only
+        inplace_stop_source *stop_source{nullptr}; // NOLINT
+        bool registered{false};                    // NOLINT
+        auto invoke_callback() -> void override;
     };
 
     template <class CallbackFn>

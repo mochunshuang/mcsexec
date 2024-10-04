@@ -1,13 +1,14 @@
 #pragma once
-#include "./__declarations.hpp"
-#include <type_traits>
+
+#include "./__stop_token.hpp"
+#include "./__invocable_destructible.hpp"
 
 namespace mcs::execution::stoptoken
 {
 
     // [stopcallback.general]
-    template <class CallbackFn>
-    class stop_callback
+    template <__detail::invocable_destructible CallbackFn>
+    class stop_callback // NOLINT
     {
       public:
         using callback_type = CallbackFn;
@@ -29,12 +30,14 @@ namespace mcs::execution::stoptoken
         //  and executes a stoppable callback registration ([stoptoken.concepts]) .
         //      If a callback is registered with st's shared stop state, then *this
         //      acquires shared ownership of that stop state.
-        template <class CInitializer>
-        explicit stop_callback(const stop_token &st, CInitializer &&cbinit) noexcept(
-            std::is_nothrow_constructible_v<CallbackFn, CInitializer>);
-        template <class CInitializer>
-        explicit stop_callback(stop_token &&st, CInitializer &&cbinit) noexcept(
-            std::is_nothrow_constructible_v<CallbackFn, CInitializer>);
+        template <class Initializer>
+        explicit stop_callback(const stop_token &st, Initializer &&init) noexcept(
+            std::is_nothrow_constructible_v<CallbackFn, Initializer>);
+
+        template <class Initializer>
+        explicit stop_callback(stop_token &&st, Initializer &&init) noexcept(
+            std::is_nothrow_constructible_v<CallbackFn, Initializer>);
+
         // Effects:
         // Executes a stoppable callback deregistration ([stoptoken.concepts])
         // and releases ownership of the stop state, if any.
@@ -46,7 +49,7 @@ namespace mcs::execution::stoptoken
         stop_callback &operator=(stop_callback &&) = delete;
 
       private:
-        CallbackFn callbackcallback_fn; // NOLINT // exposition only
+        CallbackFn callback_fn; // NOLINT // exposition only
     };
 
     template <class CallbackFn>

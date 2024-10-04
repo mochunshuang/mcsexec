@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./__declarations.hpp"
+#include "./__stop_callback_for_t.hpp"
 #include <concepts>
 
 namespace mcs::execution::stoptoken

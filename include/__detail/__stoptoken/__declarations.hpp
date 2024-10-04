@@ -2,9 +2,6 @@
 
 namespace mcs::execution::stoptoken
 {
-    template <class T, class CallbackFn>
-    using stop_callback_for_t = T::template callback_type<CallbackFn>;
-
     // 33.3.3, class stop_token
     class stop_token; // NOLINT
 

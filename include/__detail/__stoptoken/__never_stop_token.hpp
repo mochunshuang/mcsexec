@@ -1,5 +1,4 @@
 #pragma once
-#include "./__declarations.hpp"
 
 namespace mcs::execution::stoptoken
 {

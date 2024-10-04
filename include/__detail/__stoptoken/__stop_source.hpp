@@ -1,13 +1,15 @@
 #pragma once
 
-#include "./__declarations.hpp"
-#include "./__nostopstate_t.hpp"
 #include <memory>
+
+#include "./__stop_token.hpp"
+#include "./__nostopstate_t.hpp"
 
 namespace mcs::execution::stoptoken
 {
-    // stop_source models stoppable-source, copyable, equality_comparable, and swappable
-    class stop_source
+    // stop_source models stoppable-source, copyable, equality_comparable, and
+    // swappable
+    class stop_source // NOLINT
     {
       public:
         // 33.3.4.2, constructors, copy, and assignment
@@ -23,28 +25,21 @@ namespace mcs::execution::stoptoken
         void swap(stop_source &) noexcept;
 
         // 33.3.4.3, stop handling
-        // Returns:
-        //  stop_token() if stop_possible() is false;
-        //  otherwise a new associated stop_token object ;
-        //      i.e., its stop-state member is equal to the stop-state member of *this
         stop_token get_token() const noexcept; // NOLINT
-        // Returns: stop-state != nullptr .
+
         bool stop_possible() const noexcept; // NOLINT
-        // Returns:
-        // true if stop-state refers to a stop state that has received a stop request;
-        // otherwise, false.
+
         bool stop_requested() const noexcept; // NOLINT
-        // Effects: Executes a stop request operation ([stoptoken.concepts]) on the
-        // associated stop state
+
         bool request_stop() noexcept; // NOLINT
 
         bool operator==(const stop_source &rhs) const noexcept = default;
 
       private:
-        using unspecified = int;
+        using unspecified = ::mcs::execution::stoptoken::stop_state;
         // stop-state refers to the stop_source's associated stop state.
         // A stop_source object is disengaged when stop-state is empty.
-        std::shared_ptr<unspecified> stop_state; // NOLINT
+        std::shared_ptr<unspecified> stop_state{nullptr}; // NOLINT
     };
 
 }; // namespace mcs::execution::stoptoken
