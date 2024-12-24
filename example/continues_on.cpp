@@ -1,5 +1,6 @@
 #include "../include/execution.hpp"
 
+#include <cassert>
 #include <iostream>
 
 using namespace mcs::execution;
@@ -31,10 +32,12 @@ int main()
             schedule(cpu_ctx.get_scheduler()) //
             | then([] {
                   std::cout << std::this_thread::get_id() << " I am running on sch1!\n";
+                  return 10;
               })                                   //
             | continues_on(io_ctx.get_scheduler()) //
-            | then([] {
+            | then([](int r) {
                   std::cout << std::this_thread::get_id() << " I am running on sch2!\n";
+                  assert(r == 10);
               });
         mcs::this_thread::sync_wait(task);
         std::cout << "sync_wait done\n";
