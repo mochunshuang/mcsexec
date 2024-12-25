@@ -103,6 +103,7 @@ namespace mcs::execution::snd::__detail
         constexpr auto apply_elements(::std::index_sequence<I...>,
                                       Fun &&fun) const -> decltype(auto)
         {
+            // Note: 可以不用forward_like的理由：this已经暴露，get<I>3个版本
             return ::std::forward<Fun>(fun)(this->template get<I>()...);
         }
         template <typename Fun>
