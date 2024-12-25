@@ -1,5 +1,6 @@
 #include "../../include/execution.hpp"
 
+#include <cassert>
 #include <iostream>
 
 using namespace mcs::execution;
@@ -36,8 +37,13 @@ void base()
         // test
         process(stok); // no call
 
+        // 链表是头插法。先 2st 再 1st
+        assert(not stok.stop_requested());
+
         // request stop
         ssrc.request_stop(); // call all registered callbacks
+
+        assert(stok.stop_requested());
 
         // 立即调用
         stoptoken::inplace_stop_callback last{stok, [] {

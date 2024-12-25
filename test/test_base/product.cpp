@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -15,6 +16,7 @@ void test1();
 void test2();
 void test3();
 void test4();
+void test5_invoke_and_apply();
 
 int main()
 {
@@ -26,6 +28,7 @@ int main()
 
     test3();
     test4();
+    test5_invoke_and_apply();
 
     std::cout << "hello world\n";
     return 0;
@@ -271,4 +274,24 @@ void test4()
                                      MyClass{0}};
     std::cout << "\ntest4: just\n";
     auto task = just(std::move(partials));
+}
+
+void test5_invoke_and_apply()
+{
+    // Note: 原版的 product_type，有点复杂
+    // 解析为：public: auto pt = <recovery - expr>({42, 3.14,"Hello, World!"})
+    using namespace mcs::execution::snd::__detail;
+    // 创建一个 product_type 实例
+    auto pt = product_type{42, 3.14, "Hello, World!"};
+
+    // 定义一个函数，接受三个参数
+    auto print_values = [](int i, double d, const std::string &s) {
+        std::cout << "int: " << i << ", double: " << d << ", string: " << s << std::endl;
+    };
+
+    // 使用 std::invoke 调用函数，传递 product_type 的元素
+    std::invoke(print_values, pt.get<0>(), pt.get<1>(), pt.get<2>());
+
+    // Note: 原版的 product_type，不能和 std::apply 一起使用
+    // std::apply(print_values, pt);
 }

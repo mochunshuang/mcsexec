@@ -1,6 +1,7 @@
 #include <concepts>
 #include <iostream>
 #include <exception>
+#include <tuple>
 
 namespace mcs::execution
 {
@@ -498,6 +499,67 @@ namespace mcs::execution::test
                 std::is_same_v<mcs::execution::Variant<mcs::execution::Tuple<>,
                                                        mcs::execution::Tuple<int>>,
                                u_set_Sig>);
+        }
+
+        // struct mcs::execution::Variant<std::__exception_ptr::exception_ptr,
+        // std::error_code>
+        using error_types_of_t =
+            tfxcmplsigs::gather_signatures<set_error_t, Completions, std::type_identity_t,
+                                           std::variant>;
+        static_assert(
+            std::is_same_v<
+                error_types_of_t,
+                std::variant<std::__exception_ptr::exception_ptr, std::error_code>>);
+        {
+            // 放到 tuple 容器
+            using error_types_of_t =
+                tfxcmplsigs::gather_signatures<set_error_t, Completions,
+                                               std::type_identity_t, std::tuple>;
+            static_assert(
+                std::is_same_v<
+                    error_types_of_t,
+                    std::tuple<std::__exception_ptr::exception_ptr, std::error_code>>);
+        }
+    }
+
+    // 主模板，用于收集所有 std::tuple 中的类型并生成新的 std::tuple
+    template <typename... Tuples>
+    struct CollectTuples
+    {
+        using result = decltype(std::tuple_cat(Tuples{}...));
+    };
+    auto test_get_es()
+    {
+        using T0 [[maybe_unused]] =
+            std::variant<std::__exception_ptr::exception_ptr, std::error_code>;
+        using T1 [[maybe_unused]] =
+            std::variant<std::__exception_ptr::exception_ptr, int>;
+        // 第一步收集所有ES
+        using T = std::variant<std::__exception_ptr::exception_ptr, std::error_code,
+                               std::__exception_ptr::exception_ptr, std::error_code, int>;
+        // 第二步
+        using U = tfxcmplsigs::unique_variadic_template<T>::type;
+        static_assert(
+            std::is_same_v<
+                std::variant<std::__exception_ptr::exception_ptr, std::error_code, int>,
+                U>);
+        {
+
+            using T0 = std::tuple<std::__exception_ptr::exception_ptr, std::error_code>;
+            using T1 = std::tuple<std::__exception_ptr::exception_ptr, int>;
+            using T2 = std::tuple<std::__exception_ptr::exception_ptr, char>;
+            // 如何收集 T0,T1,T2,T.... 的所有std::variant内部的形参包Es
+            // => 生成 std::tuple<Es...>
+            using T = CollectTuples<T0, T1, T2>::result;
+            using U = tfxcmplsigs::unique_variadic_template<T>::type;
+            static_assert(std::is_same_v<std::tuple<std::__exception_ptr::exception_ptr,
+                                                    std::error_code, int, char>,
+                                         U>);
+            {
+                using U = tfxcmplsigs::unique_variadic_template<
+                    CollectTuples<T0>::result>::type;
+                static_assert(std::is_same_v<T0, U>);
+            }
         }
     }
 
