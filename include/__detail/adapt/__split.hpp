@@ -2,7 +2,6 @@
 
 #include <atomic>
 #include <cassert>
-#include <mutex>
 #include <type_traits>
 #include <utility>
 
@@ -15,7 +14,6 @@
 #include "../snd/general/__impls_for.hpp"
 #include "../snd/general/__on_stop_request.hpp"
 #include "../snd/__completion_signatures_of_t.hpp"
-#include "../snd/__detail/mate_type/__child_type.hpp"
 
 #include "../snd/__sender_in.hpp"
 
@@ -28,6 +26,10 @@
 
 #include "../pipeable/__sender_adaptor.hpp"
 
+#include "../__stoptoken/__stop_callback_of_t.hpp"
+
+#include "../tool/SimpleAtomicOperation.hpp"
+
 namespace mcs::execution
 {
     namespace adapt::__split
@@ -36,7 +38,8 @@ namespace mcs::execution
         // Note: split的rcvr定义的 Token是 [inplace_stop_token]
         // Note: 模板+具体类型 => 生成确定的类型
         template <typename Token, typename CallbackFn>
-        using stop_callback_of_t = typename Token::template callback_type<CallbackFn>;
+        using stop_callback_of_t =
+            typename stoptoken::stop_callback_of_t<Token, CallbackFn>;
 
         template <typename Sndr>
         struct shared_state;
@@ -52,7 +55,7 @@ namespace mcs::execution
             local_state_base &operator=(local_state_base &&) = delete;
             local_state_base &operator=(const local_state_base &) = delete;
 
-            local_state_base *next{}; // NOLINT for intrusive_slist
+            std::atomic<local_state_base *> next{nullptr}; // NOLINT for intrusive_slist
         };
 
         template <class Sndr, class Rcvr>
@@ -62,10 +65,38 @@ namespace mcs::execution
                 stop_callback_of_t<queries::stop_token_of_t<queries::env_of_t<Rcvr>>,
                                    snd::general::on_stop_request>;
 
-            ~local_state() noexcept override;
-            void notify() noexcept override;
+            ~local_state() noexcept override
+            {
+                sh_state->dec_ref();
+            }
+            void notify() noexcept override
+            {
+                on_stop.reset();
+                std::visit(
+                    [this](const auto &tupl) noexcept -> void {
+                        std::apply(
+                            [this](auto tag, const auto &...args) noexcept -> void {
+                                tag(std::move(*rcvr), args...);
+                            },
+                            tupl);
+                    },
+                    sh_state->result);
+            }
 
-            local_state(Sndr &&sndr, Rcvr &rcvr) noexcept;
+            /**
+             * @brief Construct a new local state object
+             * Note: 原先签名 local-state(Sndr&& sndr, Rcvr& rcvr) noexcept
+             * Note: 应该是是错误的。原先是 内部确定 sh_state类型，现在外部
+             * Note: 原因是 shared_state<child_sndr> conflict shared_state<Sndr>
+             * Note: child_sndr 得是 new __split::shared_state{}传递的 Sndr
+             * @param sh_state: 指向堆内存
+             * @param rcvr
+             */
+            local_state(shared_state<Sndr> *sh_state, Rcvr &rcvr) noexcept
+                : on_stop{}, sh_state{sh_state}, rcvr{std::addressof(rcvr)}
+            {
+                this->sh_state->inc_ref();
+            }
 
             local_state(local_state &&) = delete;
             local_state(const local_state &) = delete;
@@ -74,9 +105,8 @@ namespace mcs::execution
 
             std::optional<onstopcallback> on_stop; // exposition only // NOLINT
 
-            // using Childen = snd::__detail::mate_type::child_type<Sndr>;
-            shared_state<Sndr> *sh_state; // exposition only // NOLINT
-            Rcvr *rcvr;                   // exposition only // NOLINT
+            __split::shared_state<Sndr> *sh_state; // exposition only // NOLINT
+            Rcvr *rcvr;                            // exposition only // NOLINT
         };
 
         // split-receiver
@@ -161,54 +191,75 @@ namespace mcs::execution
              */
             struct state_list_type // NOLINT
             {
-                local_state_base *head{nullptr}; // NOLINT
-                local_state_base *tail{nullptr}; // NOLINT
-                std::mutex mtx;                  // NOLINT
+                std::atomic<local_state_base *> head{nullptr}; // NOLINT
 
-                explicit state_list_type(local_state_base *init) : head(init), tail(init)
-                {
-                }
-                // NOLINTNEXTLINE
-                explicit state_list_type(local_state_base *head, local_state_base *tail)
-                    : head(head), tail(tail)
-                {
-                }
+                state_list_type() = default;
 
-                void push_back(local_state_base *item) noexcept // NOLINT
+                // 定义 move 赋值操作符
+                state_list_type(state_list_type &&other) noexcept = delete;
+                // Note: 仅仅用于自身局部变量的赋值操作
+                state_list_type &operator=(state_list_type &&other) noexcept
                 {
-                    assert(item != nullptr);
-                    // std::lock_guard<std::mutex> lock(mtx);  //Note: external assurances
-                    if (tail != nullptr)
+                    if (this != &other)
                     {
-                        tail->next = item;
-                        tail = item;
+#if 0
+                        head = other.head;
+                        other.head = nullptr;
+#endif
+                        // 使用原子操作等价上面操作
+                        // memory_order_relaxed	宽松操作：没有同步或定序约束。
+                        // memory_order_acq_rel:
+                        // 所有释放同一原子变量的线程的写入可见于修改之前，而且修改可见于其他获得同一原子变量的线程。
+                        head.store(
+                            other.head.exchange(nullptr, std::memory_order_acq_rel),
+                            std::memory_order_relaxed);
                     }
-                    else
+                    return *this;
+                }
+
+                /**
+                 * @brief
+                 *
+                 * @param new_node
+                 * @return true
+                 * @return If new_node is the first item added.
+                 */
+                bool push_front(local_state_base *new_node) noexcept // NOLINT
+                {
+                    assert(new_node != nullptr);
+
+                    /**
+                     * @brief
+                        成功时（memory_order_release）：释放-获得定序 且 释放-消费定序
+
+                        失败时（memory_order_relaxed）：宽松定序
+                        不需要对 current_head 的值进行任何顺序保证，从而提高性能。
+                     *
+                     */
+                    while (true)
                     {
-                        head = tail = item;
+                        // memory_order_acquire: 释放-获得定序
+                        // 其他线程的所有释放同一原子变量的写入，能为当前线程所见
+                        auto *current_head = head.load(std::memory_order_acquire);
+                        new_node->next.store(current_head, std::memory_order_relaxed);
+
+                        if (head.compare_exchange_weak(current_head, new_node,
+                                                       std::memory_order_release,
+                                                       std::memory_order_relaxed))
+                        {
+                            return (current_head == nullptr);
+                        }
                     }
-                    tail->next = nullptr;
                 }
-
-                [[nodiscard]] bool empty()
+                [[nodiscard]] auto empty() const
                 {
-                    std::lock_guard<std::mutex> lock(mtx);
-                    return head == nullptr;
-                }
-
-                [[nodiscard]] auto move() // NOLINT
-                {
-                    // std::lock_guard<std::mutex> lock(mtx);  //Note: external assurances
-                    auto *old_head = head;
-                    auto *old_tail = tail;
-                    head = nullptr;
-                    tail = nullptr;
-                    return state_list_type{old_head, old_tail};
+                    // return head == nullptr;
+                    return head.load(std::memory_order_acquire) == nullptr;
                 }
             };
         }; // namespace __detail
 
-        // Note: 手动围护引用计数
+        // Note: 手动围护引用计数; ref_count 默认为 1
         template <class Sndr>
         struct shared_state
         {
@@ -219,16 +270,93 @@ namespace mcs::execution
 
             using state_list_type = __detail::state_list_type; // exposition only
 
-            explicit shared_state(Sndr &&sndr);
+            explicit shared_state(Sndr &&sndr)
+                : op_state(conn::connect(std::forward<Sndr>(sndr), split_receiver{this}))
+            {
+                // Postcondition: waiting_states is empty, and completed is false
+                assert(waiting_states.empty());
+                assert(not completed.load(std::memory_order_acquire));
+            }
 
-            void start_op() noexcept; // exposition only // NOLINT
-            void notify() noexcept;   // exposition only // NOLINT
-            void inc_ref() noexcept;  // exposition only // NOLINT
-            void dec_ref() noexcept;  // exposition only // NOLINT
+            // Effects: Calls inc-ref(). If stop_src.stop_requested() is true, calls
+            // notify(); otherwise, calls start(op_state).
+            void start_op() noexcept // exposition only // NOLINT
+            {
+                this->inc_ref();
+                if (stop_src.stop_requested())
+                    this->notify();
+                else
+                    opstate::start(op_state);
+            }
+            /**
+             * @brief Effects: Atomically does the following:
+             *  Sets completed to true, and
+             *  Exchanges waiting_states with an empty list, storing the old value in a
+             *  local prior_states.
+             *
+             *  then: for each pointer p in prior_states, calls p->notify(). Finally,
+             *  calls dec-ref()
+             */
+            void notify() noexcept // exposition only // NOLINT
+            {
+                // Atomically does the following:
+                // 1. Sets completed to true,
+                // 2. Exchanges waiting_states with an empty list,
+                //      storing the old value in a local prior_states.
+                SimpleAtomicOperation atomicOpration;
+                state_list_type prior_states;
+                atomicOpration([&] { completed.store(true, std::memory_order_release); },
+                               [&] { prior_states = std::move(waiting_states); });
 
+                // 3. Then, for each pointer p in prior_states, calls p->notify().
+                //    Finally, calls dec-ref().
+                /**
+                 * @brief memory_order_relaxed
+                        不保证操作的顺序性，可能导致线程读取到不一致的数据。
+                        例如，一个线程可能读取到 head 的新值，但 head->next 仍然是旧值。
+                        memory_order_acquire: 释放-获得定序
+                 *
+                 */
+                auto *head = prior_states.head.load(std::memory_order_acquire);
+                while (head != nullptr)
+                {
+                    head->notify();
+                    head = head->next.load(std::memory_order_acquire);
+                }
+                dec_ref();
+            }
+            // Effects: Increments ref_count
+            void inc_ref() noexcept // exposition only // NOLINT
+            {
+                // ref_count++; 需要读旧值
+                ++ref_count;
+            }
+            /**
+             * @brief
+                Effects: Decrements ref_count. If the new value of ref_count is 0,
+                         calls delete this.
+
+                Synchronization: If dec-ref() does not decrement the ref_count to 0 then
+                synchronizes with the call to dec-ref() that decrements ref_count to 0
+             *
+             */
+            void dec_ref() noexcept // exposition only // NOLINT
+            {
+                // Note: fetch_sub 返回的是减少之前的值
+                //  使用 memory_order_release
+                //  确保在减少引用计数之前的所有操作对其他线程可见
+                if (ref_count.fetch_sub(1, std::memory_order_release) == 1)
+                {
+                    // 使用 memory_order_acquire
+                    // 确保在销毁对象之前，所有其他线程的操作已完成
+                    // Note: 防止指令重排序，保证操作的顺序性
+                    std::atomic_thread_fence(std::memory_order_acquire);
+                    delete this;
+                }
+            }
             stoptoken::inplace_stop_source stop_src{};                   // NOLINT
             variant_type result{};                                       // NOLINT
-            state_list_type waiting_states{nullptr};                     // NOLINT
+            state_list_type waiting_states{};                            // NOLINT
             std::atomic<bool> completed{false};                          // NOLINT
             std::atomic<std::size_t> ref_count{1};                       // NOLINT
             conn::connect_result_t<Sndr, split_receiver<Sndr>> op_state; // NOLINT
@@ -238,110 +366,6 @@ namespace mcs::execution
         shared_state(T &&) -> shared_state<::std::decay_t<T>>;
 
     }; // namespace adapt::__split
-
-    //////////////////////// impl
-    namespace adapt
-    {
-        /////////////////////////////////////////////////////////////////////////
-        //// localstate
-        template <class Sndr, class Rcvr>
-        __split::local_state<Sndr, Rcvr>::local_state(Sndr &&sndr, Rcvr &rcvr) noexcept
-        {
-            // TODO(mcs): Sndr是同一个吗？ 明显是同一个啊。 这是构造函数
-            // Note:  Sndr 是完整 split_impl_tag的 sndr，data 不是sndr
-            // 自己怎么。 类型错误。 现在是两个类型不匹配
-            auto &[_, data] = sndr;
-            this->sh_state = data.sh_state; // TODO(mcs): 肯定不匹配。重新看设计
-            this->sh_state->inc_ref();
-            this->rcvr = std::addressof(rcvr);
-        };
-
-        template <class Sndr, class Rcvr>
-        __split::local_state<Sndr, Rcvr>::~local_state() noexcept
-        {
-            sh_state->dec_ref();
-        };
-
-        template <class Sndr, class Rcvr>
-        void __split::local_state<Sndr, Rcvr>::notify() noexcept
-        {
-            on_stop.reset();
-            std::visit(
-                [this](const auto &tupl) noexcept -> void {
-                    std::apply(
-                        [this](auto tag, const auto &...args) noexcept -> void {
-                            tag(std::move(*rcvr), args...);
-                        },
-                        tupl);
-                },
-                sh_state->result);
-        };
-
-        /////////////////////////////////////////////////////////////////////////
-        //// shared_state
-        template <class Sndr> // Note: only need init op_state, other is ready
-        __split::shared_state<Sndr>::shared_state(Sndr &&sndr) // NOLINT
-            : op_state(conn::connect(std::forward<Sndr>(sndr), split_receiver{this}))
-        {
-            // Postcondition:
-            assert(waiting_states.empty());
-            assert(not completed.load(std::memory_order_acquire));
-        }
-
-        template <class Sndr>
-        void __split::shared_state<Sndr>::start_op() noexcept
-        {
-            this->inc_ref();
-            if (stop_src.stop_requested())
-                this->notify();
-            else
-                opstate::start(op_state);
-        }
-
-        template <class Sndr>
-        void __split::shared_state<Sndr>::notify() noexcept
-        {
-            // Atomically does the following:
-            // 1. Sets completed to true,
-            // 2. Exchanges waiting_states with an empty list,
-            //      storing the old value in a local prior_states.
-            std::unique_lock<std::mutex> lock(waiting_states.mtx);
-            completed.store(true, std::memory_order_release);
-            state_list_type prior_states = waiting_states.move();
-            lock.unlock();
-
-            // 3. Then, for each pointer p in prior_states, calls p->notify().
-            //    Finally, calls dec-ref().
-            auto *p = prior_states.head;
-            while (p != nullptr)
-            {
-                p->notify();
-
-                auto *old = std::exchange(p, p->next);
-                old->next = nullptr;
-            }
-            dec_ref();
-        }
-
-        template <class Sndr>
-        void __split::shared_state<Sndr>::inc_ref() noexcept
-        {
-            ref_count++;
-        }
-
-        template <class Sndr>
-        void __split::shared_state<Sndr>::dec_ref() noexcept
-        {
-            // memory_order_release: write sync
-            // memory_order_acquire: read sync
-            if (ref_count.fetch_sub(1, std::memory_order_release) == 1)
-            {
-                std::atomic_thread_fence(std::memory_order_acquire);
-                delete this;
-            }
-        }
-
-    }; // namespace adapt
 
     namespace adapt
     {
@@ -360,7 +384,13 @@ namespace mcs::execution
 
         namespace __split
         {
-            // manages the reference count of the shared-state pointer with sh_state
+            /**
+             * @brief   管理共享状态对象的引用计数。
+                        通过 sh_state 指针访问共享的 堆对象。
+             *
+             * @tparam State
+             * @tparam Tag 算法命名空间
+             */
             template <class State, class Tag>
             struct shared_wrapper
             {
@@ -368,23 +398,19 @@ namespace mcs::execution
                 State *sh_state; // NOLINT
                 Tag tag;         // NOLINT
 
-                shared_wrapper() noexcept : sh_state(nullptr) {}
-
                 shared_wrapper(State *state, Tag tag) noexcept : sh_state(state), tag(tag)
                 {
-                    if (sh_state)
-                    {
-                        sh_state->inc_ref();
-                    }
+                    // Note: assert是宏，仅再调试时有效
+                    assert(sh_state != nullptr);
+                    assert(sh_state->ref_count.load() == 1);
                 }
 
+                // 复制时，调用 sh_state->inc-ref() 增加引用计数
                 shared_wrapper(const shared_wrapper &other) noexcept
                     : sh_state(other.sh_state), tag(other.tag)
                 {
                     if (sh_state)
-                    {
-                        sh_state->inc_ref(); // +1
-                    }
+                        sh_state->inc_ref();
                 }
 
                 shared_wrapper(shared_wrapper &&other) noexcept
@@ -398,7 +424,12 @@ namespace mcs::execution
                 shared_wrapper &operator=(const shared_wrapper &other) noexcept
                 {
                     shared_wrapper temp(other);
-                    this->swap(*this, temp);
+                    // 成员就是 一个指针，一个是空对象。一定是没问题的
+                    std::swap(*this, temp);
+                    // Note: 复制操作都 inc_ref; std::shared_ptr也是这样的
+                    if (sh_state)
+                        sh_state->inc_ref();
+
                     return *this;
                 }
                 // Note: operator=: move-and-swap
@@ -407,24 +438,19 @@ namespace mcs::execution
                     if (this != &other)
                     {
                         shared_wrapper temp(std::move(other));
-                        this->swap(*this, temp);
+                        std::swap(*this, temp);
                     }
                     return *this;
                 }
 
+                // The destructor has no effect if sh_state is null; otherwise, it
+                // decrements the reference count by calling sh_state->dec-ref().
                 ~shared_wrapper() noexcept
                 {
-                    // Note: destructor has no effect if sh_state is null
                     if (sh_state != nullptr)
                     {
                         sh_state->dec_ref();
                     }
-                }
-
-                friend void swap(shared_wrapper &l, shared_wrapper &r) noexcept
-                {
-                    std::swap(l.sh_state, r.sh_state);
-                    std::swap(l.tag, r.tag);
                 }
             };
         }; // namespace __split
@@ -444,9 +470,8 @@ namespace mcs::execution
             auto transform_sender(Sndr &&sndr) noexcept // NOLINT
                 requires(snd::sender_for<decltype((sndr)), split_t>)
             {
-                // TODO(mcs):
                 // Note: tag_change: split_t => split_impl_tag
-                // Note: dara_change: {} => shared_wrapper(shared_state{child},old_tag)
+                // Note: data_change: {} => shared_wrapper(shared_state{child},old_tag)
                 // Note: sh_state: shared_state<child_sndr> conflict shared_state<Sndr>
                 auto &&[old_tag, _, child] = sndr;
                 auto *sh_state =
@@ -461,59 +486,82 @@ namespace mcs::execution
     template <>
     struct snd::general::impls_for<adapt::split_impl_tag> : snd::__detail::default_impls
     {
-        // Note: create [basic_state->state] when connect. 不是 inner_ops。Sndr外部的
+        // Note: 框架规定 get_state 在 basic_state中生成state时被调用
+        // Note: 框架规定 state 被 start算法使用。下面也自定义了
         static constexpr auto get_state = // NOLINT
             []<class Sndr>(Sndr &&sndr, auto &rcvr) noexcept {
-                // auto &&[tag, _, child] = sndr; // TODO(mcs):
-                // Note: call: local_state(sndr,rcvr)
-                return adapt::__split::local_state{std::forward_like<Sndr>(sndr), rcvr};
+                // Note: get_state 默认实现 返回的是 tag,data,child...中的data
+                // Note: 应该取出 shared_wrapper才对。因为 local_state 要表明了
+                // Note: local_state 和  sh_state 模板参数类型都指向同一个  Sndr
+                // Note: 而 shared_state 即 wrapper.sh_state 指向的是 split的 Sndr
+                // Note: 因此返回值 local_state 也就是指向 split的 Sndr。堆内存
+                // 构造函数 shared_wrapper.sh_state 映射 shared_state<Sndr>
+                // 一定会解析出 split 绑定的 Sndr[也就是要split的sender]
+                auto &&[tag, shared_wrapper] = sndr;
+                return adapt::__split::local_state{
+                    std::forward_like<Sndr>(shared_wrapper.sh_state), rcvr};
             };
 
         // Note: initialized with a callable object that has a function call operator
         static constexpr auto start = // NOLINT
             []<class Sndr, class Rcvr>(adapt::__split::local_state<Sndr, Rcvr> &state,
                                        Rcvr &rcvr) noexcept {
+                /**
+                 * @brief Effects: If state.sh_state->completed is true, calls
+                 *  state.notify() and returns. Otherwise, see bellow
+                 *
+                 */
                 if (state.sh_state->completed.load(std::memory_order_acquire))
                 {
                     state.notify();
                     return;
                 }
 
+                /**
+                 * @brief Otherwise, does the following in order:
+                 *  1、Calls:
+                 *  2、Then: 1,2
+                 *  3、If c is true, calls state.notify() and returns.
+                 *  4、Otherwise ...
+                 */
+
+                // 1、Calls: here
                 state.on_stop.emplace(
                     queries::get_stop_token(queries::get_env(rcvr)),
                     snd::general::on_stop_request{state.sh_state->stop_src});
 
+                // 2、Then: here
+                // Then atomically does the following:
                 // atomically does the following
                 // 1. Reads the value c of state.sh_state->completed, and
                 // 2. Inserts addressof(state) into waiting_states if c is false.
-                std::unique_lock<std::mutex> lock(state.sh_state->waiting_states.mtx);
-                bool c = state.sh_state->completed.load();
-                if (not c)
-                    state.sh_state->waiting_states.push_back(std::addressof(state));
-                lock.unlock();
+                bool c{false};
+                bool first_item{false};
+                SimpleAtomicOperation atomicOpration;
+                atomicOpration([&] { c = state.sh_state->completed.load(); },
+                               [&] {
+                                   if (not c)
+                                   {
+                                       first_item =
+                                           state.sh_state->waiting_states.push_front(
+                                               std::addressof(state));
+                                   };
+                               });
 
+                // 3、If c is true, calls state.notify() and returns.
                 if (c)
                 {
-                    state.notify(); // lock? need?
+                    state.notify();
                     return;
                 }
 
-                // TODO(mcs): 可能有争议
-                //  check is state first add
-                if (state.sh_state->waiting_states.head != nullptr &&
-                    state.sh_state->waiting_states.head == std::addressof(state))
+                // 4、if addressof(state) is the first item added
+                if (first_item)
                 {
                     state.sh_state->start_op();
                 }
             };
     };
-
-    // template <typename Sndr, typename Env>
-    // struct cmplsigs::completion_signatures_for_impl<
-    //     snd::__detail::basic_sender<adapt::split_t, Sndr>, Env>
-    // {
-    //     using type = snd::completion_signatures_of_t<Sndr, Env>;
-    // };
 
     template <typename Sndr, typename Env>
     struct cmplsigs::completion_signatures_for_impl<
@@ -525,28 +573,5 @@ namespace mcs::execution
     {
         using type = snd::completion_signatures_of_t<Sndr, Env>;
     };
-
-    namespace test
-    {
-
-        // Note:
-        //  transform_sender => {split_impl_tag,shared_wrapper{shared_state{sndr},tag}}
-        //    shared_state
-        // using T = mcs::execution::adapt::__split::shared_state<
-        //     mcs::execution::snd::__detail::basic_sender<
-        //         mcs::execution::adapt::split_impl_tag,
-        //         mcs::execution::adapt::__split::shared_wrapper<
-        //             mcs::execution::adapt::__split::shared_state<
-        //                 mcs::execution::snd::__detail::basic_sender<
-        //                     mcs::execution::factories::__just_t<
-        //                         mcs::execution::recv::set_value_t>,
-        //                     mcs::execution::snd::__detail::product_type<int>>>,
-        //             mcs::execution::adapt::split_t>>>;
-
-        // using Sndr = mcs::execution::adapt::__split::shared_state<
-        //     mcs::execution::snd::__detail::basic_sender<
-        //         mcs::execution::factories::__just_t<mcs::execution::recv::set_value_t>,
-        //         mcs::execution::snd::__detail::product_type<int>>>;
-    } // namespace test
 
 }; // namespace mcs::execution
