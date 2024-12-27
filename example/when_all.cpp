@@ -92,5 +92,5 @@ void test_base3()
     sender auto both = when_all(sends_1, sends_2);
     sender auto final = then(
         both, [](auto... args) { std::cout << std::format("one args: {}\n", args...); });
-    // mcs::this_thread::sync_wait(std::move(final));
+    mcs::this_thread::sync_wait(std::move(final));
 }

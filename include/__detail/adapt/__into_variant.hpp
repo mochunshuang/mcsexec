@@ -1,26 +1,14 @@
 #pragma once
 
-#include "./__as_tuple.hpp"
-
 #include "../snd/__transform_sender.hpp"
 #include "../snd/__make_sender.hpp"
 
 #include "../snd/general/__get_domain_early.hpp"
 #include "../snd/general/__impls_for.hpp"
-#include "../snd/general/__on_stop_request.hpp"
-#include "../snd/__completion_signatures_of_t.hpp"
+
 #include "../snd/__detail/mate_type/__child_type.hpp"
 
-#include "../snd/__sender_in.hpp"
-
 #include "../queries/__env_of_t.hpp"
-#include "../queries/__stop_token_of_t.hpp"
-
-#include "../conn/__connect_result_t.hpp"
-
-#include "../tfxcmplsigs/__unique_variadic_template.hpp"
-
-#include "../pipeable/__sender_adaptor.hpp"
 
 #include "../cmplsigs/__value_types_of_t.hpp"
 
@@ -53,6 +41,7 @@ namespace mcs::execution
         static constexpr auto complete = // NOLINT
             []<class State, class Rcvr, class Tag, class... Args>(
                 auto, State, Rcvr &rcvr, Tag, Args &&...args) noexcept -> void {
+            // Note: just handler the tag of set_value_t
             if constexpr (std::same_as<Tag, set_value_t>)
             {
                 using variant_type = typename State::type;
@@ -88,9 +77,12 @@ namespace mcs::execution
 
     template <typename Sndr, typename Env>
     struct cmplsigs::completion_signatures_for_impl<
-        snd::__detail::basic_sender<adapt::into_variant_t, Sndr>, Env>
+        snd::__detail::basic_sender<adapt::into_variant_t, snd::empty_data, Sndr>, Env>
     {
-        using type = snd::completion_signatures_of_t<Sndr, Env>;
+        using type =
+            cmplsigs::completion_signatures<recv::set_value_t(
+                                                cmplsigs::value_types_of_t<Sndr, Env>),
+                                            recv::set_error_t(std::exception_ptr)>;
     };
 
 }; // namespace mcs::execution
