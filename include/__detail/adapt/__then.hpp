@@ -16,6 +16,8 @@
 #include "../recv/__set_stopped.hpp"
 #include "../recv/__set_value.hpp"
 
+#include "../tfxcmplsigs/__unique_variadic_template.hpp"
+
 namespace mcs::execution
 {
     namespace adapt
@@ -126,8 +128,12 @@ namespace mcs::execution
         template <typename Fun, typename Completion, typename... Sig>
         struct compute_then_sigs<Fun, Completion, cmplsigs::completion_signatures<Sig...>>
         {
-            using type = cmplsigs::completion_signatures<
-                typename __detail::compute_then_result<Fun, Completion, Sig>::type...>;
+            using type = typename tfxcmplsigs::unique_variadic_template<
+                // Note: complete provides exception_ptr in code
+                typename cmplsigs::completion_signatures<
+                    recv::set_error_t(std::exception_ptr),
+                    typename __detail::compute_then_result<Fun, Completion,
+                                                           Sig>::type...>>::type;
         };
     }; // namespace adapt
 
