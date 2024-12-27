@@ -11,7 +11,17 @@ namespace mcs::execution::snd::__detail
         basic_state(Sndr &&sndr, Rcvr &&rcvr) noexcept(
             std::is_nothrow_move_constructible_v<Rcvr> &&
             functional::nothrow_callable<
-                decltype(general::impls_for<tag_of_t<Sndr>>::get_state), Sndr, Rcvr &>)
+                decltype(general::impls_for<tag_of_t<Sndr>>::get_state), Sndr, Rcvr &> &&
+            static_cast<bool>(
+                std::same_as<mate_type::state_type<Sndr, Rcvr>,
+                             functional::call_result_t<
+                                 decltype(general::impls_for<tag_of_t<Sndr>>::get_state),
+                                 Sndr, Rcvr &>> ||
+                std::is_nothrow_constructible_v<
+                    mate_type::state_type<Sndr, Rcvr>,
+                    functional::call_result_t<
+                        decltype(general::impls_for<tag_of_t<Sndr>>::get_state), Sndr,
+                        Rcvr &>>))
             : rcvr(std::move(rcvr)), state(general::impls_for<tag_of_t<Sndr>>::get_state(
                                          std::forward<Sndr>(sndr), this->rcvr))
         {

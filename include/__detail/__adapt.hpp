@@ -7,6 +7,7 @@
 #include "./adapt/__on.hpp"
 #include "./adapt/__bulk.hpp"
 #include "./adapt/__split.hpp"
+#include "./adapt/__when_alll.hpp"
 
 namespace mcs::execution
 {
@@ -21,6 +22,7 @@ namespace mcs::execution
     using ::mcs::execution::adapt::on_t;
     using ::mcs::execution::adapt::bulk_t;
     using ::mcs::execution::adapt::split_t;
+    using ::mcs::execution::adapt::when_all_t;
 
     using ::mcs::execution::adapt::continues_on;
     using ::mcs::execution::adapt::then;
@@ -33,5 +35,6 @@ namespace mcs::execution
     using ::mcs::execution::adapt::on;
     using ::mcs::execution::adapt::bulk;
     using ::mcs::execution::adapt::split;
+    using ::mcs::execution::adapt::when_all;
 
 }; // namespace mcs::execution

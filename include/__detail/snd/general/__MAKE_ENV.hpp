@@ -1,5 +1,6 @@
 #pragma once
 
+#include <type_traits>
 #include <utility>
 
 namespace mcs::execution::snd::general
@@ -10,8 +11,8 @@ namespace mcs::execution::snd::general
         V value; // NOLINT
 
       public:
-        template <typename _V>
-        MAKE_ENV(Q && /*unused*/, _V &&value) : value(std::forward<_V>(value))
+        template <typename _Q, typename _V>
+        MAKE_ENV(_Q && /*unused*/, _V &&value) : value(std::forward<_V>(value))
         {
         }
 
@@ -27,6 +28,6 @@ namespace mcs::execution::snd::general
     };
 
     template <typename Q, typename V>
-    MAKE_ENV(Q &&, V &&value) -> MAKE_ENV<std::remove_cvref_t<Q>, std::remove_cvref_t<V>>;
+    MAKE_ENV(Q &&, V &&value) -> MAKE_ENV<std::decay_t<Q>, std::decay_t<V>>;
 
 }; // namespace mcs::execution::snd::general

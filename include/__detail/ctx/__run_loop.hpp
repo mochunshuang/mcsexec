@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <cassert>
 #include <condition_variable>
 #include <utility>
@@ -36,9 +37,10 @@ namespace mcs::execution::ctx
       public:
         enum class State
         {
-            starting, // NOLINT
-            running,  // NOLINT
-            finishing // NOLINT
+            starting,  // NOLINT
+            running,   // NOLINT
+            finishing, // NOLINT
+            finished   // NOLINT
         };
 
         [[nodiscard]] inline bool is_locked() const // NOLINT
@@ -229,14 +231,21 @@ namespace mcs::execution::ctx
         void finish() noexcept;
     };
     /**
-     * @brief there are not stop when State::finishing beacuse ~run_loop() check count
+     * @brief Effects: Blocks ([defns.block]) until one of the following conditions is
+     * true:
+     *      count is 0 and state is finishing, in which case pop-front sets state to
+     *      finished and returns nullptr; or
+     *
+     *      count is greater than 0, in which case an item is removed from the front of
+     *      the queue, count is decremented by 1, and the removed item is returned.
      *
      * @return run_loop::Node*
      */
     run_loop::Node *run_loop::pop_front() noexcept // NOLINT
     {
-        if (count.load(std::memory_order_consume) == 0 &&
-            state.load(std::memory_order_consume) == State::finishing) // no need to wait
+        if (auto status = state.load(std::memory_order_consume);
+            status == State::finished || (count.load(std::memory_order_consume) == 0 &&
+                                          status == State::finishing)) // no need to wait
             return nullptr;
 
         std::unique_lock lk(mtx);
@@ -246,8 +255,11 @@ namespace mcs::execution::ctx
                    state.load(std::memory_order_consume) == State::finishing;
         });
 
-        if (count == 0)
+        if (count.load(std::memory_order_consume) == 0)
         {
+            // now has locked so memory_order_relaxed is good
+            if (state.load(std::memory_order_consume) == State::finishing)
+                state.exchange(State::finished, std::memory_order_relaxed);
             lk.unlock();
             locked.store(false, std::memory_order_release);
             cv.notify_one();
@@ -290,33 +302,63 @@ namespace mcs::execution::ctx
         cv.notify_one(); // synchronizes with the pop_front operation
     }
 
+    /**
+     * @brief Preconditions: state is one of starting or finishing.
+        Effects: If state is starting, sets the state to running, otherwise leaves state
+        unchanged. Then, equivalent to:
+            while (auto* op = pop-front()) {
+
+                op->execute();
+
+            }
+
+     */
     void run_loop::run() noexcept // NOLINT
     {
-        // expected store  old value when compare_exchange_strong filed
-        if (State expected = State::starting; not state.compare_exchange_strong(
-                expected, State::running, std::memory_order_acq_rel,
-                std::memory_order_acquire))
+
+        // If state is starting, sets the state to running,or unchanged
+        // Note: compare_exchange_strong() return true if state is expected
+        if (State expected = State::starting;
+            state.load(std::memory_order_acquire) != State::finishing &&
+            not state.compare_exchange_strong(expected, State::running,
+                                              std::memory_order_acq_rel,
+                                              std::memory_order_acquire))
         {
-            if (expected == State::running)
-            {
-                std::terminate();
-            }
+            // 1 、 Preconditions: state is one of starting or finishing.
+            std::terminate();
         }
 
         // run in loop until signal done or finish
         while (auto *op = pop_front())
             op->execute();
     }
-
+    /**
+     * @brief
+     * Preconditions: state is one of starting or running.
+     * Effects: Changes state to finishing.
+     * Synchronization: finish synchronizes with the pop-front operation that returns
+     * nullptr.
+     *
+     */
     void run_loop::finish() noexcept // NOLINT
     {
-        std::unique_lock lk(mtx);
-        locked.store(true, std::memory_order_release);
-        state.store(State::finishing, std::memory_order_release);
+        State expected = state.load();
+        if (expected != State::starting && expected != State::running)
+        {
+            // 1 、 Preconditions: state is one of starting or running.
+            std::terminate();
+        }
+        state.exchange(State::finishing);
 
-        lk.unlock();
-        locked.store(false, std::memory_order_release);
-        cv.notify_all(); // synchronizes with the pop_front operation
+        // Note: avoid Lost_Wake_up。 notify 没有锁住在前面会 死锁。卡死
+        //  Synchronization: finish synchronizes with the pop-front operation that
+        //  returns nullptr
+        {
+            // Note: 条件变量的设计要求在使用 cv.wait()、cv.notify_one() 或
+            // Note: cv.notify_all() 时必须持有锁。这是 C++ 标准库的规范
+            std::unique_lock lk(mtx);
+            cv.notify_all();
+        }
     }
 
 }; // namespace mcs::execution::ctx
