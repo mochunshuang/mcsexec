@@ -131,9 +131,8 @@ namespace mcs::execution
             using type = typename tfxcmplsigs::unique_variadic_template<
                 // Note: complete provides exception_ptr in code
                 typename cmplsigs::completion_signatures<
-                    recv::set_error_t(std::exception_ptr),
-                    typename __detail::compute_then_result<Fun, Completion,
-                                                           Sig>::type...>>::type;
+                    typename __detail::compute_then_result<Fun, Completion, Sig>::type...,
+                    recv::set_error_t(std::exception_ptr)>>::type;
         };
     }; // namespace adapt
 
