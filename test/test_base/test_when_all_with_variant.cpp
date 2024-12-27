@@ -29,8 +29,7 @@ void test_base()
 
     static_assert(std::is_same_v<T, T2>);
 
-    auto v = mcs::this_thread::sync_wait(std::move(snd));
-    {
-        auto v = mcs::this_thread::sync_wait(std::move(snd2));
-    }
+    auto v1 = mcs::this_thread::sync_wait(std::move(snd));
+    auto v2 = mcs::this_thread::sync_wait(std::move(snd2));
+    static_assert(std::is_same_v<decltype(v1), decltype(v2)>);
 }

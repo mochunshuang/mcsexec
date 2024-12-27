@@ -248,7 +248,7 @@ namespace mcs::execution
         struct make_state
         {
             template <max_1_sender_in<queries::env_of_t<Rcvr>>... Sndrs>
-            auto operator()(auto /*unused*/, auto /*unused*/, Sndrs &&...sndrs) const
+            auto operator()(auto /*unused*/, auto /*unused*/, Sndrs &&.../*sndrs*/) const
             {
                 /**
                  * @brief The alias values_tuple denotes the type
@@ -283,7 +283,7 @@ namespace mcs::execution
                         }
                     }
 
-                    std::atomic<size_t> count{sizeof...(sndrs)};         // NOLINT
+                    std::atomic<size_t> count{sizeof...(Sndrs)};         // NOLINT
                     inplace_stop_source stop_src{};                      // NOLINT
                     std::atomic<disposition> disp{disposition::started}; // NOLINT
                     errors_variant errors{};                             // NOLINT
