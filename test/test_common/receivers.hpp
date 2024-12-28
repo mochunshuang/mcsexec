@@ -6,8 +6,24 @@
 #include "./empty_recv/recv0_ec.hpp"
 #include "./empty_recv/recv_int.hpp"
 #include "./empty_recv/recv_int_ec.hpp"
-#include <utility>
-#include <variant>
+
+#include "./recv/base_expect_receiver.hpp"
+
+#include "./recv/expect_error_receiver_ex.hpp"
+#include "./recv/expect_error_receiver.hpp"
+
+#include "./recv/expect_stopped_receiver_ex.hpp"
+#include "./recv/expect_stopped_receiver.hpp"
+
+#include "./recv/expect_value_receiver_ex.hpp"
+#include "./recv/expect_value_receiver.hpp"
+
+#include "./recv/expect_void_receiver_ex.hpp"
+#include "./recv/expect_void_receiver.hpp"
+
+#include "./recv/fun_receiver.hpp"
+#include "./recv/logging_receiver.hpp"
+#include "./recv/typecat_receiver.hpp"
 
 namespace test
 {
