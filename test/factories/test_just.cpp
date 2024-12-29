@@ -81,5 +81,12 @@ int main()
         EXPECT(called);
     };
 
+    TEST("sync_wait for just") = [] {
+        // .value() 之后，才能 解绑定到局部变量
+        auto [a, b] = mcs::this_thread::sync_wait(ex::just(1, 1.0)).value();
+        EXPECT(a == 1);
+        EXPECT(b == 1.0);
+    };
+
     return 0;
 }
