@@ -26,6 +26,7 @@
 #include "./recv/typecat_receiver.hpp"
 
 #include "./recv/value_receiver.hpp"
+#include "./recv/error_receiver.hpp"
 
 namespace test
 {
