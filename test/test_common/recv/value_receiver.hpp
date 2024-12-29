@@ -22,9 +22,12 @@ namespace test
         auto set_value(A &&...a) && noexcept -> void
         {
             *this->called = true;
-            [this, &a...]<std::size_t... I>(std::index_sequence<I...>) {
-                EXPECT(((std::get<I>(expect) == a) && ...));
-            }(std::index_sequence_for<T...>{});
+            if constexpr (sizeof...(T) > 0)
+            {
+                [this, &a...]<std::size_t... I>(std::index_sequence<I...>) {
+                    EXPECT(((std::get<I>(expect) == a) && ...));
+                }(std::index_sequence_for<T...>{});
+            }
         }
 
         constexpr auto get_env() const noexcept // NOLINT

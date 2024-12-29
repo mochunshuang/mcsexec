@@ -1,5 +1,6 @@
 
 #include "../test_base_head.hpp"
+#include <cassert>
 
 int main()
 {
@@ -20,11 +21,12 @@ int main()
             called = true;
             return ex::just();
         });
-        static_assert(ex::recv::receiver<test::expect_void_receiver<>>);
-        // auto op = ex::conn::connect(std::move(snd), test::expect_void_receiver<>{});
-        // The receiver checks that it's called
-        // we also check that the function was invoked
-        // ex::opstate::start(op);
+        test::Channel chanel{test::Channel::NO_CALL};
+        auto op = ex::conn::connect(
+            std::move(snd), test::void_receiver{.called = &called, .chanel = &chanel});
+        EXPECT(not called && chanel == test::Channel::NO_CALL);
+        start(op);
+        EXPECT(called && chanel == test::Channel::VALUE_CHANNEL);
     };
 
     return 0;
