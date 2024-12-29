@@ -21,12 +21,13 @@ int main()
             called = true;
             return ex::just();
         });
+        bool called2{false};
         test::Channel chanel{test::Channel::NO_CALL};
         auto op = ex::conn::connect(
-            std::move(snd), test::void_receiver{.called = &called, .chanel = &chanel});
-        EXPECT(not called && chanel == test::Channel::NO_CALL);
+            std::move(snd), test::void_receiver{.called = &called2, .chanel = &chanel});
+        EXPECT(not called && not called2 && chanel == test::Channel::NO_CALL);
         start(op);
-        EXPECT(called && chanel == test::Channel::VALUE_CHANNEL);
+        EXPECT(called && called2 && chanel == test::Channel::VALUE_CHANNEL);
     };
 
     return 0;
