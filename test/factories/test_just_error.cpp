@@ -29,7 +29,7 @@ int main()
         }
     };
 
-    TEST("just returns a sender") = [] {
+    TEST("just_error returns a sender") = [] {
         using t = decltype(ex::just_error(1));
         static_assert(ex::sender<t>, "ex::just_error must return a sender");
         static_assert(ex::sender_in<t, ex::empty_env>,
@@ -37,7 +37,7 @@ int main()
         EXPECT(ex::snd::enable_sender<t> == true);
     };
 
-    TEST("cpo for just") = [] {
+    TEST("cpo for just_error") = [] {
         using CO = cmplsigs::get_completion_signatures<decltype(ex::just_error(
             std::exception_ptr{}))>;
         static_assert(
@@ -46,13 +46,13 @@ int main()
                            CO>);
     };
 
-    TEST("value types are properly set for just") = [] {
+    TEST("value types are properly set for just_error") = [] {
         using T = decltype(ex::just_error(std::exception_ptr{}));
         using VT = cmplsigs::value_types_of_t<T>;
         static_assert(std::is_same_v<VT, ex::cmplsigs::empty_variant>);
     };
 
-    TEST("error types are properly set for just") = [] {
+    TEST("error types are properly set for just_error") = [] {
         using T = decltype(ex::just_error(std::exception_ptr{}));
         using ET = cmplsigs::error_types_of_t<T>;
         static_assert(std::is_same_v<ET, std::variant<std::exception_ptr>>);
