@@ -7,3 +7,5 @@
 
 using namespace boost::ut;     // NOLINT
 namespace ex = mcs::execution; // NOLINT
+using namespace ex::conn;      // NOLINT
+using namespace ex::opstate;   // NOLINT

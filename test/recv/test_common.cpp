@@ -1,4 +1,5 @@
 #include "../test_base_head.hpp"
+#include <concepts>
 #include <exception>
 
 int main()
@@ -8,6 +9,8 @@ int main()
         should("base_expect_receiver") = [] {
             using T = ::test::base_expect_receiver<>;
             static_assert(recv::receiver<T>);
+            static_assert(std::move_constructible<T>);
+            static_assert(std::constructible_from<T, T const &>);
         };
 
         // expect_error
@@ -38,6 +41,15 @@ int main()
         {
             using T = test::expect_value_receiver<>;
             static_assert(recv::receiver<T>);
+        }
+        {
+            using T = test::expect_value_receiver<int>;
+            static_assert(recv::receiver<T>);
+            // Note: 构造函数必须定义
+            //  rvalues are movable and lvalues are copyable
+            static_assert(std::move_constructible<T>);
+            static_assert(std::constructible_from<T, T &>);
+            static_assert(std::constructible_from<T, const T &>);
         }
 
         // value_receiver

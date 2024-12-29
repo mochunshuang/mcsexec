@@ -6,7 +6,7 @@
 namespace test
 {
     template <class Env = mcs::execution::empty_env>
-    class base_expect_receiver // NOLINT
+    class base_expect_receiver
     {
         std::atomic<bool> m_called{false};
         Env m_env{};
@@ -28,6 +28,10 @@ namespace test
         }
 
         base_expect_receiver &operator=(base_expect_receiver &&other) = delete;
+
+        base_expect_receiver(const base_expect_receiver &other) noexcept
+            : m_called(other.m_called.load()), m_env(std::move(other.m_env)) {};
+        base_expect_receiver &operator=(const base_expect_receiver &other) = default;
 
         void set_called() // NOLINT
         {
