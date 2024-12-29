@@ -43,6 +43,11 @@ namespace test
                 UNEXPECT("Exception thrown: " << e.what());
             }
         }
+
+        mcs::execution::empty_env get_env() const noexcept // NOLINT
+        {
+            return {};
+        }
     };
 
     template <class F>

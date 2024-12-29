@@ -48,6 +48,11 @@ namespace test
         {
             UNEXPECT("set_error called");
         }
+
+        mcs::execution::empty_env get_env() const noexcept // NOLINT
+        {
+            return {};
+        }
     };
 
 }; // namespace test

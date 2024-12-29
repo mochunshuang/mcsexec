@@ -26,6 +26,11 @@ namespace test
             *m_state = 2;
         }
 
+        mcs::execution::empty_env get_env() const noexcept // NOLINT
+        {
+            return {};
+        }
+
       private:
         int *m_state;
     };
