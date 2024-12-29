@@ -9,3 +9,4 @@
 #include "./recv/value_receiver.hpp"
 #include "./recv/error_receiver.hpp"
 #include "./recv/void_receiver.hpp"
+#include "./recv/any_receiver.hpp"

@@ -51,7 +51,7 @@ int main()
         if (ret.has_value())
         {
             auto [a, b, c] = ret.value();
-            std::cout << "Value: " << a << " " << b << " " << c << "\n";
+            EXPECT(a == 1 and b == 2 and c == 3);
         }
     };
 
@@ -69,8 +69,104 @@ int main()
         using CO = ex::cmplsigs::get_completion_signatures<T>;
         static_assert(
             std::is_same_v<ex::cmplsigs::completion_signatures<
-                               mcs::execution::recv::set_value_t(int, int, int)>,
+                               mcs::execution::recv::set_value_t(int, int, int),
+                               mcs::execution::recv::set_error_t(std::exception_ptr)>,
                            CO>);
+    };
+
+    TEST("let_value can be used with multiple parameters") = [] {
+        auto snd = ex::just(3, 0.1415) |
+                   ex::let_value([](int x, double y) { return ex::just(x + y); });
+        auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
+        EXPECT(ret == 3.1415);
+    };
+
+    TEST("let_value can be used to change the sender") = [] {
+        bool called{false};
+        int err_code = 17;
+        ex::sender auto snd =
+            ex::just(13) | ex::let_value([](int x) { return ex::just_error(x + 4); });
+        auto op = connect(std::move(snd),
+                          test::error_receiver{.called = &called, .error = err_code});
+        EXPECT(not called);
+        start(op);
+        EXPECT(called);
+    };
+
+    TEST("let_value can be used for composition") = [] {
+        auto is_prime = [](int x) {
+            if (x > 2 && (x % 2 == 0))
+                return false;
+            int d = 3;
+            while (d * d < x)
+            {
+                if (x % d == 0)
+                    return false;
+                d += 2;
+            }
+            return true;
+        };
+        bool called1{false};
+        bool called2{false};
+        bool called3{false};
+        auto f1 = [&](int x) {
+            called1 = true;
+            return ex::just(2 * x);
+        };
+        auto f2 = [&](int x) {
+            called2 = true;
+            return ex::just(x + 3);
+        };
+        auto f3 = [&](int x) {
+            called3 = true;
+            if (!is_prime(x))
+                throw std::logic_error("not prime");
+            return ex::just(x);
+        };
+        ex::sender auto snd = ex::just(13)        //
+                              | ex::let_value(f1) //
+                              | ex::let_value(f2) //
+                              | ex::let_value(f3) //
+            ;
+        auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
+        EXPECT(ret == 29);
+        EXPECT(called1);
+        EXPECT(called2);
+        EXPECT(called3);
+    };
+
+    TEST("let_value can throw, and set_error will be called") = [] {
+        bool called{false};
+        std::any any;
+        auto snd = ex::just(13) //
+                   | ex::let_value([](int &) -> decltype(ex::just(0)) {
+                         throw std::logic_error{"err"};
+                     });
+        EXPECT(not called);
+        auto op = ex::connect(std::move(snd),
+                              test::any_receiver{.called = &called, .data = &any});
+        start(op);
+        EXPECT(called);
+
+        /**
+         * @brief std::exception_ptr
+         * 是一个指向异常的智能指针，它可以捕获并保存任何类型的异常。
+         * 要访问异常的具体信息，必须通过 std::rethrow_exception 重新抛出异常，然后在
+         * catch 块中处理。
+         */
+        try
+        {
+            // 从 std::any 中提取 std::exception_ptr
+            auto e = std::any_cast<std::exception_ptr>(any);
+            std::rethrow_exception(e);
+        }
+        catch (const std::logic_error &ex)
+        {
+            std::string whatStr = ex.what();
+            // Note: 字符串处理变成string 才行，离谱
+            EXPECT(ex.what() != "err");
+            EXPECT(whatStr == "err");
+        }
     };
 
     return 0;

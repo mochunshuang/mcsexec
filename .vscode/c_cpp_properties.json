@@ -19,7 +19,7 @@
     },
     {
       "name": "Win32-gcc",
-     "compilerPath": "D:/mysoftware/x86_64-13.2.0-release-posix-seh-ucrt-rt_v11-rev1/mingw64/bin/g++.exe",
+     "compilerPath": "D:/mysoftware/gcc-v14.2.0-mingw-v12.0.0-x86_64/bin/g++.exe",
      "intelliSenseMode": "gcc-x64",
       "includePath": ["${myIncludePath}"],
       "defines": ["${myDefines}", "_WINDOWS"],

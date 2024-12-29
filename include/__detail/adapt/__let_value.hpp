@@ -23,6 +23,7 @@
 #include "../queries/__env_of_t.hpp"
 
 #include "../cmplsigs/__detail/__select_tag.hpp"
+#include "../cmplsigs/__detail/__merge_type_lists.hpp"
 #include "../cmplsigs/__detail/__filter_tuple.hpp"
 #include "../cmplsigs/__detail/__tpl_param_trnsfr.hpp"
 #include "../cmplsigs/__detail/__filter_sigs_by_completion.hpp"
@@ -371,12 +372,16 @@ namespace mcs::execution
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<adapt::__let_t<Completion>, Fun, Sender>, Env>
     {
-        using type = snd::completion_signatures_of_t<
+        using PRE_T = snd::completion_signatures_of_t<
             typename adapt::compute_fun_result<
                 Fun, typename adapt::compute_let_sigs<
                          Fun, Completion,
                          snd::completion_signatures_of_t<Sender, Env>>::type>::type,
             Env>;
+        using ADD_T =
+            cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr)>;
+        using type =
+            __detail::merge_type_lists<completion_signatures, PRE_T, ADD_T>::type;
     };
 
 }; // namespace mcs::execution

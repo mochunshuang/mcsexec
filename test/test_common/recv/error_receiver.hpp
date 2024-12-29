@@ -1,6 +1,7 @@
 
 #include "../../../include/execution.hpp"
 #include "../test_macro.hpp"
+#include <type_traits>
 
 namespace test
 {
@@ -16,7 +17,10 @@ namespace test
         auto set_error(E &&e) && noexcept -> void
         {
             *this->called = true;
-            EXPECT(error == e);
+            if constexpr (std::is_same_v<std::decay_t<E>, std::decay_t<T>>)
+            {
+                EXPECT(error == e);
+            }
         }
 
         constexpr auto get_env() const noexcept // NOLINT
