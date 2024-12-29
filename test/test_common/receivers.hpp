@@ -25,6 +25,8 @@
 #include "./recv/logging_receiver.hpp"
 #include "./recv/typecat_receiver.hpp"
 
+#include "./recv/value_receiver.hpp"
+
 namespace test
 {
     template <typename T>

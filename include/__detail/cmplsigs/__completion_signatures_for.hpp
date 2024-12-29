@@ -1,5 +1,5 @@
 #pragma once
-
+#include "../__core_types.hpp"
 #include <type_traits>
 
 namespace mcs::execution::cmplsigs
@@ -39,6 +39,8 @@ namespace mcs::execution::cmplsigs
     template <class Sndr, class Env>
     using completion_signatures_for = // exposition only
         typename __detail::__completion_signatures_for<Sndr, Env>::type;
-    ;
+
+    template <class Sndr, class Env = empty_env>
+    using get_completion_signatures = completion_signatures_for<Sndr, Env>;
 
 }; // namespace mcs::execution::cmplsigs
