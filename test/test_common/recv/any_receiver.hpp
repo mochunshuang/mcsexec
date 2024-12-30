@@ -2,6 +2,8 @@
 
 #include "../../../include/execution.hpp"
 #include "../test_macro.hpp"
+#include "./channel.hpp"
+
 #include <any>
 #include <utility>
 
@@ -10,8 +12,9 @@ namespace test
     struct any_receiver
     {
         using receiver_concept = mcs::execution::receiver_t;
-        bool *called;   // NOLINT
-        std::any *data; // NOLINT
+        bool *called;    // NOLINT
+        std::any *data;  // NOLINT
+        channel *chanel; // NOLINT
 
         template <typename... A> // NOLINTNEXTLINE
         auto set_value(A &&...a) && noexcept -> void
@@ -21,6 +24,8 @@ namespace test
             {
                 *this->data = std::make_tuple(std::forward<A>(a)...);
             }
+            if (chanel != nullptr)
+                *this->chanel = channel::VALUE_CHANNEL;
         }
 
         template <typename E> // NOLINTNEXTLINE
@@ -28,16 +33,27 @@ namespace test
         {
             *this->called = true;
             *this->data = std::forward<E>(e);
+            if (chanel != nullptr)
+                *this->chanel = channel::ERROR_CHANNEL;
         }
 
         void set_stopped() && noexcept // NOLINT
         {
             *this->called = true;
+            if (chanel != nullptr)
+                *this->chanel = channel::STOPDE_CHANNEL;
         }
 
         auto &refData()
         {
             return data;
+        }
+
+        [[nodiscard]] auto status() const
+        {
+            if (chanel == nullptr)
+                return channel::NO_CALL;
+            return *chanel;
         }
 
         constexpr auto get_env() const noexcept // NOLINT

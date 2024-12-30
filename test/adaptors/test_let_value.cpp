@@ -24,12 +24,12 @@ int main()
             return ex::just();
         });
         bool called2{false};
-        test::Channel chanel{test::Channel::NO_CALL};
+        test::channel chanel{test::channel::NO_CALL};
         auto op = ex::conn::connect(
             std::move(snd), test::void_receiver{.called = &called2, .chanel = &chanel});
-        EXPECT(not called && not called2 && chanel == test::Channel::NO_CALL);
+        EXPECT(not called && not called2 && chanel == test::channel::NO_CALL);
         start(op);
-        EXPECT(called && called2 && chanel == test::Channel::VALUE_CHANNEL);
+        EXPECT(called && called2 && chanel == test::channel::VALUE_CHANNEL);
     };
 
     TEST("let_value can be piped") = [] {
@@ -129,7 +129,7 @@ int main()
                               | ex::let_value(f3) //
             ;
         auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
-        EXPECT(ret == 29);
+        EXPECT(ret == ((13 * 2) + 3));
         EXPECT(called1);
         EXPECT(called2);
         EXPECT(called3);
@@ -138,15 +138,20 @@ int main()
     TEST("let_value can throw, and set_error will be called") = [] {
         bool called{false};
         std::any any;
+        test::channel c{test::channel::NO_CALL};
         auto snd = ex::just(13) //
                    | ex::let_value([](int &) -> decltype(ex::just(0)) {
                          throw std::logic_error{"err"};
                      });
+
+        auto op = ex::connect(
+            std::move(snd),
+            test::any_receiver{.called = &called, .data = &any, .chanel = &c});
         EXPECT(not called);
-        auto op = ex::connect(std::move(snd),
-                              test::any_receiver{.called = &called, .data = &any});
+        EXPECT(c == test::channel::NO_CALL);
         start(op);
         EXPECT(called);
+        EXPECT(c == test::channel::ERROR_CHANNEL);
 
         /**
          * @brief std::exception_ptr
@@ -169,5 +174,56 @@ int main()
         }
     };
 
+    TEST("let_value can be used with just_error") = [] {
+        bool called{false};
+        bool called_fun{false};
+        std::any any;
+        test::channel c{test::channel::NO_CALL};
+
+        ex::sender auto snd = ex::just_error(std::string{"err"}) //
+                              | ex::let_value([&]() {
+                                    called_fun = true;
+                                    return ex::just(17);
+                                });
+        auto op =
+            connect(std::move(snd),
+                    test::any_receiver{.called = &called, .data = &any, .chanel = &c});
+
+        EXPECT(not called);
+        EXPECT(not called_fun);
+        EXPECT(c == test::channel::NO_CALL);
+        start(op);
+        EXPECT(called);
+        // Note: Requirement 3:  using let_value_t = __let_t<set_value_t>;
+        // Note: just_error => let_value， let_value 的完成行为是转发
+        EXPECT(not called_fun);
+        EXPECT(c == test::channel::ERROR_CHANNEL);
+
+        auto str = std::any_cast<std::string>(any);
+        EXPECT(str == std::string{"err"});
+    };
+
+    TEST("let_value can be used with just_stopped") = [] {
+        bool called{false};
+        bool called_fun{false};
+        std::any any;
+        test::channel c{test::channel::NO_CALL};
+
+        ex::sender auto snd =
+            ex::just_stopped() | ex::let_value([]() { return ex::just(1); });
+        auto op =
+            connect(std::move(snd),
+                    test::any_receiver{.called = &called, .data = &any, .chanel = &c});
+
+        EXPECT(not called);
+        EXPECT(not called_fun);
+        EXPECT(c == test::channel::NO_CALL);
+
+        start(op);
+
+        EXPECT(called);
+        EXPECT(not called_fun);
+        EXPECT(c == test::channel::STOPDE_CHANNEL);
+    };
     return 0;
 }
