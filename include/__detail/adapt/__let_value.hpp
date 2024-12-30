@@ -36,6 +36,10 @@
 
 #include "../pipeable/__sender_adaptor.hpp"
 
+#include "../traits/__trait_function.hpp"
+#include "../cmplsigs/__detail/__build_sig_from_args.hpp"
+#include "../snd/general/__CONVERTIBLE_SIG.hpp"
+
 namespace mcs::execution
 {
     namespace adapt
@@ -342,46 +346,23 @@ namespace mcs::execution
         };
     };
 
-    // completion_signatures_for_impl
-    namespace adapt
-    {
-        template <typename Fun, typename Sig>
-        struct compute_fun_result;
-
-        template <typename Fun, typename Completion, typename... Sig>
-            requires(requires() { typename functional::call_result_t<Fun, Sig...>; })
-        struct compute_fun_result<Fun,
-                                  cmplsigs::completion_signatures<Completion(Sig...)>>
-        {
-            using type = functional::call_result_t<Fun, Sig...>;
-        };
-
-        // sndr的send参数列表，调用fun。获得new_sndr。使用new_sndr的签名做签名
-        template <typename Fun, typename Completion, typename Sig>
-        struct compute_let_sigs;
-        template <typename Fun, typename Completion, typename... Sig>
-        struct compute_let_sigs<Fun, Completion, cmplsigs::completion_signatures<Sig...>>
-        {
-            using type = cmplsigs::__detail::filter_sigs_by_completion<
-                Completion, cmplsigs::completion_signatures<Sig...>>;
-        };
-
-    }; // namespace adapt
-
     template <typename Completion, typename Fun, typename Sender, typename Env>
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<adapt::__let_t<Completion>, Fun, Sender>, Env>
     {
-        using PRE_T = snd::completion_signatures_of_t<
-            typename adapt::compute_fun_result<
-                Fun, typename adapt::compute_let_sigs<
-                         Fun, Completion,
-                         snd::completion_signatures_of_t<Sender, Env>>::type>::type,
-            Env>;
-        using ADD_T =
-            cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr)>;
-        using type =
-            __detail::merge_type_lists<completion_signatures, PRE_T, ADD_T>::type;
+        using FILTER_SIGS = typename cmplsigs::__detail::filter_sigs_by_completion<
+            Completion, snd::completion_signatures_of_t<Sender, Env>>::type;
+        using F_INFO = traits::trait_function<Fun>;
+        using To = cmplsigs::__detail::build_sig_from_args<Completion,
+                                                           typename F_INFO::arg_t>::type;
+        static_assert(snd::general::HAS_CONVERTIBLE_SIG<FILTER_SIGS, To>,
+                      "Fun args convertible from pre_snder sender sigs");
+
+        using RET_T = typename F_INFO::ret_t;
+        static_assert(snd::sender<RET_T>, "Fun return value must is snd::sender");
+        using NEXT_SIGS = typename cmplsigs::__detail::filter_sigs_by_completion<
+            Completion, snd::completion_signatures_of_t<RET_T, Env>>::type;
+        using type = NEXT_SIGS;
     };
 
 }; // namespace mcs::execution

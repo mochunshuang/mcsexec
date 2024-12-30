@@ -67,8 +67,7 @@ int main()
         using CO = ex::cmplsigs::get_completion_signatures<T>;
         static_assert(
             std::is_same_v<ex::cmplsigs::completion_signatures<
-                               mcs::execution::recv::set_value_t(int, int, int),
-                               mcs::execution::recv::set_error_t(std::exception_ptr)>,
+                               mcs::execution::recv::set_value_t(int, int, int)>,
                            CO>);
     };
 
@@ -256,6 +255,14 @@ int main()
         EXPECT(not completed);
         start(op);
         EXPECT(completed);
+
+        // receiver 需要额外的 std::exception_ptr 通道，因为还处理可能的异常
+        using T = decltype(snd);
+        using CO = ex::cmplsigs::get_completion_signatures<T>;
+        static_assert(
+            std::is_same_v<
+                ex::cmplsigs::completion_signatures<mcs::execution::recv::set_value_t()>,
+                CO>);
     };
     return 0;
 }
