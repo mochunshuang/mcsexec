@@ -129,10 +129,10 @@ namespace mcs::execution
         struct compute_then_sigs<Fun, Completion, cmplsigs::completion_signatures<Sig...>>
         {
             using type = typename tfxcmplsigs::unique_variadic_template<
-                // Note: complete provides exception_ptr in code
+                // Note: only handle match set_tag
                 typename cmplsigs::completion_signatures<
-                    typename __detail::compute_then_result<Fun, Completion, Sig>::type...,
-                    recv::set_error_t(std::exception_ptr)>>::type;
+                    typename __detail::compute_then_result<Fun, Completion,
+                                                           Sig>::type...>>::type;
         };
     }; // namespace adapt
 

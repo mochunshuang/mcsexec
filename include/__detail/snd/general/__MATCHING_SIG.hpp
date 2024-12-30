@@ -5,21 +5,21 @@ namespace mcs::execution::snd::general
 {
     namespace __detail
     {
-        template <typename Fun>
+        template <typename F1, typename F2>
         struct matching_sig
         {
-            using type = Fun;
+            static constexpr bool value = false; // NOLINT
         };
-        template <typename Return, typename... Args>
-        struct matching_sig<Return(Args...)>
+        template <typename R1, typename R2, typename... Args1, typename... Args2>
+            requires std::same_as<R1(Args1 &&...), R2(Args2 &&...)>
+        struct matching_sig<R1(Args1...), R2(Args2...)>
         {
-            using type = Return(Args &&...);
+            static constexpr bool value = true; // NOLINT
         };
     }; // namespace __detail
 
-    template <typename Fun1, typename Fun2>
+    template <typename F1, typename F2>
     inline constexpr bool MATCHING_SIG = // NOLINT
-        std::same_as<typename __detail::matching_sig<Fun1>::type,
-                     typename __detail::matching_sig<Fun2>::type>;
+        __detail::matching_sig<F1, F2>::value;
 
 }; // namespace mcs::execution::snd::general

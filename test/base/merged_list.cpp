@@ -1,20 +1,12 @@
 #include <type_traits>
 #include <iostream>
 #include "../test_base_head.hpp"
+#include "./concat_same_list.hpp"
 
 // 默认的 type_list 实现
 template <typename... Ts>
 struct type_list
 {
-};
-
-template <template <typename...> class TypeList, typename List1, typename List2>
-struct merge_two_type_lists;
-
-template <template <typename...> class TypeList, typename... Ts1, typename... Ts2>
-struct merge_two_type_lists<TypeList, TypeList<Ts1...>, TypeList<Ts2...>>
-{
-    using type = TypeList<Ts1..., Ts2...>;
 };
 
 template <template <typename...> class TypeList, typename... Lists>
@@ -38,7 +30,7 @@ template <template <typename...> class TypeList, typename List1, typename List2,
           typename... Rest>
 struct merge_type_lists<TypeList, List1, List2, Rest...>
 {
-    using merged_first_two = typename merge_two_type_lists<TypeList, List1, List2>::type;
+    using merged_first_two = typename concat_same_list<TypeList, List1, List2>::type;
     using type = typename merge_type_lists<TypeList, merged_first_two, Rest...>::type;
 };
 
