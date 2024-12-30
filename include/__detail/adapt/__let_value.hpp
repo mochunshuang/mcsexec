@@ -356,7 +356,7 @@ namespace mcs::execution
         using To = cmplsigs::__detail::build_sig_from_args<Completion,
                                                            typename F_INFO::arg_t>::type;
         static_assert(snd::general::HAS_CONVERTIBLE_SIG<FILTER_SIGS, To>,
-                      "Fun args convertible from pre_snder sender sigs");
+                      "Fun args must convertible from pre_snder sender sigs");
 
         using RET_T = typename F_INFO::ret_t;
         static_assert(snd::sender<RET_T>, "Fun return value must is snd::sender");
