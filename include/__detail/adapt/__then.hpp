@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <type_traits>
 #include <utility>
 
 #include "../snd/__transform_sender.hpp"
@@ -16,8 +17,10 @@
 #include "../recv/__set_stopped.hpp"
 #include "../recv/__set_value.hpp"
 
-#include "../tfxcmplsigs/__unique_variadic_template.hpp"
-
+#include "../cmplsigs/__detail/__filter_sigs_by_completion.hpp"
+#include "../traits/__trait_function.hpp"
+#include "../cmplsigs/__detail/__build_sig_from_args.hpp"
+#include "../snd/general/__CONVERTIBLE_SIG.hpp"
 namespace mcs::execution
 {
     namespace adapt
@@ -59,6 +62,7 @@ namespace mcs::execution
         static constexpr auto complete = // NOLINT
             []<class Fn, class Tag, class... Args>(auto, Fn &fn, auto &rcvr, Tag,
                                                    Args &&...args) noexcept -> void {
+            // Note: only handle same Completion or forward
             if constexpr (std::same_as<Tag, Completion>)
             {
                 try
@@ -89,50 +93,34 @@ namespace mcs::execution
 
     namespace adapt
     {
-        namespace __detail
+        template <typename Completion, typename Ret>
+        struct helper
         {
-            template <typename Completion, typename Fun_Return>
-            struct then_sig
-            {
-                using type = Completion(Fun_Return);
-            };
-            template <typename Completion>
-            struct then_sig<Completion, void>
-            {
-                using type = Completion();
-            };
+            using type = cmplsigs::completion_signatures<Completion(Ret)>;
+        };
 
-            template <typename Fun, typename Completion, typename Sig>
-            struct compute_then_result;
-            template <typename Fun, typename C, typename C_Other, typename... Args>
-            struct compute_then_result<Fun, C, C_Other(Args...)>
-            {
-                // Forwards all other completion operations unchanged
-                using type = C_Other(Args...);
-            };
-
-            template <typename Fun, typename Completion, typename... Args>
-            // TODO(mcs): Because the number of implicit conversion, calls may not be just
-            // one if matching Completion not just one
-            // Note: then 作为前一个sender的延续，理论上仅仅修改一个签名
-            struct compute_then_result<Fun, Completion, Completion(Args...)>
-            {
-                using type =
-                    typename then_sig<Completion,
-                                      functional::call_result_t<Fun, Args...>>::type;
-            };
-        }; // namespace __detail
+        template <typename Completion, typename Ret>
+            requires std::is_void_v<Ret>
+        struct helper<Completion, Ret>
+        {
+            using type = cmplsigs::completion_signatures<Completion()>;
+        };
 
         template <typename Fun, typename Completion, typename Sig>
         struct compute_then_sigs;
         template <typename Fun, typename Completion, typename... Sig>
         struct compute_then_sigs<Fun, Completion, cmplsigs::completion_signatures<Sig...>>
         {
-            using type = typename tfxcmplsigs::unique_variadic_template<
-                // Note: only handle match set_tag
-                typename cmplsigs::completion_signatures<
-                    typename __detail::compute_then_result<Fun, Completion,
-                                                           Sig>::type...>>::type;
+
+            using F_INFO = traits::trait_function<Fun>;
+            using To =
+                cmplsigs::__detail::build_sig_from_args<Completion,
+                                                        typename F_INFO::arg_t>::type;
+            using Pre_Sndr_Sig_list = cmplsigs::completion_signatures<Sig...>;
+            static_assert(snd::general::HAS_CONVERTIBLE_SIG<Pre_Sndr_Sig_list, To>);
+
+            using type = // Note: only handle match set_tag
+                typename helper<Completion, typename F_INFO::ret_t>::type;
         };
     }; // namespace adapt
 
@@ -141,7 +129,9 @@ namespace mcs::execution
         snd::__detail::basic_sender<adapt::__then_t<Completion>, Fun, Sender>, Env>
     {
         using type = typename adapt::compute_then_sigs<
-            Fun, Completion, snd::completion_signatures_of_t<Sender, Env>>::type;
+            Fun, Completion,
+            typename cmplsigs::__detail::filter_sigs_by_completion<
+                Completion, snd::completion_signatures_of_t<Sender, Env>>::type>::type;
     };
 
 }; // namespace mcs::execution

@@ -1,5 +1,5 @@
 #pragma once
-#include "./traits/__function_traits.hpp"
+#include "./traits/__trait_function.hpp"
 
 namespace mcs::execution
 {
