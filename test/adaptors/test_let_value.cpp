@@ -1,8 +1,6 @@
 
 #include "../test_base_head.hpp"
 #include <cassert>
-#include <optional>
-#include <tuple>
 
 int main()
 {
@@ -224,6 +222,40 @@ int main()
         EXPECT(called);
         EXPECT(not called_fun);
         EXPECT(c == test::channel::STOPDE_CHANNEL);
+    };
+
+    struct need_add_exception_ptr_receiver
+    {
+        using receiver_concept = ex::receiver_t;
+
+        void set_value() noexcept
+        {
+            completed = true;
+        }
+
+        void set_error(std::exception_ptr) noexcept
+        {
+            completed = true;
+        }
+
+        constexpr auto get_env() const noexcept // NOLINT
+        {
+            return mcs::execution::empty_env{};
+        }
+
+        bool &completed;
+    };
+
+    // 额外的异常签名
+    TEST("let_value does add std::exception_ptr for if except") = [] {
+        auto snd = ex::let_value(ex::just(), []() noexcept { return ex::just(); });
+        bool completed{false};
+        auto op = ex::connect(std::move(snd),
+                              need_add_exception_ptr_receiver{.completed = completed});
+
+        EXPECT(not completed);
+        start(op);
+        EXPECT(completed);
     };
     return 0;
 }

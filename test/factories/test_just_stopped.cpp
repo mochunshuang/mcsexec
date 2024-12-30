@@ -8,12 +8,12 @@ int main()
     using namespace mcs::execution; // NOLINT
     TEST("Simple test for just_stopped") = [] {
         bool called{false};
-        test::Channel chanel{test::Channel::NO_CALL};
+        test::channel chanel{test::channel::NO_CALL};
         auto op = connect(ex::just_stopped(),
                           void_receiver{.called = &called, .chanel = &chanel});
-        EXPECT(not called && chanel == test::Channel::NO_CALL);
+        EXPECT(not called && chanel == test::channel::NO_CALL);
         start(op);
-        EXPECT(called && chanel == test::Channel::STOPDE_CHANNEL);
+        EXPECT(called && chanel == test::channel::STOPDE_CHANNEL);
     };
 
     TEST("just_stopped returns a sender") = [] {
