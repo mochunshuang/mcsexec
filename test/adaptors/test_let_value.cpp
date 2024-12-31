@@ -59,6 +59,15 @@ int main()
         auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
         EXPECT(ret == 17);
     };
+    TEST("let_value returning void can be waited on") = [] {
+        ex::sender auto snd = ex::let_value(ex::just(), [] { return ex::just(); });
+        mcs::this_thread::sync_wait(std::move(snd));
+        {
+            ex::sender auto snd =
+                ex::let_value(ex::just(1), [](int) { return ex::just(); });
+            mcs::this_thread::sync_wait(std::move(snd));
+        }
+    };
 
     TEST("cpo for let_value") = [] {
         ex::sender auto snd =

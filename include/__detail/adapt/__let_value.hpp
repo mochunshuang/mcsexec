@@ -175,7 +175,7 @@ namespace mcs::execution
         template <typename Sigs>
         struct compute_args_variant_t;
         template <typename... Sig>
-        struct compute_args_variant_t<std::tuple<Sig...>>
+        struct compute_args_variant_t<cmplsigs::completion_signatures<Sig...>>
         {
             using type = typename tfxcmplsigs::unique_variadic_template<std::variant<
                 std::monostate, typename __detail::as_tuple_no_tag<Sig>::type...>>::type;
@@ -205,7 +205,8 @@ namespace mcs::execution
         struct compute_ops2_variant_t;
 
         template <typename Fn, typename Rcvr, typename Env, typename... Sig>
-        struct compute_ops2_variant_t<Fn, std::tuple<Sig...>, Rcvr, Env>
+        struct compute_ops2_variant_t<Fn, cmplsigs::completion_signatures<Sig...>, Rcvr,
+                                      Env>
         {
             using type = typename tfxcmplsigs::unique_variadic_template<
                 std::variant<std::monostate, typename __detail::compute_connect_result_t<
@@ -242,66 +243,56 @@ namespace mcs::execution
         // Note: used by general::impls_for<tag_of_t<Sndr>>::get_state
         // Note: used by basic_state, by connect(sndr,recr)
         static constexpr auto get_state = // NOLINT
-            []<class Sndr, class Rcvr>(Sndr &&sndr, Rcvr & /*rcvr*/)
-            requires(requires() {
-                typename adapt::compute_args_variant_t<
-                    typename cmplsigs::__detail::filter_tuple<
-                        cmplsigs::__detail::select_tag<Completion>::template predicate,
-                        cmplsigs::__detail::tpl_param_trnsfr_t<
-                            std::tuple, snd::completion_signatures_of_t<
-                                            snd::__detail::mate_type::child_type<Sndr>,
-                                            queries::env_of_t<Rcvr>>>>::type>::type;
-                typename adapt::compute_ops2_variant_t<
-                    decltype(sndr.apply(
-                        [](auto &, auto &fn, auto & /*child*/) { return fn; })),
-                    typename cmplsigs::__detail::filter_tuple<
-                        cmplsigs::__detail::select_tag<Completion>::template predicate,
-                        cmplsigs::__detail::tpl_param_trnsfr_t<
-                            std::tuple, snd::completion_signatures_of_t<
-                                            snd::__detail::mate_type::child_type<Sndr>,
-                                            queries::env_of_t<Rcvr>>>>::type,
-                    Rcvr,
-                    decltype(adapt::let_env_t<Completion>{}(
-                        sndr.apply([](auto &, auto & /*fn*/, auto &child) {
-                            return child;
-                        })))>::type;
-            })
-        {
-            auto &[_, fn, child] = sndr;
-            constexpr auto let_env = adapt::let_env_t<Completion>(); // NOLINT
+            []<class Sndr, class Rcvr>(Sndr &&sndr, Rcvr & /*rcvr*/) {
+                auto &[_, fn, child] = sndr;
+                constexpr auto let_env = adapt::let_env_t<Completion>(); // NOLINT
 
-            using Fn = std::decay_t<decltype(fn)>;
-            using Env = decltype(let_env(child));
+                using Fn = std::decay_t<decltype(fn)>;
+                using Env = decltype(let_env(child));
 
-            // Sigs is type : completion_signatures<completion(As...)...>
-            using Sigs = snd::completion_signatures_of_t<
-                snd::__detail::mate_type::child_type<Sndr>, queries::env_of_t<Rcvr>>;
+                // Note: 1 : completion_signatures specialization
+                //  Let Sigs be a pack of the arguments to the completion_signatures
+                //  specialization named by completion_signatures_of_t<child-type<Sndr>,
+                //  env_of_t<Rcvr>>
+                using Sigs = snd::completion_signatures_of_t<
+                    snd::__detail::mate_type::child_type<Sndr>, queries::env_of_t<Rcvr>>;
 
-            // std::tuple<Sig...>,the sig tag is Completion
-            using LetSigs = typename cmplsigs::__detail::filter_tuple<
-                cmplsigs::__detail::select_tag<Completion>::template predicate,
-                cmplsigs::__detail::tpl_param_trnsfr_t<std::tuple, Sigs>>::type;
+                // Note: 2 : let set-cpo be set_value, set_error, and set_stopped
+                // respectively
+                //  Let LetSigs be a pack of those types in [Sigs] with a return type of
+                //  decayed-typeof<set-cpo>.
+                using Origin_LetSigs =
+                    typename cmplsigs::__detail::filter_sigs_by_completion<Completion,
+                                                                           Sigs>::type;
+                // Note: set_error_t is unusual，sndr in front may not provided
+                using LetSigs = std::conditional_t<
+                    std::is_same_v<Completion, recv::set_error_t> &&
+                        std::is_same_v<Origin_LetSigs, cmplsigs::completion_signatures<>>,
+                    cmplsigs::completion_signatures<recv::set_error_t(
+                        std::exception_ptr)>,
+                    Origin_LetSigs>;
 
-            // Let as-tuple be an alias template such that as-tuple<Tag(Args...)>
-            // denotes the type decayed-tuple<Args...>. Then args_variant_t denotes
-            // the type variant<monostate, as-tuple<LetSigs>...> except with duplicate
-            // types removed.
-            using args_variant_t = typename adapt::compute_args_variant_t<LetSigs>::type;
+                // Note: 3:
+                // Let as-tuple be an alias template such that as-tuple<Tag(Args...)>
+                // denotes the type decayed-tuple<Args...> Note: 4 : Then args_variant_t
+                // denotes the type variant<monostate,as-tuple<LetSigs>...>
+                using args_variant_t =
+                    typename adapt::compute_args_variant_t<LetSigs>::type;
 
-            // Varint<monostate,connect_result_t<as_sndr2,Reciver2>...>,
-            // and as_sndr2 is result_t by call fun with ags...
-            // and as_sndr2 is Sndr
-            using ops2_variant_t =
-                typename adapt::compute_ops2_variant_t<Fn, LetSigs, Rcvr, Env>::type;
-            struct state_type
-            {
-                Fn fn;               // exposition only
-                Env env;             // exposition only
-                args_variant_t args; // exposition only
-                ops2_variant_t ops2; // exposition only
+                // Varint<monostate,connect_result_t<as_sndr2,Reciver2>...>,
+                // and as_sndr2 is result_t by call fun with ags...
+                // and as_sndr2 is Sndr
+                using ops2_variant_t =
+                    typename adapt::compute_ops2_variant_t<Fn, LetSigs, Rcvr, Env>::type;
+                struct state_type
+                {
+                    Fn fn;               // exposition only
+                    Env env;             // exposition only
+                    args_variant_t args; // exposition only
+                    ops2_variant_t ops2; // exposition only
+                };
+                return state_type{std::forward_like<Sndr>(fn), let_env(child), {}, {}};
             };
-            return state_type{std::forward_like<Sndr>(fn), let_env(child), {}, {}};
-        };
 
         // initialized with a callable object
         // Note: for let-cpo(sndr, f),the rcvr of the sndr call this complete with args...
@@ -355,13 +346,14 @@ namespace mcs::execution
         using F_INFO = traits::trait_function<Fun>;
         using To = cmplsigs::__detail::build_sig_from_args<Completion,
                                                            typename F_INFO::arg_t>::type;
-        static_assert(snd::general::HAS_CONVERTIBLE_SIG<FILTER_SIGS, To>,
+        // skip check set_error_t
+        static_assert(std::is_same_v<Completion, recv::set_error_t> ||
+                          snd::general::HAS_CONVERTIBLE_SIG<FILTER_SIGS, To>,
                       "Fun args must convertible from pre_snder sender sigs");
 
         using RET_T = typename F_INFO::ret_t;
         static_assert(snd::sender<RET_T>, "Fun return value must is snd::sender");
-        using NEXT_SIGS = typename cmplsigs::__detail::filter_sigs_by_completion<
-            Completion, snd::completion_signatures_of_t<RET_T, Env>>::type;
+        using NEXT_SIGS = snd::completion_signatures_of_t<RET_T, Env>;
         using type = NEXT_SIGS;
     };
 
