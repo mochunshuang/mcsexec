@@ -4,30 +4,31 @@
 
 #include "../snd/__sender.hpp"
 #include "../snd/__detail/__product_type.hpp"
+#include <utility>
 
 namespace mcs::execution::pipeable
 {
 
-    template <typename Adaptor, typename T0, typename... T>
+    template <typename Adaptor, typename... T>
     struct sender_adaptor
-        : snd::__detail::product_type<std::decay_t<Adaptor>, std::decay_t<T0>,
-                                      std::decay_t<T>...>,
-          sender_adaptor_closure<sender_adaptor<Adaptor, T0, T...>>
+        : snd::__detail::product_type<std::decay_t<Adaptor>, std::decay_t<T>...>,
+          sender_adaptor_closure<sender_adaptor<Adaptor, T...>>
     {
 
-        template <snd::sender Sndr>
-        static auto apply(Sndr &&sndr, auto &&self) noexcept
+        template <snd::sender Sndr, typename Self>
+        static auto apply(Sndr &&sndr, Self &&self) noexcept
         {
+            auto &&fun = self.template get<0>(); // for safe life time
             return [&]<std::size_t... I>(std::index_sequence<I...>) {
-                return (self.template get<0>())(std::forward<Sndr>(sndr),
-                                                self.template get<I + 1>()...);
+                return fun(std::forward<Sndr>(sndr),
+                           std::forward_like<Self>(self.template get<I + 1>())...);
             }(std::make_index_sequence<sender_adaptor::size() - 1U>{});
         }
 
         template <snd::sender Sndr>
         auto operator()(Sndr &&sndr) noexcept
         {
-            return apply(std::forward<Sndr>(sndr), *this);
+            return apply(std::forward<Sndr>(sndr), ::std::move(*this));
         }
 
         template <snd::sender Sender>

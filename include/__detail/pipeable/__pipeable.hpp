@@ -13,7 +13,7 @@ namespace mcs::execution::pipeable
                 }
     auto operator|(Sndr &&sndr, Adaptor &&adaptor)
     {
-        return adaptor(std::forward<Sndr>(sndr));
+        return std::forward<Adaptor>(adaptor)(std::forward<Sndr>(sndr));
     }
 
 }; // namespace mcs::execution::pipeable

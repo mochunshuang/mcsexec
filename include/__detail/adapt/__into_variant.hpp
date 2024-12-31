@@ -12,6 +12,8 @@
 
 #include "../cmplsigs/__value_types_of_t.hpp"
 
+#include "../pipeable/__sender_adaptor.hpp"
+
 namespace mcs::execution
 {
     namespace adapt
@@ -24,6 +26,11 @@ namespace mcs::execution
                 auto dom = snd::general::get_domain_early(std::as_const(sndr));
                 return snd::transform_sender(
                     dom, snd::make_sender(*this, {}, std::forward<Sndr>(sndr)));
+            }
+
+            auto operator()() const -> pipeable::sender_adaptor<into_variant_t>
+            {
+                return {{*this}};
             }
         };
         inline constexpr into_variant_t into_variant{}; // NOLINT
