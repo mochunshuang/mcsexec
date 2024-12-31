@@ -2,6 +2,7 @@
 #include "../test_base_head.hpp"
 #include <algorithm>
 #include <cassert>
+#include <string_view>
 #include <tuple>
 
 int main()
@@ -79,8 +80,8 @@ int main()
                             mcs::execution::recv::set_value_t(int, double, float)>>);
         }
     };
-#if 1
-    TEST("let_error simple example reference") = [] {
+
+    TEST("let_error simple example ") = [] {
         bool called{false};
         std::any any;
         test::channel c{test::channel::NO_CALL};
@@ -113,13 +114,160 @@ int main()
         auto [ret] = std::any_cast<std::tuple<std::string>>(any);
         EXPECT(ret == "error description");
     };
-#endif
+
     TEST("let_error returning void can be waited on") = [] {
         ex::sender auto snd =
             ex::just_error(std::exception_ptr{}) |
             ex::let_error([](const std::exception_ptr &) { return ex::just(); });
         mcs::this_thread::sync_wait(std::move(snd));
+        {
+
+            ex::sender auto snd =
+                ex::just_error(std::exception_ptr{}) |
+                ex::let_error([](const std::exception_ptr &) { return ex::just(1); });
+            auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
+            EXPECT(ret == 1);
+        }
+        {
+            ex::sender auto snd =
+                ex::just()                    //
+                | ex::then([] { return 13; }) //
+                | ex::let_error([&](std::exception_ptr) { return ex::just(0); });
+            auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
+            EXPECT(ret == 13);
+            static_assert(std::is_same_v<decltype(ret), int>);
+        }
+        // TODO 待未来解决
+        //  如果不一样
+        {
+            {
+                // ex::sender auto snd =
+                //     ex::just()                                   //
+                //     | ex::then([] { return std::string("13"); }) //
+                //     | ex::let_error([&](std::exception_ptr) { return ex::just(0); });
+                // auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
+                // EXPECT(ret == 13);
+                // static_assert(std::is_same_v<decltype(ret), int>);
+            }
+        }
     };
 
+    TEST("let_error can be used to transform errors") = [] {
+        bool called{false};
+        std::any any;
+        test::channel c{test::channel::NO_CALL};
+
+        ex::sender auto snd =
+            ex::just_error(1) //
+            | ex::let_error(
+                  [](int error_code) -> decltype(ex::just_error(std::exception_ptr{})) {
+                      char buf[20];
+                      std::snprintf(buf, 20, "%d", error_code);
+                      throw std::logic_error(buf);
+                  });
+
+        auto op = ex::connect(
+            std::move(snd),
+            test::any_receiver{.called = &called, .data = &any, .chanel = &c});
+        EXPECT(not called);
+        EXPECT(c == test::channel::NO_CALL);
+        start(op);
+        EXPECT(called);
+        EXPECT(c == test::channel::ERROR_CHANNEL);
+        EXPECT(any.has_value());
+
+        // 取出 throw std::logic_error(buf); 的信息，通过重新抛异常
+        try
+        {
+            auto ret = std::any_cast<std::exception_ptr>(any);
+            std::rethrow_exception(ret);
+        }
+        catch (const std::logic_error &e)
+        {
+            EXPECT(std::string_view(e.what()) == "1");
+        }
+    };
+    TEST("let_error can throw, and yield a different error type") = [] {
+        auto error_code = 404;
+        {
+            bool called{false};
+            std::any any;
+            test::channel c{test::channel::NO_CALL};
+            auto snd = ex::just_error(error_code) //
+                       | ex::let_error([](int x) {
+                             if (x % 2 == 0)
+                                 throw std::logic_error{"err"};
+                             return ex::just_error(x);
+                         });
+            auto op = ex::connect(
+                std::move(snd),
+                test::any_receiver{.called = &called, .data = &any, .chanel = &c});
+            start(op);
+            EXPECT(called);
+            EXPECT(c == test::channel::ERROR_CHANNEL);
+            EXPECT(any.has_value());
+            auto ret = std::any_cast<std::exception_ptr>(any);
+        }
+        error_code = 501;
+        {
+            bool called{false};
+            std::any any;
+            test::channel c{test::channel::NO_CALL};
+            auto snd = ex::just_error(error_code) //
+                       | ex::let_error([](int x) {
+                             if (x % 2 == 0)
+                                 throw std::logic_error{"err"};
+                             return ex::just_error(x);
+                         });
+            auto op = ex::connect(
+                std::move(snd),
+                test::any_receiver{.called = &called, .data = &any, .chanel = &c});
+            start(op);
+            EXPECT(called);
+            EXPECT(c == test::channel::ERROR_CHANNEL);
+            EXPECT(any.has_value());
+            auto ret = std::any_cast<int>(any);
+            EXPECT(ret == 501);
+        }
+    };
+    TEST("let_error can be used with just_stopped") = [] {
+        bool called{false};
+        std::any any;
+        test::channel c{test::channel::NO_CALL};
+
+        bool fun_called{false};
+
+        ex::sender auto snd = ex::just_stopped() //
+                              | ex::let_error([&](std::exception_ptr) {
+                                    fun_called = true;
+                                    return ex::just(17);
+                                });
+        auto op =
+            connect(std::move(snd),
+                    test::any_receiver{.called = &called, .data = &any, .chanel = &c});
+        start(op);
+        EXPECT(not fun_called);
+        EXPECT(c == test::channel::STOPDE_CHANNEL);
+    };
+    TEST("let_error function is not called on regular flow") = [] {
+        bool called{false};
+        std::any any;
+        test::channel c{test::channel::NO_CALL};
+
+        bool fun_called{false};
+
+        ex::sender auto snd = ex::just()                    //
+                              | ex::then([] { return 13; }) //
+                              | ex::let_error([&](std::exception_ptr) {
+                                    fun_called = true;
+                                    return ex::just(0);
+                                });
+        auto op =
+            connect(std::move(snd),
+                    test::any_receiver{.called = &called, .data = &any, .chanel = &c});
+        start(op);
+        EXPECT(not fun_called);
+        EXPECT(c == test::channel::VALUE_CHANNEL);
+    };
     return 0;
 }
