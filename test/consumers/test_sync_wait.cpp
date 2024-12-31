@@ -1,6 +1,8 @@
 #include "../test_base_head.hpp"
 #include <algorithm>
+#include <optional>
 #include <stdexcept>
+#include <tuple>
 
 int main()
 {
@@ -78,6 +80,28 @@ int main()
         {
             UNEXPECT("invalid exception received");
         }
+    };
+
+    TEST("sync_wait_with_variant accepts single-value senders") = [] {
+        ex::sender auto snd = ex::just(13);
+        static_assert(std::invocable<decltype(mcs::this_thread::sync_wait_with_variant),
+                                     decltype(snd)>);
+
+        variant<std::tuple<std::variant<std::tuple<int>>>> res =
+            mcs::this_thread::sync_wait_with_variant(std::move(snd)).value();
+        auto [ret] = std::get<0>(std::get<0>(std::get<0>(res)));
+        EXPECT(ret == 13);
+    };
+
+    TEST("sync_wait_with_variant accepts mult-value senders") = [] {
+        ex::sender auto snd = ex::just(13, 1.0);
+        static_assert(std::invocable<decltype(mcs::this_thread::sync_wait_with_variant),
+                                     decltype(snd)>);
+        std::optional<variant<std::tuple<std::variant<std::tuple<int, double>>>>> res =
+            mcs::this_thread::sync_wait_with_variant(std::move(snd));
+        auto [ret, f] = std::get<0>(std::get<0>(std::get<0>(res.value())));
+        EXPECT(ret == 13);
+        EXPECT(f == 1.0);
     };
 
     return 0;
