@@ -3,13 +3,17 @@
 
 int main()
 {
+    using namespace mcs::execution;
     TEST("let_error CS") = [] {
         ex::sender auto snd [[maybe_unused]] =
             ex::just() | ex::let_error([](std::exception_ptr &&) { return ex::just(); });
         using T = decltype(snd);
         using CS = ex::cmplsigs::get_completion_signatures<T>;
-        static_assert(std::is_same_v<CS, mcs::execution::cmplsigs::completion_signatures<
-                                             mcs::execution::recv::set_value_t()>>);
+        static_assert(
+            std::is_same_v<
+                CS, mcs::execution::cmplsigs::completion_signatures<
+                        mcs::execution::recv::set_value_t(),
+                        recv::set_error_t(std::exception_ptr), recv::set_stopped_t()>>);
         {
             ex::sender auto snd [[maybe_unused]] =
                 ex::just() | ex::let_error([](std::exception_ptr &&) {
@@ -19,8 +23,11 @@ int main()
             using CS = ex::cmplsigs::get_completion_signatures<T>;
             static_assert(
                 std::is_same_v<
-                    CS, mcs::execution::cmplsigs::completion_signatures<
-                            mcs::execution::recv::set_value_t(int, double, float)>>);
+                    CS,
+                    mcs::execution::cmplsigs::completion_signatures<
+                        recv::set_value_t(),
+                        mcs::execution::recv::set_value_t(int, double, float),
+                        recv::set_error_t(std::exception_ptr), recv::set_stopped_t()>>);
         }
         {
             ex::sender auto snd [[maybe_unused]] =
@@ -31,7 +38,9 @@ int main()
             using CS = ex::cmplsigs::get_completion_signatures<T>;
             static_assert(
                 std::is_same_v<CS, mcs::execution::cmplsigs::completion_signatures<
-                                       mcs::execution::recv::set_error_t(int)>>);
+                                       recv::set_value_t(), recv::set_error_t(int),
+                                       recv::set_error_t(std::exception_ptr),
+                                       recv::set_stopped_t()>>);
         }
     };
     TEST("let_error : from  logic_error to error_str ") = [] {
@@ -52,8 +61,10 @@ int main()
         using T = decltype(snd);
         using CS = ex::cmplsigs::get_completion_signatures<T>;
         static_assert(
-            std::is_same_v<CS, mcs::execution::cmplsigs::completion_signatures<
-                                   mcs::execution::recv::set_value_t(std::string)>>);
+            std::is_same_v<
+                CS, mcs::execution::cmplsigs::completion_signatures<
+                        mcs::execution::recv::set_value_t(std::string),
+                        recv::set_error_t(std::exception_ptr), recv::set_stopped_t()>>);
     };
 
     {

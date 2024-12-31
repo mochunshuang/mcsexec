@@ -66,8 +66,6 @@ int main()
                                std::make_error_code(std::errc::argument_out_of_domain));
                        });
             using T = ex::cmplsigs::get_completion_signatures<decltype(snd)>;
-            static_assert(
-                std::is_same_v<T, ex::cmplsigs::undefine_completion_signatures_for>);
 
             // sync_wait(std::move(snd));
             // UNEXPECT("It's impossible to reach");

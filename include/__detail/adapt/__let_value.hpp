@@ -1,4 +1,5 @@
 #pragma once
+#include <type_traits>
 #include <utility>
 #include <variant>
 #include <tuple>
@@ -22,10 +23,7 @@
 #include "../queries/__get_env.hpp"
 #include "../queries/__env_of_t.hpp"
 
-#include "../cmplsigs/__detail/__select_tag.hpp"
 #include "../cmplsigs/__detail/__merge_type_lists.hpp"
-#include "../cmplsigs/__detail/__filter_tuple.hpp"
-#include "../cmplsigs/__detail/__tpl_param_trnsfr.hpp"
 #include "../cmplsigs/__detail/__filter_sigs_by_completion.hpp"
 
 #include "../tfxcmplsigs/__unique_variadic_template.hpp"
@@ -351,10 +349,23 @@ namespace mcs::execution
                           snd::general::HAS_CONVERTIBLE_SIG<FILTER_SIGS, To>,
                       "Fun args must convertible from pre_snder sender sigs");
 
-        using RET_T = typename F_INFO::ret_t;
-        static_assert(snd::sender<RET_T>, "Fun return value must is snd::sender");
-        using NEXT_SIGS = snd::completion_signatures_of_t<RET_T, Env>;
-        using type = NEXT_SIGS;
+        using Sndr = typename F_INFO::ret_t;
+        static_assert(snd::sender<Sndr>, "Fun return value must is snd::sender");
+
+        using V_Sig_For_E = std::conditional_t<
+            std::is_same_v<Completion, recv::set_error_t>,
+            typename cmplsigs::__detail::filter_sigs_by_completion<
+                recv::set_value_t, snd::completion_signatures_of_t<Sender, Env>>::type,
+            completion_signatures<>>;
+        using Base_Sig =
+            cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr),
+                                            recv::set_stopped_t()>;
+        using NEXT_SIGS = snd::completion_signatures_of_t<Sndr, Env>;
+        using type = typename tfxcmplsigs::unique_variadic_template<
+            typename cmplsigs::__detail::merge_type_lists<cmplsigs::completion_signatures,
+                                                          V_Sig_For_E, NEXT_SIGS,
+                                                          Base_Sig>::type>::type;
+        ;
     };
 
 }; // namespace mcs::execution

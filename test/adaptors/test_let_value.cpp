@@ -5,6 +5,7 @@
 int main()
 {
 
+    using namespace mcs::execution; // NOLINT
     auto sndr = ex::let_value(ex::just(), [] { return ex::just(); });
     "let_value returns a sender"_test = [&] {
         static_assert(ex::sender<decltype(sndr)>);
@@ -74,10 +75,11 @@ int main()
             ex::just() | ex::let_value([] { return ex::just(1, 2, 3); });
         using T = decltype(snd);
         using CO = ex::cmplsigs::get_completion_signatures<T>;
-        static_assert(
-            std::is_same_v<ex::cmplsigs::completion_signatures<
-                               mcs::execution::recv::set_value_t(int, int, int)>,
-                           CO>);
+        static_assert(std::is_same_v<
+                      ex::cmplsigs::completion_signatures<
+                          mcs::execution::recv::set_value_t(int, int, int),
+                          recv::set_error_t(std::exception_ptr), recv::set_stopped_t()>,
+                      CO>);
     };
 
     TEST("let_value can be used with multiple parameters") = [] {
@@ -270,7 +272,9 @@ int main()
         using CO = ex::cmplsigs::get_completion_signatures<T>;
         static_assert(
             std::is_same_v<
-                ex::cmplsigs::completion_signatures<mcs::execution::recv::set_value_t()>,
+                ex::cmplsigs::completion_signatures<mcs::execution::recv::set_value_t(),
+                                                    recv::set_error_t(std::exception_ptr),
+                                                    recv::set_stopped_t()>,
                 CO>);
     };
     return 0;

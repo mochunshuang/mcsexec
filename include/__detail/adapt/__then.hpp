@@ -21,6 +21,9 @@
 #include "../traits/__trait_function.hpp"
 #include "../cmplsigs/__detail/__build_sig_from_args.hpp"
 #include "../snd/general/__CONVERTIBLE_SIG.hpp"
+
+#include "../tfxcmplsigs/__unique_variadic_template.hpp"
+#include "../cmplsigs/__detail/__merge_type_lists.hpp"
 namespace mcs::execution
 {
     namespace adapt
@@ -113,6 +116,11 @@ namespace mcs::execution
         {
 
             using F_INFO = traits::trait_function<Fun>;
+            using V_Sig =
+                typename helper<recv::set_value_t, typename F_INFO::ret_t>::type;
+            using Base_Sig =
+                cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr),
+                                                recv::set_stopped_t()>;
             using To =
                 cmplsigs::__detail::build_sig_from_args<Completion,
                                                         typename F_INFO::arg_t>::type;
@@ -120,7 +128,9 @@ namespace mcs::execution
             static_assert(snd::general::HAS_CONVERTIBLE_SIG<Pre_Sndr_Sig_list, To>);
 
             using type = // Note: only handle match set_tag
-                typename helper<Completion, typename F_INFO::ret_t>::type;
+                typename tfxcmplsigs::unique_variadic_template<
+                    typename cmplsigs::__detail::merge_type_lists<
+                        cmplsigs::completion_signatures, V_Sig, Base_Sig>::type>::type;
         };
     }; // namespace adapt
 
