@@ -129,6 +129,8 @@ int main()
             EXPECT(ret == 1);
         }
         {
+            // Note: the input sender has exactly one value completion signature
+            // set_value_t(int)
             ex::sender auto snd =
                 ex::just()                    //
                 | ex::then([] { return 13; }) //
@@ -137,9 +139,12 @@ int main()
             EXPECT(ret == 13);
             static_assert(std::is_same_v<decltype(ret), int>);
         }
-        // TODO 待未来解决
+
         //  如果不一样
         {
+            // Note: sync_wait mandates that the input sender has exactly one value
+            // completion signature.
+            // Note: 只能是 一个 值完成签名，因此。肯定是解决不了的。 string 和 int 冲突
             {
                 // ex::sender auto snd =
                 //     ex::just()                                   //

@@ -1,3 +1,4 @@
+#include <exception>
 #include <type_traits>
 #include <iostream>
 #include "../test_base_head.hpp"
@@ -128,4 +129,19 @@ void merge_CPO()
     static_assert(std::is_same_v<UT, cmplsigs::completion_signatures<
                                          recv::set_value_t(), recv::set_value_t(int),
                                          recv::set_error_t(int), recv::set_stopped_t()>>);
+    // additional
+    using AND_SIG = cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr),
+                                                    recv::set_stopped_t()>;
+
+    using SIG = cmplsigs::completion_signatures<recv::set_value_t(),
+                                                recv::set_error_t(std::exception_ptr),
+                                                recv::set_stopped_t()>;
+
+    using Tatall = tfxcmplsigs::unique_variadic_template<
+        merge_type_lists<cmplsigs::completion_signatures, SIG, AND_SIG>::type>::type;
+    static_assert(
+        std::is_same_v<
+            Tatall, cmplsigs::completion_signatures<recv::set_value_t(),
+                                                    recv::set_error_t(std::exception_ptr),
+                                                    recv::set_stopped_t()>>);
 }

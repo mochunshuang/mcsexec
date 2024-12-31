@@ -55,5 +55,14 @@ int main()
             std::is_same_v<CS, mcs::execution::cmplsigs::completion_signatures<
                                    mcs::execution::recv::set_value_t(std::string)>>);
     };
+
+    {
+        ex::sender auto snd =
+            ex::just()                                   //
+            | ex::then([] { return std::string("13"); }) //
+            | ex::let_error([&](std::exception_ptr) { return ex::just(0); });
+        using T = ex::cmplsigs::get_completion_signatures<decltype(snd)>;
+        // static_assert(std::is_same_v<T, int>);
+    }
     return 0;
 }
