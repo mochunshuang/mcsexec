@@ -57,20 +57,23 @@ namespace mcs::execution::snd
         template <typename S, typename E>
         constexpr auto operator()(S &&sndr, E &&env) const noexcept
         {
-            decltype(auto) tmp =
-                transform_sender(decltype(general::get_domain_late(sndr, env)){}, //
-                                 std::forward<S>(sndr), env);
-            decltype(auto) new_sndr{std::forward<decltype(tmp)>(tmp)};
 
-            using NewSndr = decltype((new_sndr));
+            // RTV
+            auto new_sndr = [&]() {
+                return transform_sender(
+                    decltype(general::get_domain_late(sndr, env)){}, //
+                    std::forward<S>(sndr), env);
+            };
+
+            using NewSndr = decltype((new_sndr()));
             using Env = decltype((env));
 
             if constexpr (requires {
-                              std::forward<decltype(new_sndr)>(new_sndr)
+                              std::forward<decltype(new_sndr())>(new_sndr())
                                   .get_completion_signatures(std::forward<E>(env));
                           })
             {
-                using CS = decltype(std::forward<decltype(new_sndr)>(new_sndr)
+                using CS = decltype(std::forward<decltype(new_sndr())>(new_sndr())
                                         .get_completion_signatures(std::forward<E>(env)));
                 return (void(sndr), void(env), CS());
             }

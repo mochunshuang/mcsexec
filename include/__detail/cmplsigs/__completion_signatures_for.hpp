@@ -1,6 +1,7 @@
 #pragma once
 #include "../__core_types.hpp"
-#include <type_traits>
+#include "../snd/__get_completion_signatures.hpp"
+#include <utility>
 
 namespace mcs::execution::cmplsigs
 {
@@ -41,6 +42,7 @@ namespace mcs::execution::cmplsigs
         typename __detail::__completion_signatures_for<Sndr, Env>::type;
 
     template <class Sndr, class Env = empty_env>
-    using get_completion_signatures = completion_signatures_for<Sndr, Env>;
+    using get_completion_signatures = decltype(snd::get_completion_signatures(
+        std::declval<Sndr>(), std::declval<Env>()));
 
 }; // namespace mcs::execution::cmplsigs
