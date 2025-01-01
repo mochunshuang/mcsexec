@@ -124,8 +124,14 @@ namespace mcs::execution
             using To =
                 cmplsigs::__detail::build_sig_from_args<Completion,
                                                         typename F_INFO::arg_t>::type;
-            using Pre_Sndr_Sig_list = cmplsigs::completion_signatures<Sig...>;
-            static_assert(snd::general::HAS_CONVERTIBLE_SIG<Pre_Sndr_Sig_list, To>);
+
+            using Filt_Sig_list = typename cmplsigs::__detail::filter_sigs_by_completion<
+                Completion, cmplsigs::completion_signatures<Sig...>>::type;
+            // skip: std::is_same_v<Filt_Sig_list, cmplsigs::completion_signatures<>>
+            static_assert(
+                std::is_same_v<Filt_Sig_list, cmplsigs::completion_signatures<>> ||
+                    snd::general::HAS_CONVERTIBLE_SIG<Filt_Sig_list, To>,
+                "Fun args must convertible from pre_snder sender sigs");
 
             using type = // Note: only handle match set_tag
                 typename tfxcmplsigs::unique_variadic_template<

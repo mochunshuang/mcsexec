@@ -339,16 +339,20 @@ namespace mcs::execution
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<adapt::__let_t<Completion>, Fun, Sender>, Env>
     {
-        using FILTER_SIGS = typename cmplsigs::__detail::filter_sigs_by_completion<
-            Completion, snd::completion_signatures_of_t<Sender, Env>>::type;
+
         using F_INFO = traits::trait_function<Fun>;
         using To = cmplsigs::__detail::build_sig_from_args<Completion,
                                                            typename F_INFO::arg_t>::type;
-        // skip check set_error_t
-        static_assert(std::is_same_v<Completion, recv::set_error_t> ||
-                          std::is_same_v<Completion, recv::set_stopped_t> ||
-                          snd::general::HAS_CONVERTIBLE_SIG<FILTER_SIGS, To>,
-                      "Fun args must convertible from pre_snder sender sigs");
+
+        using Filt_Sig_list = typename cmplsigs::__detail::filter_sigs_by_completion<
+            Completion, snd::completion_signatures_of_t<Sender, Env>>::type;
+        // skip: std::is_same_v<Filt_Sig_list, cmplsigs::completion_signatures<>>
+        // skip: set_error_t because throw expr not generate E_sIG
+        static_assert(
+            std::is_same_v<recv::set_error_t, Completion> ||
+                std::is_same_v<Filt_Sig_list, cmplsigs::completion_signatures<>> ||
+                snd::general::HAS_CONVERTIBLE_SIG<Filt_Sig_list, To>,
+            "Fun args must convertible from pre_snder sender sigs");
 
         using Sndr = typename F_INFO::ret_t;
         static_assert(snd::sender<Sndr>, "Fun return value must is snd::sender");
@@ -366,7 +370,6 @@ namespace mcs::execution
             typename cmplsigs::__detail::merge_type_lists<cmplsigs::completion_signatures,
                                                           V_Sig_For_E, NEXT_SIGS,
                                                           Base_Sig>::type>::type;
-        ;
     };
 
 }; // namespace mcs::execution
