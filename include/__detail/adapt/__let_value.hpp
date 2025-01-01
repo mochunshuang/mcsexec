@@ -346,6 +346,7 @@ namespace mcs::execution
                                                            typename F_INFO::arg_t>::type;
         // skip check set_error_t
         static_assert(std::is_same_v<Completion, recv::set_error_t> ||
+                          std::is_same_v<Completion, recv::set_stopped_t> ||
                           snd::general::HAS_CONVERTIBLE_SIG<FILTER_SIGS, To>,
                       "Fun args must convertible from pre_snder sender sigs");
 
