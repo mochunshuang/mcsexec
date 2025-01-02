@@ -1,4 +1,5 @@
 #include "../test_base_head.hpp"
+#include <stdexcept>
 
 int main()
 {
@@ -94,6 +95,70 @@ int main()
                             }
                         });
             mcs::this_thread::sync_wait(sndr);
+        }
+        {
+            auto snd =
+                ex::just() | ex::then([] { throw std::logic_error{"error"}; }) //
+                | ex::upon_error(
+
+                      [](std::exception_ptr &&e) -> double {
+                          std::cout << "pre call from exception....\n";
+                          try
+                          {
+                              std::rethrow_exception(e); // 重新抛出异常
+                          }
+                          catch (const std::logic_error &ex) // 专门捕获 std::logic_error
+                          {
+                              std::cout << "catch  exception....\n";
+                              assert(std::string(ex.what()) == "error");
+                          }
+                          catch (...)
+                          {
+                          }
+                          // Note: 不要返回值了，let_error 做返回值。
+                          // Note:  upon_error 有返回值会继续抛异常
+                          //   std::cout << "return....\n";
+                          // TODO(mcs): 返回会有 bug
+                          return 1.1; // 会继续抛异常，
+                      });
+
+            // mcs::this_thread::sync_wait(snd); //不是单一返回值编译器错误
+
+            auto sndr = snd | ex::then([](auto &&...v) {
+                            if constexpr (sizeof...(v) == 1)
+                            {
+                                std::cout << "call from exception....\n";
+                                EXPECT(std::tuple<double>{1.0} == std::tuple{v...});
+                            }
+                            else
+                            {
+                                UNEXPECT("cant not");
+                            }
+                        });
+
+            using T = decltype(std::make_exception_ptr(1));
+            try
+            {
+                mcs::this_thread::sync_wait(sndr);
+                int a = 1;
+            }
+            catch (std::exception_ptr &ex)
+            {
+                std::cout << "sync_wait: call from exception....\n";
+                try
+                {
+                    std::rethrow_exception(std::move(ex)); // 重新抛出异常
+                }
+                catch (double ex) // 专门捕获 std::logic_error
+                {
+                    std::cout << "call from exception....\n";
+                }
+            }
+            catch (...)
+            {
+                // TODO(mcs): 未知异常，不应该
+                std::cout << "unknown exception....\n";
+            }
         }
     };
     return 0;

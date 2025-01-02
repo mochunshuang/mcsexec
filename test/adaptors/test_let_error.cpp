@@ -281,5 +281,25 @@ int main()
         EXPECT(not fun_called);
         EXPECT(c == test::channel::VALUE_CHANNEL);
     };
+
+    TEST("with sync_wait") = [] {
+        ex::sender auto snd = ex::just() //
+                              | ex::then([]() -> std::string {
+                                    throw std::logic_error{"error description"};
+                                    return {};
+                                }) //
+                              | ex::let_error([](std::exception_ptr eptr) {
+                                    try
+                                    {
+                                        std::rethrow_exception(std::move(eptr));
+                                    }
+                                    catch (const std::exception &e)
+                                    {
+                                        return ex::just(std::string{e.what()});
+                                    }
+                                });
+        auto [ret] = mcs::this_thread::sync_wait(snd).value();
+        EXPECT(ret == "error description");
+    };
     return 0;
 }

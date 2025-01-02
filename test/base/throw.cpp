@@ -17,10 +17,12 @@ auto fun2() noexcept {} // NOLINT
 
 void catch_throw(); // NOLINT
 void invokeable();  // NOLINT
+void test_make();   // NOLINT
 int main()
 {
     catch_throw();
     invokeable();
+    test_make();
 
     // 能不能 萃取出 fun 是否抛异常，抛那些异常
     // Note: 不可能。 因此 CS 的签名，必须额外冗余
@@ -206,4 +208,21 @@ void invokeable() // NOLINT
     static_assert(functional::callable<F1, T>);
     static_assert(functional::callable<F2, T>);
     static_assert(not functional::callable<F3, T>); // 满足
+}
+void test_make()
+{
+    std::exception_ptr eptr = std::make_exception_ptr(1); // 创建一个 int 类型的异常
+
+    try
+    {
+        std::rethrow_exception(eptr); // 重新抛出异常
+    }
+    catch (int value)
+    { // 直接捕获 int 类型的异常
+        std::cout << "Caught an int exception with value: " << value << "\n";
+    }
+    catch (...)
+    { // 捕获其他类型的异常
+        std::cout << "Caught an unknown exception!\n";
+    }
 }
