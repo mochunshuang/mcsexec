@@ -142,22 +142,9 @@ int main()
                 mcs::this_thread::sync_wait(sndr);
                 int a = 1;
             }
-            catch (std::exception_ptr &ex)
+            catch (double ex)
             {
-                std::cout << "sync_wait: call from exception....\n";
-                try
-                {
-                    std::rethrow_exception(std::move(ex)); // 重新抛出异常
-                }
-                catch (double ex) // 专门捕获 std::logic_error
-                {
-                    std::cout << "call from exception....\n";
-                }
-            }
-            catch (...)
-            {
-                // TODO(mcs): 未知异常，不应该
-                std::cout << "unknown exception....\n";
+                std::cout << "sync_wait: call from exception double: " << ex << "  \n";
             }
         }
     };
