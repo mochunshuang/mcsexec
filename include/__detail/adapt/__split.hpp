@@ -303,7 +303,7 @@ namespace mcs::execution
                 // 1. Sets completed to true,
                 // 2. Exchanges waiting_states with an empty list,
                 //      storing the old value in a local prior_states.
-                SimpleAtomicOperation atomicOpration;
+                tool::SimpleAtomicOperation atomicOpration;
                 state_list_type prior_states;
                 atomicOpration([&] { completed.store(true, std::memory_order_release); },
                                [&] { prior_states = std::move(waiting_states); });
@@ -537,7 +537,7 @@ namespace mcs::execution
                 // 2. Inserts addressof(state) into waiting_states if c is false.
                 bool c{false};
                 bool first_item{false};
-                SimpleAtomicOperation atomicOpration;
+                tool::SimpleAtomicOperation atomicOpration;
                 atomicOpration([&] { c = state.sh_state->completed.load(); },
                                [&] {
                                    if (not c)
