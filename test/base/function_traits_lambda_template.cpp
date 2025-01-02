@@ -218,7 +218,7 @@ namespace
         cmplsigs::__detail::filter_sigs_by_completion<set_value_t, PRE_Sigs>::type;
     using Ret = Make_Return_Sigs<Fun, Filter_V_Sig>::type;
 
-    static_assert(std::is_same_v<Ret, tool::Make_Return_Sigs<Fun, Filter_V_Sig>::type>);
+    static_assert(std::is_same_v<Ret, tool::Generate_V_Sigs<Fun, Filter_V_Sig>::type>);
 
     static_assert(std::is_same_v<Ret,
                                  cmplsigs::completion_signatures<
@@ -230,6 +230,6 @@ namespace
     using R_1 = Make_Return_Sigs<Fun, Filter_V_Sig_1>::type;
     // Note: 说明没有一个 Sig 能够调用 Fun
     static_assert(std::is_same_v<R_1, cmplsigs::completion_signatures<>>);
-    static_assert(std::is_same_v<R_1, tool::Make_Return_Sigs<Fun, Filter_V_Sig_1>::type>);
+    static_assert(std::is_same_v<R_1, tool::Generate_V_Sigs<Fun, Filter_V_Sig_1>::type>);
 
 } // namespace

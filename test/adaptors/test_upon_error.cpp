@@ -44,12 +44,38 @@ int main()
         static_assert(ex::sender<decltype(snd)>);
         using S = decltype(snd);
         static_assert(ex::sender<S>);
-        using CS = decltype(ex::get_completion_signatures(snd, ex::empty_env{}));
-        static_assert(
-            std::is_same_v<
-                CS, cmplsigs::completion_signatures<recv::set_value_t(double),
-                                                    recv::set_error_t(std::exception_ptr),
-                                                    recv::set_stopped_t()>>);
+        // Note: compile error
+        // Note: []() -> double { return 0.0; } cant not handle set_error_t(e)
+        // using CS = decltype(ex::get_completion_signatures(snd, ex::empty_env{}));
+        // static_assert(
+        //     tool::eq_set_sigs_v<
+        //         CS, cmplsigs::completion_signatures<recv::set_value_t(double),
+        //                                             recv::set_error_t(std::exception_ptr),
+        //                                             recv::set_value_t()>>);
+        {
+            auto snd = ex::upon_error(
+                ex::just(), [](const std::exception_ptr &e) -> double { return 0.0; });
+            static_assert(ex::sender<decltype(snd)>);
+            using S = decltype(snd);
+            static_assert(ex::sender<S>);
+            // Note: OK; std::exception_ptr &e cat match pre_sndr sendr e
+            using CS = decltype(ex::get_completion_signatures(snd, ex::empty_env{}));
+            // TODO(mcs): just() 不空有异常因此，不可能 添加 double 的 SCS
+            static_assert(
+                std::is_same_v<
+                    CS, cmplsigs::completion_signatures<
+                            recv::set_value_t(), recv::set_error_t(std::exception_ptr)>>);
+        }
+        {
+            auto snd =
+                ex::upon_error(ex::just() | ex::then([] {}),
+                               [](const std::exception_ptr &e) -> double { return 0.0; });
+            using CS = decltype(ex::get_completion_signatures(snd, ex::empty_env{}));
+            static_assert(ex::tool::eq_set_sigs_v<
+                          CS, cmplsigs::completion_signatures<
+                                  recv::set_value_t(), recv::set_value_t(double),
+                                  recv::set_error_t(std::exception_ptr)>>);
+        }
     };
 
     TEST("upon_error many input error types") = [] {

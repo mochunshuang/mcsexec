@@ -8,8 +8,7 @@ int main()
         using CS = ex::cmplsigs::get_completion_signatures<T>;
         static_assert(std::is_same_v<CS, ex::cmplsigs::completion_signatures<
                                              ex::recv::set_value_t(),
-                                             ex::recv::set_error_t(std::exception_ptr),
-                                             ex::recv::set_stopped_t()>>);
+                                             ex::recv::set_error_t(std::exception_ptr)>>);
         mcs::this_thread::sync_wait(std::move(sndr));
     };
 
@@ -19,8 +18,7 @@ int main()
         using CS = ex::cmplsigs::get_completion_signatures<T>;
         static_assert(std::is_same_v<CS, ex::cmplsigs::completion_signatures<
                                              ex::recv::set_value_t(int),
-                                             ex::recv::set_error_t(std::exception_ptr),
-                                             ex::recv::set_stopped_t()>>);
+                                             ex::recv::set_error_t(std::exception_ptr)>>);
         auto [ret] = mcs::this_thread::sync_wait(std::move(sndr)).value();
         EXPECT(ret == 1);
     };

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <exception>
 #include <functional>
 #include <type_traits>
 #include <utility>
@@ -24,6 +25,9 @@
 
 #include "../tfxcmplsigs/__unique_variadic_template.hpp"
 #include "../cmplsigs/__detail/__merge_type_lists.hpp"
+
+#include "../tool/Make_Return_Sigs.hpp"
+
 namespace mcs::execution
 {
     namespace adapt
@@ -109,34 +113,84 @@ namespace mcs::execution
             using type = cmplsigs::completion_signatures<Completion()>;
         };
 
+        template <typename Fun, typename Completion, typename Fun_Result_Sig>
+        struct Complile_Error;
+
+        template <typename Fun, typename Fun_Result_Sig>
+        struct Complile_Error<Fun, recv::set_value_t, Fun_Result_Sig>
+        {
+            static constexpr bool value = false; // NOLINT
+        };
+        template <typename Fun>
+        struct Complile_Error<Fun, recv::set_value_t, cmplsigs::completion_signatures<>>
+        {
+            // Note: pre_sig_v_sig + fun not match must Complile_Error
+            static constexpr bool value = true; // NOLINT
+        };
+
+        template <typename Fun, typename Fun_Result_Sig>
+        struct Complile_Error<Fun, recv::set_error_t, Fun_Result_Sig>
+        {
+            static constexpr bool value = false; // NOLINT
+        };
+
+        template <typename Fun>
+        struct Complile_Error<Fun, recv::set_error_t, cmplsigs::completion_signatures<>>
+        {
+            static constexpr bool value = // NOLINT
+                not functional::callable<Fun, decltype(std::current_exception())>;
+        };
+
+        /**
+         * Note: to value completion or Forward for all completion sigs
+         * @brief The expression then-cpo(sndr, f) has undefined behavior unless it
+         * returns a sender out_sndr that: 1、Invokes f or a copy of such with the value,
+         * error, or stopped result datums of sndr for then, upon_error, and upon_stopped
+         * [respectively], using the result value of f as out_sndr's value completion, and
+         *
+         * 2、Forwards all [other completion] operations unchanged.
+         *
+         * Note: must hande respectively completion anyway, and Forwards other completion
+         */
         template <typename Fun, typename Completion, typename Sig>
         struct compute_then_sigs;
         template <typename Fun, typename Completion, typename... Sig>
         struct compute_then_sigs<Fun, Completion, cmplsigs::completion_signatures<Sig...>>
         {
 
-            using F_INFO = traits::trait_function<Fun>;
-            using V_Sig =
-                typename helper<recv::set_value_t, typename F_INFO::ret_t>::type;
-            using Base_Sig =
-                cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr),
-                                                recv::set_stopped_t()>;
-            using To =
-                cmplsigs::__detail::build_sig_from_args<Completion,
-                                                        typename F_INFO::arg_t>::type;
+            using Add_Sig =
+                cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr)>;
 
-            using Filt_Sig_list = typename cmplsigs::__detail::filter_sigs_by_completion<
-                Completion, cmplsigs::completion_signatures<Sig...>>::type;
-            // skip: std::is_same_v<Filt_Sig_list, cmplsigs::completion_signatures<>>
-            static_assert(
-                std::is_same_v<Filt_Sig_list, cmplsigs::completion_signatures<>> ||
-                    snd::general::HAS_CONVERTIBLE_SIG<Filt_Sig_list, To>,
-                "Fun args must convertible from pre_snder sender sigs");
+            using Must_Handle_Sigs =
+                typename cmplsigs::__detail::filter_sigs_by_completion<
+                    Completion, cmplsigs::completion_signatures<Sig...>>::type;
+
+            using May_Forward_V_Sigs =
+                typename cmplsigs::__detail::filter_sigs_by_completion<
+                    set_value_t, cmplsigs::completion_signatures<Sig...>>::type;
+
+            using Must_Forward_Sigs =
+                typename cmplsigs::__detail::skip_sigs_by_completion<
+                    Completion, cmplsigs::completion_signatures<Sig...>>::type;
+
+            using Next_V_Sig = tool::Generate_V_Sigs<Fun, Must_Handle_Sigs>::type;
+
+            using Forward_Sigs = std::conditional_t<
+                std::is_same_v<Completion, set_error_t> &&
+                    std::is_same_v<Next_V_Sig, cmplsigs::completion_signatures<>>,
+                typename cmplsigs::__detail::merge_type_lists<
+                    cmplsigs::completion_signatures, May_Forward_V_Sigs,
+                    Must_Forward_Sigs>::type,
+                Must_Forward_Sigs>;
+
+            static_assert(not Complile_Error<Fun, Completion, Next_V_Sig>::value,
+                          "fun_parm and pre sndr sig not match");
 
             using type = // Note: only handle match set_tag
                 typename tfxcmplsigs::unique_variadic_template<
                     typename cmplsigs::__detail::merge_type_lists<
-                        cmplsigs::completion_signatures, V_Sig, Base_Sig>::type>::type;
+                        cmplsigs::completion_signatures, Next_V_Sig, Forward_Sigs,
+                        Add_Sig>::type>::type;
         };
     }; // namespace adapt
 
@@ -145,9 +199,7 @@ namespace mcs::execution
         snd::__detail::basic_sender<adapt::__then_t<Completion>, Fun, Sender>, Env>
     {
         using type = typename adapt::compute_then_sigs<
-            Fun, Completion,
-            typename cmplsigs::__detail::filter_sigs_by_completion<
-                Completion, snd::completion_signatures_of_t<Sender, Env>>::type>::type;
+            Fun, Completion, snd::completion_signatures_of_t<Sender, Env>>::type;
     };
 
 }; // namespace mcs::execution

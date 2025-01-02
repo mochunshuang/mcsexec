@@ -182,5 +182,46 @@ int main()
                     CS, ex::cmplsigs::completion_signatures<ex::recv::set_value_t(A)>>);
         }
     };
+
+    TEST("just mv") = [] {
+        auto sndr = mcs::execution::factories::just(1, 1.0, 1.0F);
+        using T = decltype(sndr);
+        using CS = ex::cmplsigs::get_completion_signatures<T>;
+        static_assert(std::is_same_v<CS, ex::cmplsigs::completion_signatures<
+                                             ex::recv::set_value_t(int, double, float)>>);
+    };
+
+    TEST("just stop") = []() {
+        auto sndr = ex::just_stopped();
+        using T = decltype(sndr);
+        using CS = ex::cmplsigs::get_completion_signatures<T>;
+        static_assert(
+            std::is_same_v<
+                CS, ex::cmplsigs::completion_signatures<ex::recv::set_stopped_t()>>);
+        using CS = ex::snd::completion_signatures_of_t<T>;
+    };
+
+    TEST("just stop") = []() {
+        auto sndr = ex::just_stopped();
+        using T = decltype(sndr);
+        using CS = ex::cmplsigs::get_completion_signatures<T>;
+        static_assert(
+            std::is_same_v<
+                CS, ex::cmplsigs::completion_signatures<ex::recv::set_stopped_t()>>);
+        using CS = ex::snd::completion_signatures_of_t<T>;
+
+        {
+            // Note:
+            auto sndr = ex::just_stopped() | ex::then([]() {});
+            using T = decltype(sndr);
+            // Note: 直接编译错误吗？
+            // using CS = ex::cmplsigs::get_completion_signatures<T>;
+            // using V =
+            // ex::cmplsigs::__detail::filter_sigs_by_completion<ex::set_value_t,
+            //                                                             CS>::type;
+            // Note: 没有 set_value_t 的完成签名，不可能 sync_wait 成功
+            // static_assert(std::is_same_v<V, ex::cmplsigs::completion_signatures<>>);
+        }
+    };
     return 0;
 }
