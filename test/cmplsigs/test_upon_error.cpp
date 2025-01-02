@@ -16,13 +16,13 @@ struct Error3
 struct Error4
 {
 };
-
+template <class... AdditionalCompletions>
 struct many_error_sender
 {
     using sender_concept = ex::sender_t;
     using completion_signatures =
-        ex::completion_signatures<ex::set_error_t(Error1), ex::set_error_t(Error2),
-                                  ex::set_error_t(Error3)>;
+        ex::completion_signatures<AdditionalCompletions..., ex::set_error_t(Error1),
+                                  ex::set_error_t(Error2), ex::set_error_t(Error3)>;
 
     auto get_completion_signatures( // NOLINT
         const auto & /*env*/) noexcept -> completion_signatures
@@ -42,7 +42,7 @@ int main()
         using CS = decltype(pre_sndr.get_completion_signatures(ex::empty_env{}));
 
         using P_CS =
-            ex::cmplsigs::get_completion_signatures<many_error_sender, ex::empty_env>;
+            ex::cmplsigs::get_completion_signatures<many_error_sender<>, ex::empty_env>;
         static_assert(std::is_same_v<CS, P_CS>);
 
         auto sndr [[maybe_unused]] = many_error_sender{} | ex::upon_error([](auto e) {
@@ -64,6 +64,30 @@ int main()
                                         // set_error_t => set_value_t
                                         ex::set_value_t(Error1), ex::set_value_t(Error2),
                                         ex::set_value_t(Error4)>>);
+        {
+            auto sndr = many_error_sender<ex::set_value_t(int)>{} |
+                        ex::upon_error([](auto) { return 0; });
+            using T =
+                ex::cmplsigs::get_completion_signatures<decltype(sndr), ex::empty_env>;
+            static_assert(
+                ex::tool::eq_set_sigs_v<T,
+                                        ex::cmplsigs::completion_signatures<
+                                            ex::set_error_t(std::exception_ptr), // 错误
+                                            // set_error_t => set_value_t
+                                            ex::set_value_t(int)>>);
+        }
+        {
+            auto sndr = many_error_sender<ex::set_value_t(double)>{} |
+                        ex::upon_error([](auto) { return 0; });
+            using T =
+                ex::cmplsigs::get_completion_signatures<decltype(sndr), ex::empty_env>;
+            static_assert(ex::tool::eq_set_sigs_v<
+                          T,
+                          ex::cmplsigs::completion_signatures<
+                              ex::set_error_t(std::exception_ptr), // 错误
+                              // set_error_t => set_value_t
+                              ex::set_value_t(int), ex::set_value_t(double)>>);
+        }
     };
 
     return 0;
