@@ -19,14 +19,12 @@
 #include "../recv/__set_value.hpp"
 
 #include "../cmplsigs/__detail/__filter_sigs_by_completion.hpp"
-#include "../traits/__trait_function.hpp"
-#include "../cmplsigs/__detail/__build_sig_from_args.hpp"
-#include "../snd/general/__CONVERTIBLE_SIG.hpp"
 
 #include "../tfxcmplsigs/__unique_variadic_template.hpp"
 #include "../cmplsigs/__detail/__merge_type_lists.hpp"
 
 #include "../tool/Make_Return_Sigs.hpp"
+#include "../tool/Complile_Error_As_Error_Sig.hpp"
 
 namespace mcs::execution
 {
@@ -100,46 +98,6 @@ namespace mcs::execution
 
     namespace adapt
     {
-        template <typename Completion, typename Ret>
-        struct helper
-        {
-            using type = cmplsigs::completion_signatures<Completion(Ret)>;
-        };
-
-        template <typename Completion, typename Ret>
-            requires std::is_void_v<Ret>
-        struct helper<Completion, Ret>
-        {
-            using type = cmplsigs::completion_signatures<Completion()>;
-        };
-
-        template <typename Fun, typename Completion, typename Fun_Result_Sig>
-        struct Complile_Error;
-
-        template <typename Fun, typename Fun_Result_Sig>
-        struct Complile_Error<Fun, recv::set_value_t, Fun_Result_Sig>
-        {
-            static constexpr bool value = false; // NOLINT
-        };
-        template <typename Fun>
-        struct Complile_Error<Fun, recv::set_value_t, cmplsigs::completion_signatures<>>
-        {
-            // Note: pre_sig_v_sig + fun not match must Complile_Error
-            static constexpr bool value = true; // NOLINT
-        };
-
-        template <typename Fun, typename Fun_Result_Sig>
-        struct Complile_Error<Fun, recv::set_error_t, Fun_Result_Sig>
-        {
-            static constexpr bool value = false; // NOLINT
-        };
-
-        template <typename Fun>
-        struct Complile_Error<Fun, recv::set_error_t, cmplsigs::completion_signatures<>>
-        {
-            static constexpr bool value = // NOLINT
-                not functional::callable<Fun, decltype(std::current_exception())>;
-        };
 
         /**
          * Note: to value completion or Forward for all completion sigs
@@ -171,8 +129,9 @@ namespace mcs::execution
 
             using Next_V_Sig = tool::Generate_V_Sigs<Fun, Must_Handle_Sigs>::type;
 
-            static_assert(not Complile_Error<Fun, Completion, Next_V_Sig>::value,
-                          "fun_parm and pre sndr sig not match");
+            static_assert(
+                not tool::Complile_Error_As_Error_Sig<Fun, Completion, Next_V_Sig>::value,
+                "fun_parm and pre sndr sig not match");
 
             using type = // Note: only handle match set_tag
                 typename tfxcmplsigs::unique_variadic_template<
