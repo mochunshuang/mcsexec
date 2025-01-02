@@ -37,4 +37,18 @@ namespace mcs::execution::tool
             not functional::callable<Fun, decltype(std::current_exception())>;
     };
 
+    template <typename Fun, typename Fun_Result_Sig>
+    struct Complile_Error_As_Error_Sig<Fun, recv::set_stopped_t, Fun_Result_Sig>
+    {
+        static constexpr bool value = false; // NOLINT
+    };
+
+    template <typename Fun>
+    struct Complile_Error_As_Error_Sig<Fun, recv::set_stopped_t,
+                                       cmplsigs::completion_signatures<>>
+    {
+        static constexpr bool value = // NOLINT
+            not functional::callable<Fun>;
+    };
+
 }; // namespace mcs::execution::tool
