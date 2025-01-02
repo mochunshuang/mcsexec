@@ -65,6 +65,7 @@ int main()
                 std::is_same_v<
                     CS, cmplsigs::completion_signatures<
                             recv::set_value_t(), recv::set_error_t(std::exception_ptr)>>);
+            mcs::this_thread::sync_wait(snd);
         }
         {
             auto snd =
@@ -75,11 +76,25 @@ int main()
                           CS, cmplsigs::completion_signatures<
                                   recv::set_value_t(), recv::set_value_t(double),
                                   recv::set_error_t(std::exception_ptr)>>);
+            // mcs::this_thread::sync_wait(snd); //不是单一返回值编译器错误
         }
-    };
-
-    TEST("upon_error many input error types") = [] {
-
+        {
+            auto snd =
+                ex::upon_error(ex::just() | ex::then([] {}),
+                               [](const std::exception_ptr &e) -> double { return 0.0; });
+            // mcs::this_thread::sync_wait(snd); //不是单一返回值编译器错误
+            auto sndr = snd | ex::then([](auto &&...v) {
+                            if constexpr (sizeof...(v) == 1)
+                            {
+                                UNEXPECT("cant not");
+                            }
+                            else
+                            {
+                                std::cout << "call from pre then....\n";
+                            }
+                        });
+            mcs::this_thread::sync_wait(sndr);
+        }
     };
     return 0;
 }
