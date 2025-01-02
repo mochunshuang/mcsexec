@@ -2,6 +2,7 @@
 
 #include "./tool/Make_Return_Sigs.hpp"
 #include "./tool/SimpleAtomicOperation.hpp"
+#include "./tool/eq_set_sigs.hpp"
 
 namespace mcs::execution
 {
