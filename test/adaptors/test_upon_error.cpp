@@ -114,11 +114,9 @@ int main()
                           }
                           catch (...)
                           {
+                              return 0;
                           }
-                          // Note: 不要返回值了，let_error 做返回值。
-                          // Note:  upon_error 有返回值会继续抛异常
-                          //   std::cout << "return....\n";
-                          // TODO(mcs): 返回会有 bug
+                          // upon_error => set_error_t(double)
                           return 1.1; // 会继续抛异常，
                       });
 
@@ -135,6 +133,7 @@ int main()
                                 UNEXPECT("cant not");
                             }
                         });
+            using CS = decltype(ex::get_completion_signatures(sndr, ex::empty_env{}));
 
             using T = decltype(std::make_exception_ptr(1));
             try

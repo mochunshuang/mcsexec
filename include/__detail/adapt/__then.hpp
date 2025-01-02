@@ -164,24 +164,12 @@ namespace mcs::execution
             using Must_Handle_Sigs =
                 typename cmplsigs::__detail::filter_sigs_by_completion<
                     Completion, cmplsigs::completion_signatures<Sig...>>::type;
-
-            using May_Forward_V_Sigs =
-                typename cmplsigs::__detail::filter_sigs_by_completion<
-                    set_value_t, cmplsigs::completion_signatures<Sig...>>::type;
-
+            // Note: Must_Forward_Sigs include May_Forward_V_Sigs
             using Must_Forward_Sigs =
                 typename cmplsigs::__detail::skip_sigs_by_completion<
                     Completion, cmplsigs::completion_signatures<Sig...>>::type;
 
             using Next_V_Sig = tool::Generate_V_Sigs<Fun, Must_Handle_Sigs>::type;
-
-            using Forward_Sigs = std::conditional_t<
-                std::is_same_v<Completion, set_error_t> &&
-                    std::is_same_v<Next_V_Sig, cmplsigs::completion_signatures<>>,
-                typename cmplsigs::__detail::merge_type_lists<
-                    cmplsigs::completion_signatures, May_Forward_V_Sigs,
-                    Must_Forward_Sigs>::type,
-                Must_Forward_Sigs>;
 
             static_assert(not Complile_Error<Fun, Completion, Next_V_Sig>::value,
                           "fun_parm and pre sndr sig not match");
@@ -189,7 +177,7 @@ namespace mcs::execution
             using type = // Note: only handle match set_tag
                 typename tfxcmplsigs::unique_variadic_template<
                     typename cmplsigs::__detail::merge_type_lists<
-                        cmplsigs::completion_signatures, Next_V_Sig, Forward_Sigs,
+                        cmplsigs::completion_signatures, Next_V_Sig, Must_Forward_Sigs,
                         Add_Sig>::type>::type;
         };
     }; // namespace adapt

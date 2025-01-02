@@ -55,9 +55,15 @@ int main()
                                              return e;
                                          }
                                      });
-        // TODO function_traits 对模板的lambda 失败
-        // using T = ex::cmplsigs::get_completion_signatures<decltype(sndr),
-        // ex::empty_env>;
+        // Note: 就是这样的
+        using T = ex::cmplsigs::get_completion_signatures<decltype(sndr), ex::empty_env>;
+        static_assert(
+            ex::tool::eq_set_sigs_v<T,
+                                    ex::cmplsigs::completion_signatures<
+                                        ex::set_error_t(std::exception_ptr), // 错误
+                                        // set_error_t => set_value_t
+                                        ex::set_value_t(Error1), ex::set_value_t(Error2),
+                                        ex::set_value_t(Error4)>>);
     };
 
     return 0;
