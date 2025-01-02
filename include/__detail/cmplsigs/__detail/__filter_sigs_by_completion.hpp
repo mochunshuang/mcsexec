@@ -51,4 +51,28 @@ namespace mcs::execution::cmplsigs::__detail
         using type = cmplsigs::completion_signatures<>;
     };
 
+    template <typename Tag, typename T>
+    struct skip_sigs_by_completion;
+
+    template <typename Tag, typename Cur, typename... T>
+    struct skip_sigs_by_completion<Tag, cmplsigs::completion_signatures<Cur, T...>>
+    {
+        using SkippedCur = std::conditional_t<same_completion<Tag, Cur>::value,
+                                              cmplsigs::completion_signatures<>,
+                                              cmplsigs::completion_signatures<Cur>>;
+
+        using SkippedRest =
+            typename skip_sigs_by_completion<Tag,
+                                             cmplsigs::completion_signatures<T...>>::type;
+
+        using type = typename concat_same_list<cmplsigs::completion_signatures,
+                                               SkippedCur, SkippedRest>::type;
+    };
+
+    template <typename Tag>
+    struct skip_sigs_by_completion<Tag, cmplsigs::completion_signatures<>>
+    {
+        using type = cmplsigs::completion_signatures<>;
+    };
+
 }; // namespace mcs::execution::cmplsigs::__detail
