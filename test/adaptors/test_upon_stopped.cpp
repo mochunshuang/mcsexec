@@ -33,7 +33,8 @@ int main()
 
         EXPECT(called);
         EXPECT(called_fun);
-        EXPECT(c == test::channel::STOPDE_CHANNEL);
+        // Note: upon_stopped 的 fun 的结果 以 V_SIG 传递
+        EXPECT(c == test::channel::VALUE_CHANNEL);
     };
 
     return 0;

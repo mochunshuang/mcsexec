@@ -37,7 +37,7 @@ int main()
 
         EXPECT(called);
         EXPECT(called_fun);
-        EXPECT(c == test::channel::ERROR_CHANNEL);
+        EXPECT(c == test::channel::VALUE_CHANNEL);
     };
 
     TEST("upon_error with no-error input sender") = [] {
@@ -116,8 +116,7 @@ int main()
                           {
                               return 0;
                           }
-                          // upon_error => set_error_t(double)
-                          return 1.1; // 会继续抛异常，
+                          return 1.1; // NOLINT
                       });
 
             // mcs::this_thread::sync_wait(snd); //不是单一返回值编译器错误
@@ -125,26 +124,16 @@ int main()
             auto sndr = snd | ex::then([](auto &&...v) {
                             if constexpr (sizeof...(v) == 1)
                             {
-                                std::cout << "call from exception....\n";
-                                EXPECT(std::tuple<double>{1.0} == std::tuple{v...});
+                                std::cout << "then: call from exception....\n";
+                                EXPECT(std::tuple<double>{1.1} == std::tuple{v...});
                             }
                             else
                             {
                                 UNEXPECT("cant not");
                             }
                         });
-            using CS = decltype(ex::get_completion_signatures(sndr, ex::empty_env{}));
-
-            using T = decltype(std::make_exception_ptr(1));
-            try
-            {
-                mcs::this_thread::sync_wait(sndr);
-                int a = 1;
-            }
-            catch (double ex)
-            {
-                std::cout << "sync_wait: call from exception double: " << ex << "  \n";
-            }
+            // Note: 异常已经捕获，不需要 try-catch 了
+            mcs::this_thread::sync_wait(sndr);
         }
     };
     return 0;

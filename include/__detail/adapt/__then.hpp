@@ -68,6 +68,7 @@ namespace mcs::execution
             []<class Fn, class Tag, class... Args>(auto, Fn &fn, auto &rcvr, Tag,
                                                    Args &&...args) noexcept -> void {
             // Note: only handle same Completion or forward
+            // Note: using the result value of f as then-cpo(sndr, f) value completion
             if constexpr (std::same_as<Tag, Completion>)
             {
                 try
@@ -75,11 +76,11 @@ namespace mcs::execution
                     if constexpr (std::is_void_v<std::invoke_result_t<Fn, Args...>>)
                     {
                         std::invoke(std::move(fn), std::forward<Args>(args)...);
-                        Completion()(std::move(rcvr));
+                        recv::set_value(std::move(rcvr));
                     }
                     else
                     {
-                        Completion()(
+                        recv::set_value(
                             std::move(rcvr),
                             std::invoke(std::move(fn), std::forward<Args>(args)...));
                     }
