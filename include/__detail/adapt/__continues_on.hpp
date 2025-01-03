@@ -74,7 +74,8 @@ namespace mcs::execution
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<adapt::continues_on_t, Sched, Sndr>, Env>
     {
-        using type = snd::completion_signatures_of_t<Sndr, Env>;
+        using type = typename cmplsigs::completion_signatures_for_impl<
+            snd::__detail::basic_sender<adapt::schedule_from_t, Sched, Sndr>, Env>::type;
     };
 
 }; // namespace mcs::execution
