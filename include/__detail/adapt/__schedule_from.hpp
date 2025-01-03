@@ -205,9 +205,8 @@ namespace mcs::execution
         using Add_Sig =
             cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr)>;
 
-        using type = tfxcmplsigs::unique_variadic_template<
-            tfxcmplsigs::transform_completion_signatures<
-                snd::completion_signatures_of_t<Sndr, Env>, Add_Sig>>::type;
+        using type = tfxcmplsigs::transform_completion_signatures<
+            snd::completion_signatures_of_t<Sndr, Env>, Add_Sig>;
     };
 
 }; // namespace mcs::execution
