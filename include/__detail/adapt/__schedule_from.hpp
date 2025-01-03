@@ -60,15 +60,15 @@ namespace mcs::execution
     namespace adapt
     {
         template <typename Sigs>
-        struct compute_variant_t;
+        struct schedule_from_state_variant_t;
         template <typename... Sig>
-        struct compute_variant_t<cmplsigs::completion_signatures<Sig...>>
+        struct schedule_from_state_variant_t<cmplsigs::completion_signatures<Sig...>>
         {
             using type = typename tfxcmplsigs::unique_variadic_template<std::variant<
                 std::monostate, typename __detail::as_tuple<Sig>::type...>>::type;
         };
 
-        template <typename Sigs, typename Rcvr, typename sched_t>
+        template <typename Sigs, typename Rcvr, typename sched_t, typename variant_t>
         struct state_type
         {
             Rcvr &rcvr; // NOLINT
@@ -113,7 +113,6 @@ namespace mcs::execution
                 }
             };
 
-            using variant_t = typename adapt::compute_variant_t<Sigs>::type;
             using operation_t =
                 conn::connect_result_t<sched::schedule_result_t<sched_t>, receiver_t>;
 
@@ -125,6 +124,7 @@ namespace mcs::execution
                 : rcvr(rcvr),
                   op_state(conn::connect(factories::schedule(sch), receiver_t{this}))
             {
+                // async_result set value when children call complete
             }
         };
 
@@ -148,12 +148,22 @@ namespace mcs::execution
             auto &[_, sch, child] = sndr;
             using sched_t = decltype(auto(sch));
 
-            // Note: add Sigs for like just() | then that need add Sigs for sync_wait
+            // Note: add E_CS because as complete try-catch
             using Sigs = tfxcmplsigs::transform_completion_signatures<
                 snd::completion_signatures_of_t<OutSndr, queries::env_of_t<OutRcvr>>,
-                cmplsigs::completion_signatures<set_error_t(std::exception_ptr),
-                                                set_stopped_t()>>;
-            using state_type = adapt::state_type<Sigs, OutRcvr, sched_t>;
+                cmplsigs::completion_signatures<set_error_t(std::exception_ptr)>>;
+            /**
+             * @brief
+             * 1、Objects of the local class state-type can be used to initialize a
+             *    structured binding
+             * 2 、Let Sigs be a pack of the arguments to the completion_signatures
+             *      specialization named by completion_signatures_of_t<child-type<Sndr>,
+             *      env_of_t<Rcvr>>
+             * 3、variant_t denotes the type variant<monostate, as-tuple<Sigs>...>
+             */
+            // Note: variant_t denotes the type variant<monostate, as-tuple<Sigs>...>
+            using variant_t = typename adapt::schedule_from_state_variant_t<Sigs>::type;
+            using state_type = adapt::state_type<Sigs, OutRcvr, sched_t, variant_t>;
 
             return state_type{sch, rcvr};
         };
@@ -192,10 +202,12 @@ namespace mcs::execution
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<adapt::schedule_from_t, Sched, Sndr>, Env>
     {
-        using type = tfxcmplsigs::transform_completion_signatures<
-            snd::completion_signatures_of_t<Sndr, Env>,
-            cmplsigs::completion_signatures<set_error_t(std::exception_ptr),
-                                            set_stopped_t()>>;
+        using Add_Sig =
+            cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr)>;
+
+        using type = tfxcmplsigs::unique_variadic_template<
+            tfxcmplsigs::transform_completion_signatures<
+                snd::completion_signatures_of_t<Sndr, Env>, Add_Sig>>::type;
     };
 
 }; // namespace mcs::execution
