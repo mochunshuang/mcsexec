@@ -19,10 +19,6 @@ namespace mcs::execution::factories
                     queries::get_env(sch.schedule())) == sch;
             })
         {
-            decltype(auto) b = queries::get_completion_scheduler<set_value_t>(
-                queries::get_env(sch.schedule()));
-            assert(b == sch);
-
             return sch.schedule();
         }
     };
