@@ -51,8 +51,18 @@ namespace mcs::execution
 
         struct on_t
         {
+            /**
+             * Note: Start [sndr] on sch then callback rcvr's sch
+             * Let out_sndr be on(sch, sndr)
+             * Let op be an lvalue from connecting [out_sndr] with [out_rcvr]
+             * Calling start(op) shall:
+             * 1、Remember the current scheduler, get_scheduler(get_env(rcvr))
+             * 2、Start [sndr] on the sch's associated execution resource
+             * 3、Upon sndr's completion, transfer execution back to sched in step 1
+             * 4、Forward sndr's async result to [out_rcvr]
+             */
             template <typename Sched, typename Sndr>
-                requires(not on_check_one<Sched, Sndr> && snd::sender<Sndr>)
+                requires(not on_check_one<Sched, Sndr>)
             auto operator()(Sched &&sch, Sndr &&sndr) const
             {
                 auto dom = snd::general::query_or_default(
@@ -62,6 +72,29 @@ namespace mcs::execution
                                           std::forward<Sndr>(sndr)));
             }
 
+            /**
+             * Note: Start [sndr] on cur sch, Upon sndr's completion, transfer execution
+             * Note: to sch's associated, then call closure with sndr's async result
+             * Note: Upon closure(S) completion, transfer execution to sch in step 1
+             * Note: and forward the operation’s async result to [out_rcvr]
+             *
+             * Let [out_sndr] be on(sndr, sch, closure)
+             * Let op be an lvalue from connecting [out_sndr] with [out_rcvr]
+             * Calling start(op) shall:
+             * 1、Remember the current scheduler, which is the first of the following
+             * expressions that is well-formed:
+             *      -get_completion_scheduler<set_value_t>(get_env(sndr))
+             *      -get_scheduler(get_env(rcvr))
+             * 2、Start sndr on the current execution agent execution resource
+             * 3、Upon sndr's completion, transfer execution to sch's associated execution
+             * resource.
+             * 4、Forward sndr's async result as if by connecting and starting a sender
+             * closure(S), where S is a sender that completes synchronously with sndr's
+             * async result.
+             * 5、Upon completion of the operation started in step 4,transfer execution
+             * back to the execution to execution resource in step 1, and forward the
+             * operation’s async result to [out_rcvr]
+             */
             template <typename Sndr, typename Sched, typename Adaptor>
                 requires(not on_check_two<Sched, Sndr, Adaptor>)
             auto operator()(Sndr &&sndr, Sched &&sch, Adaptor &&closure) const
@@ -75,12 +108,13 @@ namespace mcs::execution
                              std::forward<Sndr>(sndr)));
             }
 
-            template <snd::sender Sndr, typename Env>
-            auto transform_env(Sndr &&out_sndr, Env &&env) noexcept // NOLINT
+            template <snd::sender Sndr, typename E>
+            auto transform_env(Sndr &&out_sndr, E &&env) noexcept // NOLINT
                 requires(snd::sender_for<decltype((out_sndr)), on_t>)
             {
                 // Note: optimization for no copy
-                using OutSndr = decltype(out_sndr);
+                using OutSndr = decltype((out_sndr));
+                using Env = decltype((env));
                 auto &&[_, data, __] = out_sndr;
                 if constexpr (sched::scheduler<decltype(data)>)
                 {
@@ -99,7 +133,7 @@ namespace mcs::execution
                 requires(snd::sender_for<decltype((out_sndr)), on_t>)
             {
                 // Note: optimization for no copy
-                using OutSndr = decltype(out_sndr);
+                using OutSndr = decltype((out_sndr));
                 auto &&[_, data, child] = out_sndr;
 
                 if constexpr (sched::scheduler<decltype(data)>)
@@ -133,6 +167,7 @@ namespace mcs::execution
                     }
                     else
                     {
+                        // Note: closure(sndr)
                         return factories::write_env(
                             continues_on(std::forward_like<OutSndr>(closure)(continues_on(
                                              factories::write_env(
@@ -150,11 +185,11 @@ namespace mcs::execution
 
     }; // namespace adapt
 
+    // TODO(mcs): 2 type completion_signatures_for_impl may be
     template <typename Sched, typename Sndr, typename Env>
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<adapt::on_t, Sched, Sndr>, Env>
     {
-        // using type = snd::completion_signatures_of_t<Sndr, Env>;
         using type = tfxcmplsigs::transform_completion_signatures<
             snd::completion_signatures_of_t<Sndr, Env>,
             snd::completion_signatures_of_t<decltype(std::declval<Sched>().schedule()),
