@@ -9,6 +9,10 @@
 #include "../snd/general/__get_domain_early.hpp"
 #include "../snd/general/__impls_for.hpp"
 
+#include "../pipeable/__sender_adaptor.hpp"
+
+#include "../tfxcmplsigs/__transform_completion_signatures.hpp"
+
 namespace mcs::execution
 {
     namespace adapt
@@ -29,6 +33,13 @@ namespace mcs::execution
                              snd::__detail::product_type{std::forward<Shape>(shape),
                                                          std::forward<Fun>(f)},
                              std::forward<Sndr>(sndr)));
+            }
+
+            template <shape Shape, movable_value Fun>
+            auto operator()(Shape &&shape, Fun &&fun) const
+                -> pipeable::sender_adaptor<bulk_t, Shape, Fun>
+            {
+                return {*this, std::forward<Shape>(shape), std::forward<Fun>(fun)};
             }
         };
         inline constexpr bulk_t bulk{}; // NOLINT
@@ -55,7 +66,6 @@ namespace mcs::execution
                     [&]() noexcept(noexcept(f(auto(shape), args...))) {
                         for (decltype(auto(shape)) i = 0; i < shape; ++i)
                         {
-
                             f(auto(i), args...);
                         }
                         Tag()(std::move(rcvr), std::forward<Args>(args)...);
@@ -73,11 +83,17 @@ namespace mcs::execution
         };
     };
 
-    template <typename Sched, typename Sndr, typename Env>
+    template <typename Sndr, typename Shape, typename Fun, typename Env>
     struct cmplsigs::completion_signatures_for_impl<
-        snd::__detail::basic_sender<adapt::bulk_t, Sched, Sndr>, Env>
+        snd::__detail::basic_sender<adapt::bulk_t,
+                                    snd::__detail::product_type<Shape, Fun>, Sndr>,
+        Env>
     {
-        using type = snd::completion_signatures_of_t<Sndr, Env>;
+        using Add_Sig =
+            cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr)>;
+
+        using type = tfxcmplsigs::transform_completion_signatures<
+            snd::completion_signatures_of_t<Sndr, Env>, Add_Sig>;
     };
 
 }; // namespace mcs::execution

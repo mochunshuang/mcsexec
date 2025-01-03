@@ -25,3 +25,16 @@ inline void wait_for_value(S &&snd, Ts &&...val)
     else
         EXPECT(res.value() == expected);
 }
+
+struct non_default_constructible
+{
+    int x; // NOLINT
+
+    explicit non_default_constructible(int x) : x(x) {}
+
+    friend bool operator==(non_default_constructible const &lhs,
+                           non_default_constructible const &rhs)
+    {
+        return lhs.x == rhs.x;
+    }
+};
