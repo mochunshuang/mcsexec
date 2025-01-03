@@ -35,7 +35,7 @@ namespace mcs::execution::ctx
         friend struct thread_context;
 
       public:
-        enum class State
+        enum class State : std::uint8_t
         {
             starting,  // NOLINT
             running,   // NOLINT
@@ -139,7 +139,6 @@ namespace mcs::execution::ctx
 
               public:
                 using sender_concept = sender_t; // for sender
-                using __tag_t = sender_t;
 
                 // run-loop-sender is an exposition-only type that satisfies sender.
                 // For any type Env, completion_signatures_of_t<run-loop-sender, Env>

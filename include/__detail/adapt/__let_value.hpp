@@ -85,7 +85,6 @@ namespace mcs::execution
         template <typename Completion>
         struct __let_t
         {
-            using __tag_t = __let_t;
 
             template <snd::sender Sndr, movable_value Fun>
             auto operator()(Sndr &&sndr, Fun &&f) const
