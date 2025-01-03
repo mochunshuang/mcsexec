@@ -1,4 +1,6 @@
 #pragma once
+#include <concepts>
+#include <exception>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -34,9 +36,7 @@
 
 #include "../pipeable/__sender_adaptor.hpp"
 
-#include "../traits/__trait_function.hpp"
-#include "../cmplsigs/__detail/__build_sig_from_args.hpp"
-#include "../snd/general/__CONVERTIBLE_SIG.hpp"
+#include "../tool/Make_Return_Sigs.hpp"
 
 namespace mcs::execution
 {
@@ -107,6 +107,7 @@ namespace mcs::execution
             auto transform_env(Sndr &&sndr, Env &&env) noexcept // NOLINT
             {
                 using E = adapt::let_env_t<Completion>;
+                // TODO(mcs): JOIN_ENV 低效见 p3396r0
                 return snd::general::JOIN_ENV(
                     E{}(std::as_const(sndr)),
                     snd::general::FWD_ENV(std::forward<Env>(env)));
@@ -335,41 +336,108 @@ namespace mcs::execution
         };
     };
 
+    namespace adapt
+    {
+
+        template <typename Completion, typename Fun, typename Return_Sig>
+        struct Ensure_Let_Return_IS_Sndr;
+
+        template <typename Completion, typename Fun>
+        struct Ensure_Let_Return_IS_Sndr<Completion, Fun,
+                                         cmplsigs::completion_signatures<>>
+        {
+            static constexpr bool value = false; // NOLINT
+        };
+
+        // Note: additional try for set_error_t
+        template <typename Fun>
+        struct Ensure_Let_Return_IS_Sndr<recv::set_error_t, Fun,
+                                         cmplsigs::completion_signatures<>>
+        {
+            using Arg = decltype(std::current_exception());
+            static constexpr bool value = // NOLINT
+                std::invocable<Fun, Arg> &&
+                snd::sender<functional::call_result_t<Fun, Arg>>;
+            static_assert(value, "note: for let_error(sndr,Fun),set Fun Arg to "
+                                 "std::exception_ptr to avoid error");
+            using type = std::tuple<functional::call_result_t<Fun, Arg>>;
+        };
+        // Note: additional try for set_stopped_t
+        template <typename Fun>
+        struct Ensure_Let_Return_IS_Sndr<recv::set_stopped_t, Fun,
+                                         cmplsigs::completion_signatures<>>
+        {
+
+            static constexpr bool value = // NOLINT
+                std::invocable<Fun> && snd::sender<functional::call_result_t<Fun>>;
+            using type = std::tuple<functional::call_result_t<Fun>>;
+        };
+
+        // Note: funcation return type only one type,and Ts not void
+        template <typename Completion, typename Fun, typename... Ts>
+        struct Ensure_Let_Return_IS_Sndr<
+            Completion, Fun, cmplsigs::completion_signatures<recv::set_value_t(Ts)...>>
+        {
+            static constexpr bool value = (snd::sender<Ts> && ...); // NOLINT
+            // for fun can return many type,fun is template
+            using type = std::tuple<Ts...>;
+        };
+
+        template <typename T>
+        struct Generate_Sig_From_Sndrs;
+
+        template <typename... Sndr>
+            requires((snd::sender<Sndr> && ...))
+        struct Generate_Sig_From_Sndrs<std::tuple<Sndr...>>
+        {
+            using type = typename cmplsigs::__detail::merge_type_lists<
+                cmplsigs::completion_signatures,
+                snd::completion_signatures_of_t<Sndr>...>::type;
+        };
+
+    }; // namespace adapt
+
+    /**
+     * Note: 调用 `set-cpo` 并传入 `sndr` 的结果数据时，调用 `f`
+     * Note: 完成依赖于 `f` 返回的发送器的完成
+     * Note: 传播由 `sndr` 发送的其他完成操作。
+     * Let the subexpression out_sndr denote the result of the invocation let-cpo(sndr, f)
+     * or an object equal to such。
+     * The expression connect(out_sndr, rcvr) has undefined behavior unless it creates an
+     * asynchronous operation ([async.ops]) that, when started:
+     *
+     * 1、invokes f when set-cpo is called with [sndr's result datums]
+     * 2、makes its completion [dependent on] the completion of a sender returned by f,and
+     * 3、andpropagates the [other completion] operations sent by sndr.
+     *
+     */
     template <typename Completion, typename Fun, typename Sender, typename Env>
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<adapt::__let_t<Completion>, Fun, Sender>, Env>
     {
+        using Add_Sig =
+            cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr)>;
 
-        using F_INFO = traits::trait_function<Fun>;
-        using To = cmplsigs::__detail::build_sig_from_args<Completion,
-                                                           typename F_INFO::arg_t>::type;
-
-        using Filt_Sig_list = typename cmplsigs::__detail::filter_sigs_by_completion<
+        using Must_Handle_Sigs = typename cmplsigs::__detail::filter_sigs_by_completion<
             Completion, snd::completion_signatures_of_t<Sender, Env>>::type;
-        // skip: std::is_same_v<Filt_Sig_list, cmplsigs::completion_signatures<>>
-        // skip: set_error_t because throw expr not generate E_sIG
+
+        using Must_Forward_Sigs = typename cmplsigs::__detail::skip_sigs_by_completion<
+            Completion, snd::completion_signatures_of_t<Sender, Env>>::type;
+
+        using Next_V_Sig = tool::Generate_V_Sigs<Fun, Must_Handle_Sigs>::type;
+
         static_assert(
-            std::is_same_v<recv::set_error_t, Completion> ||
-                std::is_same_v<Filt_Sig_list, cmplsigs::completion_signatures<>> ||
-                snd::general::HAS_CONVERTIBLE_SIG<Filt_Sig_list, To>,
-            "Fun args must convertible from pre_snder sender sigs");
+            adapt::Ensure_Let_Return_IS_Sndr<Completion, Fun, Next_V_Sig>::value,
+            "ensure let-cpo(sndr, f) return type satisfy snd::sender");
 
-        using Sndr = typename F_INFO::ret_t;
-        static_assert(snd::sender<Sndr>, "Fun return value must is snd::sender");
+        using Sig_From_Fun_Return =
+            adapt::Generate_Sig_From_Sndrs<typename adapt::Ensure_Let_Return_IS_Sndr<
+                Completion, Fun, Next_V_Sig>::type>::type;
 
-        using V_Sig_For_E = std::conditional_t<
-            std::is_same_v<Completion, recv::set_error_t>,
-            typename cmplsigs::__detail::filter_sigs_by_completion<
-                recv::set_value_t, snd::completion_signatures_of_t<Sender, Env>>::type,
-            completion_signatures<>>;
-        using Base_Sig =
-            cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr),
-                                            recv::set_stopped_t()>;
-        using NEXT_SIGS = snd::completion_signatures_of_t<Sndr, Env>;
         using type = typename tfxcmplsigs::unique_variadic_template<
-            typename cmplsigs::__detail::merge_type_lists<cmplsigs::completion_signatures,
-                                                          V_Sig_For_E, NEXT_SIGS,
-                                                          Base_Sig>::type>::type;
+            typename cmplsigs::__detail::merge_type_lists<
+                cmplsigs::completion_signatures, Sig_From_Fun_Return, Must_Forward_Sigs,
+                Add_Sig>::type>::type;
     };
 
 }; // namespace mcs::execution

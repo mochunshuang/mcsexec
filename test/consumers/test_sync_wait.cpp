@@ -62,12 +62,23 @@ int main()
     TEST("sync_wait handling error_code errors") = [] {
         try
         {
-            auto snd = ex::just() | ex::then([] { throw std::logic_error("111"); }) |
-                       ex::let_error([](std::logic_error &&) {
-                           return ex::just_error(
-                               std::make_error_code(std::errc::argument_out_of_domain));
-                       });
+            // Note:
+            //  Now set  ex::let_error([](std::logic_error &&),
+            //  ags not std::exception_ptr and E_CS of pre_sndr can`t call fun,
+            //  set compile error
+            auto snd =
+                ex::just() | ex::then([] { throw std::logic_error("111"); }) |
+                //    ex::let_error([](std::logic_error &&) {
+                //        return ex::just_error(
+                //            std::make_error_code(std::errc::argument_out_of_domain));
+                //    });
+                ex::let_error([](std::exception_ptr &&) {
+                    return ex::just_error(
+                        std::make_error_code(std::errc::argument_out_of_domain));
+                });
             using T = ex::cmplsigs::get_completion_signatures<decltype(snd)>;
+            using Forward = ex::cmplsigs::completion_signatures<
+                ex::recv::set_value_t(), ex::recv::set_error_t(std::exception_ptr)>;
 
             // sync_wait(std::move(snd));
             // UNEXPECT("It's impossible to reach");
