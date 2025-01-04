@@ -26,15 +26,21 @@ namespace mcs::execution::pipeable
         }
 
         template <snd::sender Sndr>
-        auto operator()(Sndr &&sndr) noexcept
+        auto operator()(Sndr &&sndr) & noexcept
         {
-            return apply(std::forward<Sndr>(sndr), ::std::move(*this));
+            return apply(std::forward<Sndr>(sndr), *this);
         }
 
-        template <snd::sender Sender>
-        auto operator()(Sender &&sender) const noexcept
+        template <snd::sender Sndr>
+        auto operator()(Sndr &&sndr) const & noexcept
         {
-            return apply(std::forward<Sender>(sender), *this);
+            return apply(std::forward<Sndr>(sndr), *this);
+        }
+
+        template <snd::sender Sndr>
+        auto operator()(Sndr &&sndr) && noexcept
+        {
+            return apply(std::forward<Sndr>(sndr), std::move(*this));
         }
     };
 

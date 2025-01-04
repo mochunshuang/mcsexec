@@ -10,6 +10,7 @@
 #include "./snd/__sender_in.hpp"
 #include "./snd/__sender_to.hpp"
 #include "./snd/__sender_for.hpp"
+#include "./snd/__sender_of.hpp"
 
 #include "snd/__make_sender.hpp"
 
@@ -28,6 +29,7 @@ namespace mcs::execution
     using ::mcs::execution::snd::sender_in;
     using ::mcs::execution::snd::sender_to;
     using ::mcs::execution::snd::sender_for;
+    using ::mcs::execution::snd::sender_of;
 
     //
     using ::mcs::execution::snd::get_completion_signatures;

@@ -1,4 +1,5 @@
 #include "../test_base_head.hpp"
+#include <cassert>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -86,6 +87,46 @@ int main()
         auto [a, b] = mcs::this_thread::sync_wait(ex::just(1, 1.0)).value();
         EXPECT(a == 1);
         EXPECT(b == 1.0);
+    };
+
+    TEST("just and move_only_type ") = [] {
+        auto [ret] = mcs::this_thread::sync_wait(ex::just(move_only_type{1})).value();
+        EXPECT(ret.val == 1);
+        // Note: conn::connect 无需校验 sndr，recr 了
+#if 0 
+        auto sndr = ex::just(move_only_type{1});
+        using Sndr = decltype(sndr);
+        // snd::apply_sender(snd::general::get_domain_early(sndr),
+        //                   mcs::this_thread::sync_wait, ::std::forward<Sndr>(sndr));
+
+        auto dom = snd::general::get_domain_early(sndr);
+        // auto r = snd::apply_sender(dom, mcs::this_thread::sync_wait, std::move(sndr));
+        // dom.apply_sender(mcs::execution::consumers::__sync_wait::sync_wait_t(),
+        //                  std::move(sndr));
+        auto t = mcs::execution::consumers::__sync_wait::sync_wait_t();
+        // auto v = t.apply_sender(std::move(sndr));
+        // static_assert(
+        //     ex::snd::sender_to<
+        //         Sndr,
+        //         mcs::execution::consumers::__sync_wait::sync_wait_receiver<Sndr>>);
+
+        using Recv = mcs::execution::consumers::__sync_wait::sync_wait_receiver<Sndr>;
+        Recv rcvr;
+
+        static_assert(std::constructible_from<std::remove_cvref_t<Sndr>, Sndr>);
+        {
+            using old_Sndr = Sndr;
+            using Sndr = decltype((sndr));
+            static_assert(std::is_same_v<old_Sndr &, Sndr>);
+            // Note: 不满足 snd::sender 的原因。 A& -> A ,走 A的复制构造，没有就G了
+            static_assert(not std::constructible_from<std::remove_cvref_t<Sndr>, Sndr>);
+        }
+        // static_assert(snd::sender<decltype((sndr))>);
+
+        // static_assert(snd::sender<decltype((sndr))> && receiver<decltype((rcvr))>);
+
+        // ex::conn::connect(std::move(sndr), std::move(rcvr));
+#endif
     };
 
     return 0;

@@ -38,3 +38,24 @@ struct non_default_constructible
         return lhs.x == rhs.x;
     }
 };
+
+struct move_only_type
+{
+    move_only_type() : val(0) {}
+    explicit move_only_type(int v) : val(v) {}
+    ~move_only_type() = default;
+
+    move_only_type(const move_only_type &) = delete;
+    move_only_type &operator=(const move_only_type &) = delete;
+
+    move_only_type &operator=(move_only_type &&) = default;
+    move_only_type(move_only_type &&) = default;
+    int val; // NOLINT
+};
+
+struct copy_and_movable_type
+{
+    explicit copy_and_movable_type(int v) : val(v) {}
+
+    int val; // NOLINT
+};

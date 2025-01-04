@@ -55,7 +55,7 @@ namespace mcs::execution
             local_state_base &operator=(local_state_base &&) = delete;
             local_state_base &operator=(const local_state_base &) = delete;
 
-            std::atomic<local_state_base *> next{nullptr}; // NOLINT for intrusive_slist
+            std::atomic<local_state_base *> next{nullptr}; // NOLINT for intrusive_list
         };
 
         template <class Sndr, class Rcvr>
@@ -202,10 +202,10 @@ namespace mcs::execution
                 {
                     if (this != &other)
                     {
-#if 0
-                        head = other.head;
-                        other.head = nullptr;
-#endif
+
+                        // head = other.head;
+                        // other.head = nullptr;
+
                         // 使用原子操作等价上面操作
                         // memory_order_relaxed	宽松操作：没有同步或定序约束。
                         // memory_order_acq_rel:
@@ -263,7 +263,11 @@ namespace mcs::execution
         template <class Sndr>
         struct shared_state
         {
-
+            /**
+             * Then variant-type denotes the type variant<tuple<set_stopped_t>,
+             * tuple<set_error_t, exception_ptr>, as-tuple<Sigs>...>, but with duplicate
+             * types removed.
+             */
             using variant_type = typename __detail::shared_state_variant_type<
                 typename snd::completion_signatures_of_t<Sndr>>::type; // exposition
                                                                        // only
@@ -466,13 +470,17 @@ namespace mcs::execution
                     dom, snd::make_sender(*this, {}, std::forward<Sndr>(sndr)));
             }
 
+            auto operator()() const -> pipeable::sender_adaptor<split_t>
+            {
+                return {*this};
+            }
+
             template <snd::sender Sndr>
             auto transform_sender(Sndr &&sndr) noexcept // NOLINT
                 requires(snd::sender_for<decltype((sndr)), split_t>)
             {
                 // Note: tag_change: split_t => split_impl_tag
                 // Note: data_change: {} => shared_wrapper(shared_state{child},old_tag)
-                // Note: sh_state: shared_state<child_sndr> conflict shared_state<Sndr>
                 auto &&[old_tag, _, child] = sndr;
                 auto *sh_state =
                     new __split::shared_state{std::forward_like<decltype(sndr)>(child)};
@@ -561,6 +569,13 @@ namespace mcs::execution
                     state.sh_state->start_op();
                 }
             };
+    };
+
+    template <typename Sndr, typename Env>
+    struct cmplsigs::completion_signatures_for_impl<
+        snd::__detail::basic_sender<adapt::split_t, snd::empty_data, Sndr>, Env>
+    {
+        using type = snd::completion_signatures_of_t<Sndr, Env>;
     };
 
     template <typename Sndr, typename Env>
