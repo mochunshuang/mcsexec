@@ -28,7 +28,6 @@ namespace mcs::execution::conn
     {
         template <typename Sndr, typename Rcvr>
         constexpr auto operator()(Sndr &&sndr, Rcvr rcvr) const noexcept
-            requires(snd::sender<decltype((sndr))> && receiver<decltype((rcvr))>)
         {
             // Note: lambda: for lazy
             // warning: possibly dangling reference to a temporary [-Wdangling-reference]
