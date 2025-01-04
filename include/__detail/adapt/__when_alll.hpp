@@ -4,6 +4,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <variant>
 
 #include "../snd/__transform_sender.hpp"
 #include "../snd/__make_sender.hpp"
@@ -22,10 +23,13 @@
 #include "../tfxcmplsigs/__unique_variadic_template.hpp"
 
 #include "../cmplsigs/__value_types_of_t.hpp"
-#include "../cmplsigs/__error_types_of_t.hpp"
-#include "../cmplsigs/__detail/__concat_tuples.hpp"
 
 #include "../__stoptoken/__stop_callback_of_t.hpp"
+
+#include "../cmplsigs/__detail/__filter_sigs_by_completion.hpp"
+#include "../cmplsigs/__detail/__merge_type_lists.hpp"
+
+#include "../tool/Select_Type.hpp"
 
 namespace mcs::execution
 {
@@ -59,7 +63,7 @@ namespace mcs::execution
             (std::tuple_size_v<
                  cmplsigs::value_types_of_t<Sndr, Env, std::tuple, std::tuple>> <= 1);
 
-        enum class disposition
+        enum class disposition : std::uint8_t
         {
             started, // NOLINT
             error,   // NOLINT
@@ -71,92 +75,29 @@ namespace mcs::execution
 
         namespace __detail
         {
-            template <typename To, typename From>
-            struct strans_args;
-            template <typename To, typename... T>
-            struct strans_args<To, std::tuple<T...>>
-            {
-                using type = To(T...);
-            };
-
-            template <>
-            struct strans_args<set_value_t, std::tuple<>>
-            {
-                using type = set_value_t();
-            };
-            template <>
-            struct strans_args<set_error_t, std::tuple<>>
-            {
-                // Note: set_error_t()是非法的
-                using type = set_error_t(std::exception_ptr);
-                // using type = set_error_t(none_such);
-            };
-
-            /**
-             * @brief 工具类。计算简单单个Sndr发送的值类型
-             */
-            template <typename T>
-            struct Sndr_return_type;
-
-            // Note: 普通的单个Sndr，应该只能有一个值通道；因此不用形参包
-            template <typename T>
-            struct Sndr_return_type<std::tuple<T>>
-            {
-                using type = T;
-            };
-            template <>
-            struct Sndr_return_type<std::tuple<>>
-            {
-                using type = void;
-            };
-
-            template <typename... T>
-            struct All_Sndr_value_types;
-
-            template <typename... Tuple>
-            struct All_Sndr_value_types<std::variant<Tuple>...>
-            {
-                struct ignore;
-                using original_t = decltype(std::tuple_cat(
-                    std::declval<std::conditional_t<
-                        not std::is_void_v<typename Sndr_return_type<Tuple>::type>,
-                        std::tuple<typename Sndr_return_type<Tuple>::type>,
-                        std::tuple<>>>()...));
-                // using type = set_value_t(typename Sndr_return_type<Tuple>::type...);
-                // static_assert(std::is_same_v<original_t, std::tuple<>>);
-                using type = typename strans_args<set_value_t, original_t>::type;
-            };
-
-        }; // namespace __detail
-        namespace __detail
-        {
-            ///////////////////////////////////////////////////////////////
-            /////////// compute_values_tuple
             template <typename Rcvr, typename... Sndrs>
-            struct compute_values_tuple;
+            struct compute_when_all_values_tuple;
 
             template <typename Rcvr, typename... Sndrs>
-                requires(requires() {
-                    typename std::tuple<cmplsigs::value_types_of_t<
-                        Sndrs, queries::env_of_t<Rcvr>, decayed_tuple, std::optional>...>;
-                })
-            struct compute_values_tuple<Rcvr, Sndrs...>
+            concept well_formed_when_all_values = requires() {
+                typename std::tuple<cmplsigs::value_types_of_t<
+                    Sndrs, queries::env_of_t<Rcvr>, decayed_tuple, std::optional>...>;
+            };
+
+            template <typename Rcvr, typename... Sndrs>
+                requires well_formed_when_all_values<Rcvr, Sndrs...>
+            struct compute_when_all_values_tuple<Rcvr, Sndrs...>
             {
                 using type = std::tuple<cmplsigs::value_types_of_t<
                     Sndrs, queries::env_of_t<Rcvr>, decayed_tuple, std::optional>...>;
             };
             template <typename Rcvr, typename... Sndrs>
-                requires(not requires() {
-                    typename std::tuple<cmplsigs::value_types_of_t<
-                        Sndrs, queries::env_of_t<Rcvr>, decayed_tuple, std::optional>...>;
-                })
-            struct compute_values_tuple<Rcvr, Sndrs...>
+                requires(not well_formed_when_all_values<Rcvr, Sndrs...>)
+            struct compute_when_all_values_tuple<Rcvr, Sndrs...>
             {
                 using type = std::tuple<>;
             };
 
-            ///////////////////////////////////////////////////////////////
-            /////////// compute_errors_variant
             namespace __detail
             {
                 template <typename T>
@@ -179,67 +120,85 @@ namespace mcs::execution
              *
              * @tparam Es
              */
-            template <typename... V>
-            using copy_fail = std::conditional_t<__detail::is_decay_copy_noexcept_v<V...>,
-                                                 none_such, std::exception_ptr>;
-
-            template <typename Env, typename... Sndrs>
-            struct compute_copy_fail_exception_tuple;
+            template <typename T>
+            struct Check_Sig_Is_Copy_Fail;
+            template <>
+            struct Check_Sig_Is_Copy_Fail<recv::set_value_t()>
+            {
+                static constexpr bool value = false; // NOLINT
+            };
+            template <typename Tag, typename... T>
+            struct Check_Sig_Is_Copy_Fail<Tag(T...)>
+            {
+                static constexpr bool value = // NOLINT
+                    __detail::is_decay_copy_noexcept_v<T...>;
+            };
 
             template <typename T>
-            struct compute_copy_fail_exception_tuple_impl;
-
-            template <typename... T>
-            struct compute_copy_fail_exception_tuple_impl<set_value_t(T...)>
+            struct Have_Copy_Fail_Sig;
+            template <>
+            struct Have_Copy_Fail_Sig<cmplsigs::completion_signatures<>>
             {
-                using type = copy_fail<T...>;
+                static constexpr bool value = false; // NOLINT
+            };
+            template <typename... Sig>
+            struct Have_Copy_Fail_Sig<cmplsigs::completion_signatures<Sig...>>
+            {
+                static constexpr bool value = // NOLINT
+                    (Check_Sig_Is_Copy_Fail<Sig>::value && ...);
             };
 
             template <typename Env, typename... Sndrs>
-            struct compute_copy_fail_exception_tuple
+            struct compute_copy_fail
             {
-                using Type = std::conditional_t<
-                    std::is_same_v<
-                        typename compute_copy_fail_exception_tuple_impl<
-                            typename All_Sndr_value_types<
-                                cmplsigs::value_types_of_t<Sndrs, Env>...>::type>::type,
-                        none_such>,
-                    std::tuple<>, std::tuple<std::exception_ptr>>;
+                using All_Sig = typename cmplsigs::__detail::merge_type_lists<
+                    cmplsigs::completion_signatures,
+                    snd::completion_signatures_of_t<Sndrs, Env>...>::type;
+
+                using All_Copy_Sig = typename cmplsigs::__detail::skip_sigs_by_completion<
+                    recv::set_stopped_t, All_Sig>::type;
+
+                using type = std::conditional_t<
+                    Have_Copy_Fail_Sig<All_Copy_Sig>::value,
+                    cmplsigs::completion_signatures<>,
+                    cmplsigs::completion_signatures<set_error_t(std::exception_ptr)>>;
             };
 
             template <typename Tuple>
-            struct compute_errors_variant_impl;
+            struct compute_when_all_errors_variant_Impl;
             template <typename... Es>
-            struct compute_errors_variant_impl<std::tuple<Es...>>
+            struct compute_when_all_errors_variant_Impl<
+                cmplsigs::completion_signatures<set_error_t(Es)...>>
             {
                 using type = tfxcmplsigs::unique_variadic_template<
                     std::variant<none_such, std::decay_t<Es>...>>::type;
             };
-
-            template <typename Sndrs>
-            struct compute_es;
+            template <>
+            struct compute_when_all_errors_variant_Impl<cmplsigs::completion_signatures<>>
+            {
+                using type =
+                    tfxcmplsigs::unique_variadic_template<std::variant<none_such>>::type;
+            };
 
             template <typename Env, typename... Sndrs>
-            struct compute_errors_variant;
+            struct compute_when_all_errors_variant;
 
             template <typename Env, typename... Sndrs>
-            struct compute_errors_variant
+            struct compute_when_all_errors_variant
             {
                 // where Es is the pack of the decayed types of all the child senders'
                 // possible error result datums.
                 // Note: compute: turple<Es>....，frist then concat_tuples it to one tuple
-                using type = typename compute_errors_variant_impl<
-                    typename tfxcmplsigs::unique_variadic_template<
-                        typename cmplsigs::__detail::concat_tuples<
-                            typename compute_copy_fail_exception_tuple<Env,
-                                                                       Sndrs...>::Type,
-                            std::conditional_t<
-                                std::is_same_v<
-                                    cmplsigs::error_types_of_t<Sndrs, Env, std::tuple>,
-                                    cmplsigs::empty_variant>,
-                                std::tuple<>,
-                                cmplsigs::error_types_of_t<Sndrs, Env, std::tuple>>...>::
-                            type>::type>::type;
+                using All_Pre_Es = typename cmplsigs::__detail::filter_sigs_by_completion<
+                    set_error_t,
+                    typename compute_copy_fail<Env, Sndrs...>::All_Copy_Sig>::type;
+
+                using Add_Es = typename compute_copy_fail<Env, Sndrs...>::type;
+
+                using All_Es = typename cmplsigs::__detail::merge_type_lists<
+                    cmplsigs::completion_signatures, All_Pre_Es, Add_Es>::type;
+
+                using type = typename compute_when_all_errors_variant_Impl<All_Es>::type;
             };
 
         }; // namespace __detail
@@ -257,7 +216,8 @@ namespace mcs::execution
                  *
                  */
                 using values_tuple =
-                    typename __detail::compute_values_tuple<Rcvr, Sndrs...>::type;
+                    typename __detail::compute_when_all_values_tuple<Rcvr,
+                                                                     Sndrs...>::type;
                 /**
                  * @brief The alias errors_variant denotes the type
                  *  variant<none-such,copy-fail, Es...> with duplicate types removed,
@@ -265,9 +225,8 @@ namespace mcs::execution
                  *  possible error result datums.
                  */
                 // variant 用 none-such 做哨兵类型
-                using errors_variant =
-                    typename __detail::compute_errors_variant<queries::env_of_t<Rcvr>,
-                                                              Sndrs...>::type;
+                using errors_variant = typename __detail::compute_when_all_errors_variant<
+                    queries::env_of_t<Rcvr>, Sndrs...>::type;
                 // stop_callback == token + CallbackFn
                 using stop_callback = typename stoptoken::stop_callback_of_t<
                     queries::stop_token_of_t<queries::env_of_t<Rcvr>>,
@@ -488,39 +447,80 @@ namespace mcs::execution
 
     namespace adapt::__when_all
     {
-        using __detail::strans_args;
-        using __detail::All_Sndr_value_types;
-        using __detail::compute_copy_fail_exception_tuple;
 
-        // std::variant<std::tuple<int, std::basic_string<char>>>
-        // Note: set_value_t(int, std::string) 。
-        // 两个sndr，一个返回int，一个返回string
+        using __detail::compute_copy_fail;
+
+        template <typename Sig>
+        struct is_not_set_value_t_predicate
+        {
+            static constexpr bool value = !std::is_same_v<set_value_t(), Sig>; // NOLINT
+        };
+
+        template <typename T>
+        struct into_one_set_sig;
+
+        template <typename... Ts>
+        struct into_one_set_sig<cmplsigs::completion_signatures<set_value_t(Ts)...>>
+        {
+            using type = cmplsigs::completion_signatures<set_value_t(Ts...)>;
+        };
+
+        template <>
+        struct into_one_set_sig<cmplsigs::completion_signatures<>>
+        {
+            using type = cmplsigs::completion_signatures<set_value_t()>;
+        };
+
+        template <typename T>
+        struct compute_when_all_v_sig_impl;
+
+        template <typename... Sig>
+        struct compute_when_all_v_sig_impl<cmplsigs::completion_signatures<Sig...>>
+        {
+            using slect_type =
+                tool::Select_Type<cmplsigs::completion_signatures,
+                                  is_not_set_value_t_predicate,
+                                  cmplsigs::completion_signatures<Sig...>>::type;
+            using type = typename into_one_set_sig<slect_type>::type;
+        };
+
         template <typename Env, typename... Sndr>
         struct conpute_value_types
         {
-            using type = typename All_Sndr_value_types<
-                cmplsigs::value_types_of_t<Sndr, Env>...>::type;
+            using All_V_Sig = typename cmplsigs::__detail::filter_sigs_by_completion<
+                set_value_t,
+                typename compute_copy_fail<Env, Sndr...>::All_Copy_Sig>::type;
+            // Note: when_all only accepts senders with a single value completion
+            using type = typename compute_when_all_v_sig_impl<All_V_Sig>::type;
         };
 
         template <typename Env, typename... Sndrs>
-        struct conpute_error_types
+        struct compute_error_types
         {
-            using original_type = typename tfxcmplsigs::unique_variadic_template<
-                typename cmplsigs::__detail::concat_tuples<
-                    typename compute_copy_fail_exception_tuple<Env, Sndrs...>::Type,
-                    std::conditional_t<
-                        std::is_same_v<cmplsigs::error_types_of_t<Sndrs, Env, std::tuple>,
-                                       cmplsigs::empty_variant>,
-                        std::tuple<>,
-                        cmplsigs::error_types_of_t<Sndrs, Env, std::tuple>>...>::type>::
-                type;
+            using All_Pre_Es = typename cmplsigs::__detail::filter_sigs_by_completion<
+                set_error_t,
+                typename compute_copy_fail<Env, Sndrs...>::All_Copy_Sig>::type;
+            using Add_Es = typename compute_copy_fail<Env, Sndrs...>::type;
 
-            using type = strans_args<set_error_t, original_type>::type;
+            using type = typename tfxcmplsigs::unique_variadic_template<
+                typename cmplsigs::__detail::merge_type_lists<
+                    cmplsigs::completion_signatures, All_Pre_Es, Add_Es>::type>::type;
+        };
+
+        template <typename Env, typename... Sndrs>
+        struct computes_stopped_types
+        {
+            using All_Pre_Ss = typename cmplsigs::__detail::filter_sigs_by_completion<
+                set_stopped_t, typename compute_copy_fail<Env, Sndrs...>::All_Sig>::type;
+
+            using type = std::conditional_t<
+                std::is_same_v<All_Pre_Ss, cmplsigs::completion_signatures<>>,
+                cmplsigs::completion_signatures<>,
+                cmplsigs::completion_signatures<set_stopped_t()>>;
         };
 
     }; // namespace adapt::__when_all
 
-    // TODO(mcs): completion_signatures_for_impl
     // Note:  make_state() 返回  state_type
     // Note: snd::general::impls_for<adapt::when_all_t>::get_state 的结果值解析即可
     // Note: 还是独立的好，Sndr...传来。解析值类型，错误类型；组合 +
@@ -529,8 +529,10 @@ namespace mcs::execution
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<adapt::when_all_t, snd::empty_data, Sndr...>, Env>
     {
-        using type = cmplsigs::completion_signatures<
+        using type = typename cmplsigs::__detail::merge_type_lists<
+            cmplsigs::completion_signatures,
             typename adapt::__when_all::conpute_value_types<Env, Sndr...>::type,
-            typename adapt::__when_all::conpute_error_types<Env, Sndr...>::type>;
+            typename adapt::__when_all::compute_error_types<Env, Sndr...>::type,
+            typename adapt::__when_all::computes_stopped_types<Env, Sndr...>::type>::type;
     };
 }; // namespace mcs::execution
