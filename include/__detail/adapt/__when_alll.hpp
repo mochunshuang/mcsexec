@@ -478,8 +478,7 @@ namespace mcs::execution
         struct compute_when_all_v_sig_impl<cmplsigs::completion_signatures<Sig...>>
         {
             using slect_type =
-                tool::Select_Type<cmplsigs::completion_signatures,
-                                  is_not_set_value_t_predicate,
+                tool::Select_Type<is_not_set_value_t_predicate,
                                   cmplsigs::completion_signatures<Sig...>>::type;
             using type = typename into_one_set_sig<slect_type>::type;
         };

@@ -4,13 +4,12 @@
 
 namespace mcs::execution::tool
 {
-    template <template <typename...> class Template, template <typename> class Predicate,
-              typename Type>
+    template <template <typename> class Predicate, typename Type>
     struct Select_Type;
 
     template <template <typename...> class Template, template <typename> class Predicate,
               typename... T>
-    struct Select_Type<Template, Predicate, Template<T...>>
+    struct Select_Type<Predicate, Template<T...>>
     {
         template <typename Rest, typename Collect>
         struct Select;
