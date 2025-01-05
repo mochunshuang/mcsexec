@@ -38,6 +38,13 @@ int main()
                 return ex::just(std::string{"error"});
             }));
         // mcs::this_thread::sync_wait(snd);
+        // Note: because no std::optional<std::tuple<int, double>,std::string>
+    };
+
+    TEST("stopped_as_optional pipeable") = [] {
+        ex::sender auto snd = ex::just(1) | ex::stopped_as_optional();
+        auto [ret] = mcs::this_thread::sync_wait(snd).value();
+        EXPECT(ret.value() == 1);
     };
 
     return 0;

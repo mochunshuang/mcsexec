@@ -28,6 +28,11 @@ namespace mcs::execution
                     dom, snd::make_sender(*this, {}, std::forward<Sndr>(sndr)));
             }
 
+            auto operator()() const -> pipeable::sender_adaptor<stopped_as_optional_t>
+            {
+                return {*this};
+            }
+
             template <snd::sender Sndr, typename Env> // NOLINTNEXTLINE
             auto transform_sender(Sndr &&sndr, const Env &env) noexcept
                 requires(snd::sender_for<decltype((sndr)), stopped_as_optional_t> &&
