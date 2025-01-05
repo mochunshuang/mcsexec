@@ -8,7 +8,7 @@ int main()
         ex::sender auto snd [[maybe_unused]] =
             ex::just() | ex::let_error([](std::exception_ptr &&) { return ex::just(); });
         using T = decltype(snd);
-        using CS = ex::cmplsigs::get_completion_signatures<T>;
+        using CS = ex::snd::completion_signatures_of_t<T>;
         static_assert(
             tool::eq_set_sigs_v<CS, mcs::execution::cmplsigs::completion_signatures<
                                         mcs::execution::recv::set_value_t(),
@@ -19,7 +19,7 @@ int main()
                     return ex::just(1, 1.0, 1.0F);
                 });
             using T = decltype(snd);
-            using CS = ex::cmplsigs::get_completion_signatures<T>;
+            using CS = ex::snd::completion_signatures_of_t<T>;
             static_assert(tool::eq_set_sigs_v<
                           CS, mcs::execution::cmplsigs::completion_signatures<
                                   recv::set_value_t(),
@@ -32,7 +32,7 @@ int main()
                     return ex::just_error(404); // NOLINT
                 });
             using T = decltype(snd);
-            using CS = ex::cmplsigs::get_completion_signatures<T>;
+            using CS = ex::snd::completion_signatures_of_t<T>;
             static_assert(
                 tool::eq_set_sigs_v<CS, mcs::execution::cmplsigs::completion_signatures<
                                             recv::set_value_t(), recv::set_error_t(int),
@@ -55,7 +55,7 @@ int main()
                                     }
                                 });
         using T = decltype(snd);
-        using CS = ex::cmplsigs::get_completion_signatures<T>;
+        using CS = ex::snd::completion_signatures_of_t<T>;
         static_assert(
             std::is_same_v<CS, mcs::execution::cmplsigs::completion_signatures<
                                    mcs::execution::recv::set_value_t(std::string),
@@ -67,7 +67,7 @@ int main()
             ex::just()                                   //
             | ex::then([] { return std::string("13"); }) //
             | ex::let_error([&](std::exception_ptr) { return ex::just(0); });
-        using T = ex::cmplsigs::get_completion_signatures<decltype(snd)>;
+        using T = ex::snd::completion_signatures_of_t<decltype(snd)>;
         // static_assert(std::is_same_v<T, int>);
     }
     return 0;

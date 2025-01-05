@@ -42,7 +42,7 @@ int main()
         using CS = decltype(pre_sndr.get_completion_signatures(ex::empty_env{}));
 
         using P_CS =
-            ex::cmplsigs::get_completion_signatures<many_error_sender<>, ex::empty_env>;
+            ex::snd::completion_signatures_of_t<many_error_sender<>, ex::empty_env>;
         static_assert(std::is_same_v<CS, P_CS>);
 
         auto sndr [[maybe_unused]] = many_error_sender{} | ex::upon_error([](auto e) {
@@ -56,7 +56,7 @@ int main()
                                          }
                                      });
         // Note: 就是这样的
-        using T = ex::cmplsigs::get_completion_signatures<decltype(sndr), ex::empty_env>;
+        using T = ex::snd::completion_signatures_of_t<decltype(sndr), ex::empty_env>;
         static_assert(
             ex::tool::eq_set_sigs_v<T,
                                     ex::cmplsigs::completion_signatures<
@@ -67,8 +67,7 @@ int main()
         {
             auto sndr = many_error_sender<ex::set_value_t(int)>{} |
                         ex::upon_error([](auto) { return 0; });
-            using T =
-                ex::cmplsigs::get_completion_signatures<decltype(sndr), ex::empty_env>;
+            using T = ex::snd::completion_signatures_of_t<decltype(sndr), ex::empty_env>;
             static_assert(
                 ex::tool::eq_set_sigs_v<T,
                                         ex::cmplsigs::completion_signatures<
@@ -79,8 +78,7 @@ int main()
         {
             auto sndr = many_error_sender<ex::set_value_t(double)>{} |
                         ex::upon_error([](auto) { return 0; });
-            using T =
-                ex::cmplsigs::get_completion_signatures<decltype(sndr), ex::empty_env>;
+            using T = ex::snd::completion_signatures_of_t<decltype(sndr), ex::empty_env>;
             static_assert(ex::tool::eq_set_sigs_v<
                           T,
                           ex::cmplsigs::completion_signatures<

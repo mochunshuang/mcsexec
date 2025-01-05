@@ -101,7 +101,7 @@ int main()
             auto sndr = ex::just(a);
             using T = decltype(sndr);
 
-            using CS = ex::cmplsigs::get_completion_signatures<T>;
+            using CS = ex::snd::completion_signatures_of_t<T>;
             static_assert(
                 std::is_same_v<
                     CS, ex::cmplsigs::completion_signatures<ex::recv::set_value_t(A)>>);
@@ -110,7 +110,7 @@ int main()
                 auto sndr = ex::just(A{});
                 using T = decltype(sndr);
 
-                using CS = ex::cmplsigs::get_completion_signatures<T>;
+                using CS = ex::snd::completion_signatures_of_t<T>;
                 static_assert(std::is_same_v<CS, ex::cmplsigs::completion_signatures<
                                                      ex::recv::set_value_t(A)>>);
             }
@@ -123,7 +123,7 @@ int main()
             auto sndr = ex::just(std::ref(a));
             using T = decltype(sndr);
 
-            using CS = ex::cmplsigs::get_completion_signatures<T>;
+            using CS = ex::snd::completion_signatures_of_t<T>;
             static_assert(
                 std::is_same_v<CS,
                                ex::cmplsigs::completion_signatures<ex::recv::set_value_t(
@@ -136,7 +136,7 @@ int main()
                 auto sndr = ex::just(refa);
                 using T = decltype(sndr);
 
-                using CS = ex::cmplsigs::get_completion_signatures<T>;
+                using CS = ex::snd::completion_signatures_of_t<T>;
                 static_assert(std::is_same_v<CS, ex::cmplsigs::completion_signatures<
                                                      ex::recv::set_value_t(int)>>);
             }
@@ -146,7 +146,7 @@ int main()
             auto sndr = ex::just(std::ref(a));
             using T = decltype(sndr);
 
-            using CS = ex::cmplsigs::get_completion_signatures<T>;
+            using CS = ex::snd::completion_signatures_of_t<T>;
             static_assert(
                 std::is_same_v<CS,
                                ex::cmplsigs::completion_signatures<ex::recv::set_value_t(
@@ -158,7 +158,7 @@ int main()
                 auto sndr = ex::just(refa);
                 using T = decltype(sndr);
 
-                using CS = ex::cmplsigs::get_completion_signatures<T>;
+                using CS = ex::snd::completion_signatures_of_t<T>;
                 static_assert(std::is_same_v<CS, ex::cmplsigs::completion_signatures<
                                                      ex::recv::set_value_t(A)>>);
             }
@@ -169,14 +169,14 @@ int main()
         auto &refa = a;
         auto sndr = ex::just(std::move(refa));
         using T = decltype(sndr);
-        using CS = ex::cmplsigs::get_completion_signatures<T>;
+        using CS = ex::snd::completion_signatures_of_t<T>;
         static_assert(std::is_same_v<
                       CS, ex::cmplsigs::completion_signatures<ex::recv::set_value_t(A)>>);
         {
             auto a = A{};
             auto sndr = ex::just(std::move(a));
             using T = decltype(sndr);
-            using CS = ex::cmplsigs::get_completion_signatures<T>;
+            using CS = ex::snd::completion_signatures_of_t<T>;
             static_assert(
                 std::is_same_v<
                     CS, ex::cmplsigs::completion_signatures<ex::recv::set_value_t(A)>>);
@@ -186,7 +186,7 @@ int main()
     TEST("just mv") = [] {
         auto sndr = mcs::execution::factories::just(1, 1.0, 1.0F);
         using T = decltype(sndr);
-        using CS = ex::cmplsigs::get_completion_signatures<T>;
+        using CS = ex::snd::completion_signatures_of_t<T>;
         static_assert(std::is_same_v<CS, ex::cmplsigs::completion_signatures<
                                              ex::recv::set_value_t(int, double, float)>>);
     };
@@ -194,7 +194,7 @@ int main()
     TEST("just stop") = []() {
         auto sndr = ex::just_stopped();
         using T = decltype(sndr);
-        using CS = ex::cmplsigs::get_completion_signatures<T>;
+        using CS = ex::snd::completion_signatures_of_t<T>;
         static_assert(
             std::is_same_v<
                 CS, ex::cmplsigs::completion_signatures<ex::recv::set_stopped_t()>>);
@@ -204,7 +204,7 @@ int main()
     TEST("just stop") = []() {
         auto sndr = ex::just_stopped();
         using T = decltype(sndr);
-        using CS = ex::cmplsigs::get_completion_signatures<T>;
+        using CS = ex::snd::completion_signatures_of_t<T>;
         static_assert(
             std::is_same_v<
                 CS, ex::cmplsigs::completion_signatures<ex::recv::set_stopped_t()>>);
@@ -215,7 +215,7 @@ int main()
             auto sndr = ex::just_stopped() | ex::then([]() {});
             using T = decltype(sndr);
             // Note: 直接编译错误吗？
-            // using CS = ex::cmplsigs::get_completion_signatures<T>;
+            // using CS = ex::snd::completion_signatures_of_t<T>;
             // using V =
             // ex::cmplsigs::__detail::filter_sigs_by_completion<ex::set_value_t,
             //                                                             CS>::type;

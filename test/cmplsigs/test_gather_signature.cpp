@@ -13,7 +13,7 @@ int main()
 
     {
         using T = decltype(just());
-        using CS = cmplsigs::get_completion_signatures<T>;
+        using CS = ex::snd::completion_signatures_of_t<T>;
         using VT = cmplsigs::value_types_of_t<T>;
     }
 

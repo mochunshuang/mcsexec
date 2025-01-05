@@ -5,7 +5,7 @@ int main()
     TEST("then cs") = [] {
         auto sndr = ex::just() | ex::then([] {});
         using T = decltype(sndr);
-        using CS = ex::cmplsigs::get_completion_signatures<T>;
+        using CS = ex::snd::completion_signatures_of_t<T>;
         static_assert(std::is_same_v<CS, ex::cmplsigs::completion_signatures<
                                              ex::recv::set_value_t(),
                                              ex::recv::set_error_t(std::exception_ptr)>>);
@@ -15,7 +15,7 @@ int main()
     TEST("then cs with v") = [] {
         auto sndr = ex::just() | ex::then([] { return 1; });
         using T = decltype(sndr);
-        using CS = ex::cmplsigs::get_completion_signatures<T>;
+        using CS = ex::snd::completion_signatures_of_t<T>;
         static_assert(std::is_same_v<CS, ex::cmplsigs::completion_signatures<
                                              ex::recv::set_value_t(int),
                                              ex::recv::set_error_t(std::exception_ptr)>>);

@@ -63,7 +63,7 @@ int main()
     };
 
     TEST("cpo for just") = [] {
-        using CO = cmplsigs::get_completion_signatures<decltype(ex::just(1, 1.0))>;
+        using CO = ex::snd::completion_signatures_of_t<decltype(ex::just(1, 1.0))>;
         static_assert(std::is_same_v<cmplsigs::completion_signatures<
                                          mcs::execution::recv::set_value_t(int, double)>,
                                      CO>);

@@ -120,7 +120,7 @@ int main()
         using T = decltype(snd);
 
         // Note: can not sync_wait as no set_value_t CS in pre_sndr
-        // using CS [[maybe_unused]] = ex::cmplsigs::get_completion_signatures<T>;
+        // using CS [[maybe_unused]] = ex::snd::completion_signatures_of_t<T>;
         // try
         // {
         //     mcs::this_thread::sync_wait(snd);
@@ -138,7 +138,7 @@ int main()
         using T = decltype(snd);
 
         // Note: can not sync_wait as no set_value_t CS
-        // using CS [[maybe_unused]] = ex::cmplsigs::get_completion_signatures<T>;
+        // using CS [[maybe_unused]] = ex::snd::completion_signatures_of_t<T>;
         // try
         // {
         //     auto ret [[maybe_unused]] = mcs::this_thread::sync_wait(snd);

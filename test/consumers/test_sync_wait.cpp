@@ -76,7 +76,7 @@ int main()
                     return ex::just_error(
                         std::make_error_code(std::errc::argument_out_of_domain));
                 });
-            using T = ex::cmplsigs::get_completion_signatures<decltype(snd)>;
+            using T = ex::snd::completion_signatures_of_t<decltype(snd)>;
             using Forward = ex::cmplsigs::completion_signatures<
                 ex::recv::set_value_t(), ex::recv::set_error_t(std::exception_ptr)>;
 

@@ -38,7 +38,7 @@ int main()
     };
 
     TEST("cpo for just_error") = [] {
-        using CO = cmplsigs::get_completion_signatures<decltype(ex::just_error(
+        using CO = ex::snd::completion_signatures_of_t<decltype(ex::just_error(
             std::exception_ptr{}))>;
         static_assert(
             std::is_same_v<cmplsigs::completion_signatures<

@@ -74,7 +74,7 @@ int main()
         ex::sender auto snd =
             ex::just() | ex::let_value([] { return ex::just(1, 2, 3); });
         using T = decltype(snd);
-        using CO = ex::cmplsigs::get_completion_signatures<T>;
+        using CO = ex::snd::completion_signatures_of_t<T>;
         static_assert(std::is_same_v<ex::cmplsigs::completion_signatures<
                                          mcs::execution::recv::set_value_t(int, int, int),
                                          recv::set_error_t(std::exception_ptr)>,
@@ -268,7 +268,7 @@ int main()
 
         // receiver 需要额外的 std::exception_ptr 通道，因为还处理可能的异常
         using T = decltype(snd);
-        using CO = ex::cmplsigs::get_completion_signatures<T>;
+        using CO = ex::snd::completion_signatures_of_t<T>;
         static_assert(std::is_same_v<
                       ex::cmplsigs::completion_signatures<
                           recv::set_value_t(), recv::set_error_t(std::exception_ptr)>,
