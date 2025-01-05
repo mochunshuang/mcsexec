@@ -35,13 +35,6 @@ namespace mcs::execution::tfxcmplsigs
         // Note:
         // valid-completion-signatures<T> is true when T is completion_signatures<As...>
         //
-        template <typename T>
-        inline constexpr bool is_cmplsigs_instance = false; // NOLINT
-
-        template <class... As>
-        inline constexpr bool // NOLINTNEXTLINE
-            is_cmplsigs_instance<cmplsigs::completion_signatures<As...>> = true;
-
         template <typename AdditionalSignatures, typename SetValue, typename SetError,
                   typename Stop>
         struct __completion_signatures_set;
@@ -69,8 +62,6 @@ namespace mcs::execution::tfxcmplsigs
               template <class> class _SetError = default_set_error,
               cmplsigs::valid_completion_signatures _SetStopped =
                   cmplsigs::completion_signatures<set_stopped_t()>>
-        requires(__detail::is_cmplsigs_instance<_SetValue<>> &&
-                 __detail::is_cmplsigs_instance<_SetError<int>>)
     using transform_completion_signatures =
         typename unique_variadic_template<typename __detail::__completion_signatures_set<
             _AdditionalSignatures,
