@@ -1,4 +1,5 @@
 #include "../test_base_head.hpp"
+#include <string>
 
 int main()
 {
@@ -16,6 +17,27 @@ int main()
         ex::sender auto snd = ex::stopped_as_optional(ex::just(1));
         auto [ret] = mcs::this_thread::sync_wait(snd).value();
         EXPECT(ret.value() == 1);
+    };
+
+    TEST("stopped_as_optional shall work with just(), as no std::optional<void>") = [] {
+        ex::sender auto snd [[maybe_unused]] = ex::stopped_as_optional(ex::just());
+        // mcs::this_thread::sync_wait(snd).value();
+    };
+
+    TEST("stopped_as_optional shall work with multi-value just senders") = [] {
+        ex::sender auto snd = ex::stopped_as_optional(ex::just(1, 1.0));
+        auto [ret] = mcs::this_thread::sync_wait(snd).value();
+        auto [a, b] = ret.value();
+        EXPECT(a == 1);
+        EXPECT(b == 1.0);
+    };
+
+    TEST("stopped_as_optional shall not work with multi-value senders") = [] {
+        ex::sender auto snd [[maybe_unused]] = ex::stopped_as_optional(
+            ex::just(1, 1.0) | ex::let_error([](std::exception_ptr &&) {
+                return ex::just(std::string{"error"});
+            }));
+        // mcs::this_thread::sync_wait(snd);
     };
 
     return 0;
