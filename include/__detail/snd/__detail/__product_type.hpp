@@ -2,7 +2,6 @@
 
 #include <tuple>
 #include <utility>
-#include <memory>
 
 namespace mcs::execution::snd::__detail
 {
@@ -63,18 +62,6 @@ namespace mcs::execution::snd::__detail
             return this->element_get<J>(*this);
         }
 
-        template <::std::size_t J, typename Allocator, typename Self> // NOLINTNEXTLINE
-        static auto make_element(Allocator &&alloc, Self &&self) -> decltype(auto)
-        {
-            using type = ::std::remove_cvref_t<decltype(product_type_base::element_get<J>(
-                std::forward<Self>(self)))>;
-            if constexpr (::std::uses_allocator_v<type, Allocator>)
-                return ::std::make_obj_using_allocator<type>(
-                    alloc, product_type_base::element_get<J>(std::forward<Self>(self)));
-            else
-                return product_type_base::element_get<J>(std::forward<Self>(self));
-        }
-
         auto operator==(const product_type_base &) const -> bool = default;
     };
 
@@ -82,22 +69,6 @@ namespace mcs::execution::snd::__detail
     struct product_type : ::mcs::execution::snd::__detail::product_type_base<
                               ::std::index_sequence_for<T...>, T...>
     {
-
-        template <typename Allocator, typename Product, std::size_t... I>
-        static auto make_from(Allocator &&allocator, Product &&product, // NOLINT
-                              std::index_sequence<I...> /*unused*/) -> product_type
-        {
-            return {product_type::template make_element<I>(
-                allocator, ::std::forward<Product>(product))...};
-        }
-
-        template <typename Allocator, typename Product> // NOLINTNEXTLINE
-        static auto make_from(Allocator &&allocator, Product &&product) -> product_type
-        {
-            return product_type::make_from(::std::forward<Allocator>(allocator),
-                                           ::std::forward<Product>(product),
-                                           ::std::index_sequence_for<T...>{});
-        }
 
         template <typename Self, typename Fun, ::std::size_t... I> // NOLINTNEXTLINE
         constexpr auto apply_elements(this Self &&self, ::std::index_sequence<I...>,
