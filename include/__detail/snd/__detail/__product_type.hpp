@@ -33,7 +33,7 @@ namespace mcs::execution::snd::__detail
             return self.value;
         }
         template <::std::size_t J, typename S>
-        static auto element_get( // NOLINT
+        static auto element_get( // NOLINTNEXTLINE // NOLINT
             ::mcs::execution::snd::__detail::product_type_element<J, S> &&self) noexcept
             -> S &&
         {
@@ -99,30 +99,19 @@ namespace mcs::execution::snd::__detail
                                            ::std::index_sequence_for<T...>{});
         }
 
-        template <typename Fun, ::std::size_t... I> // NOLINTNEXTLINE
-        constexpr auto apply_elements(::std::index_sequence<I...>,
-                                      Fun &&fun) const -> decltype(auto)
-        {
-            // Note: 可以不用forward_like的理由：this已经暴露，get<I>3个版本
-            return ::std::forward<Fun>(fun)(this->template get<I>()...);
-        }
-        template <typename Fun>
-        constexpr auto apply(Fun &&fun) const -> decltype(auto)
-        {
-            return apply_elements(::std::index_sequence_for<T...>{},
-                                  ::std::forward<Fun>(fun));
-        }
-        template <typename Fun, ::std::size_t... I> // NOLINTNEXTLINE
-        constexpr auto apply_elements(::std::index_sequence<I...>,
+        template <typename Self, typename Fun, ::std::size_t... I> // NOLINTNEXTLINE
+        constexpr auto apply_elements(this Self &&self, ::std::index_sequence<I...>,
                                       Fun &&fun) -> decltype(auto)
         {
-            return ::std::forward<Fun>(fun)(this->template get<I>()...);
+            return ::std::forward<Fun>(fun)(
+                ::std::forward_like<Self>(self.template get<I>())...);
         }
-        template <typename Fun>
-        constexpr auto apply(Fun &&fun) -> decltype(auto)
+
+        template <typename Self, typename Fun>
+        constexpr auto apply(this Self &&self, Fun &&fun) -> decltype(auto)
         {
-            return apply_elements(::std::index_sequence_for<T...>{},
-                                  ::std::forward<Fun>(fun));
+            return ::std::forward<Self>(self).apply_elements(
+                ::std::index_sequence_for<T...>{}, ::std::forward<Fun>(fun));
         }
     };
     template <typename... T>
@@ -163,7 +152,7 @@ namespace std
     // for std::get<>
     template <std::size_t I, typename T>
         requires ::mcs::execution::snd::__detail::is_product_type<
-                     ::std::remove_cvref_t<T>>
+            ::std::remove_cvref_t<T>>
     constexpr auto get(T &&t) noexcept -> decltype(auto) // NOLINT
     {
         return std::forward<T>(t).template get<I>();

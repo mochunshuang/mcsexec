@@ -51,5 +51,22 @@ int main()
         EXPECT(ret == std::make_tuple(2, 3, 5, std::string{11}));
     };
 
+    TEST("when_all with just one sender") = [] {
+        ex::sender auto snd = ex::when_all( //
+            ex::just(2)                     //
+        );
+        auto [ret] = mcs::this_thread::sync_wait(snd).value();
+        EXPECT(ret == 2);
+    };
+
+    TEST("when_all with move-only types") = [] {
+        ex::sender auto snd = ex::when_all( //
+            ex::just(move_only_type{2})     //
+        );
+        // auto [ret] = mcs::this_thread::sync_wait(snd).value(); //编译错误
+        auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
+        EXPECT(ret.val == 2);
+    };
+
     return 0;
 }
