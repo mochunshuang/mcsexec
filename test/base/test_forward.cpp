@@ -25,11 +25,46 @@ void test_forward(Adaptor &&adaptor) // NOLINT
     auto &&forwarded_adaptor = std::forward<Adaptor>(adaptor);
     print_type_info<decltype(forwarded_adaptor)>("adaptor type (after forward)");
 
+    // Note: 不保证 成立
+    //  static_assert(std::is_same_v<decltype((adaptor)), Adaptor>);
+    // Note: 保证一定是左值引用
+    static_assert(std::is_lvalue_reference_v<decltype((adaptor))>);
     std::cout << "\n";
 }
 
+template <typename T>
+void some_function(T &&arg)
+{
+    if (std::is_lvalue_reference_v<decltype(arg)>)
+        std::cout << "Called with lvalue\n";
+    else
+        std::cout << "Called with rvalue\n";
+}
+
+template <typename Adaptor>
+void test_forward_2(Adaptor &&adaptor) // NOLINT
+{
+    // 方式 1：使用 std::forward<Adaptor>(adaptor)
+    some_function(std::forward<Adaptor>(adaptor));
+
+    // 方式 2：使用 std::forward<decltype((adaptor))>(adaptor)
+    some_function(std::forward<decltype((adaptor))>(adaptor));
+}
+
+void base();   // NOLINT
+void base_1(); // NOLINT
 // 测试用例
 int main()
+{
+    base();
+    std::cout << '\n'
+              << "=====================" << '\n'
+              << "=====================" << '\n';
+    base_1();
+    return 0;
+}
+
+void base()
 {
     int value = 42;              // NOLINT
     const int const_value = 100; // NOLINT
@@ -58,6 +93,19 @@ int main()
     const int &&const_rref = std::move(const_value);
     test_forward(rref);       // 非 const 右值引用
     test_forward(const_rref); // const 右值引用
+}
+void base_1()
+{
+    int x = 1;
 
-    return 0;
+    // 测试左值
+    std::cout << "Testing lvalue:\n";
+    test_forward_2(x);
+
+    // 测试右值
+    std::cout << "Testing rvalue:\n";
+    test_forward_2(1);
+
+    // Note: std::forward<decltype((adaptor))>(adaptor) 保证接下来都是 lvalue
+    // Note: 好处也许是 全局 lvalue
 }
