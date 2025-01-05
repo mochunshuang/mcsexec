@@ -128,5 +128,25 @@ int main()
             },
             b);
     };
+    TEST("when_all_with_variant split test") = [] {
+        auto pre_snd = ex::when_all_with_variant( //
+            ex::just(3),                          //
+            ex::just(0.1415)                      // NOLINT
+        );
+        auto snd = ex::starts_on(MyScheduler(), pre_snd);
+        auto [a, b] = mcs::this_thread::sync_wait(snd).value();
+        std::visit(
+            [](auto &&value) {
+                int v = std::get<0>(value);
+                EXPECT(v == 3);
+            },
+            a);
+        std::visit(
+            [](auto &&value) {
+                auto [v] = value;
+                EXPECT(v == 0.1415); // NOLINT
+            },
+            b);
+    };
     return 0;
 }
