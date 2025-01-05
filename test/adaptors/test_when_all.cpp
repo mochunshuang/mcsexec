@@ -1,6 +1,9 @@
 #include "../test_base_head.hpp"
 #include <string>
 #include <tuple>
+#include <variant>
+
+#include "../sched/MyScheduler.hpp"
 
 int main()
 {
@@ -68,5 +71,62 @@ int main()
         EXPECT(ret.val == 2);
     };
 
+    TEST("when_all when one sender sends void") = [] {
+        ex::sender auto snd = ex::when_all( //
+            ex::just(2),                    //
+            ex::just()                      //
+        );
+        auto [ret] = mcs::this_thread::sync_wait(snd).value();
+        EXPECT(ret == 2);
+    };
+
+    TEST("when_all can be used with just_*") = [] {
+        ex::sender auto snd = ex::when_all(       //
+            ex::just(2),                          //
+            ex::just_error(std::exception_ptr{}), //
+            ex::just_stopped()                    //
+        );
+        bool called{false};
+        std::any any;
+        test::channel c{test::channel::NO_CALL};
+        auto op = connect(
+            snd, test::any_receiver{.called = &called, .data = &any, .chanel = &c});
+        start(op);
+        // Note: 虽然按顺序指向。但是error 之后，不会继续调用  just_stopped
+        EXPECT(c == test::channel::ERROR_CHANNEL);
+        {
+            ex::sender auto snd = ex::when_all( //
+                ex::just(2), ex::just_stopped(), ex::just_error(std::exception_ptr{}));
+            bool called{false};
+            std::any any;
+            test::channel c{test::channel::NO_CALL};
+            auto op = connect(
+                snd, test::any_receiver{.called = &called, .data = &any, .chanel = &c});
+            start(op);
+            // Note: 虽然按顺序指向，但是 还是 ERROR_CHANNEL。 因为  error 是最后调用
+            EXPECT(c == test::channel::ERROR_CHANNEL);
+        }
+    };
+
+    TEST("when_all_with_variant") = [] {
+        auto snd = ex::starts_on(MyScheduler(),
+                                 ex::when_all_with_variant( //
+                                     ex::just(3),           //
+                                     ex::just(0.1415)       // NOLINT
+                                     ));
+        auto [a, b] = mcs::this_thread::sync_wait(snd).value();
+        std::visit(
+            [](auto &&value) {
+                int v = std::get<0>(value);
+                EXPECT(v == 3);
+            },
+            a);
+        std::visit(
+            [](auto &&value) {
+                auto [v] = value;
+                EXPECT(v == 0.1415); // NOLINT
+            },
+            b);
+    };
     return 0;
 }
