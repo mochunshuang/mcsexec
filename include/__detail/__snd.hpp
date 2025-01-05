@@ -5,7 +5,7 @@
 #include "./snd/__transform_env.hpp"
 #include "./snd/__apply_sender.hpp"
 #include "./snd/__get_completion_signatures.hpp"
-
+#include "./snd/__single_sender.hpp"
 #include "./snd/__sender.hpp"
 #include "./snd/__sender_in.hpp"
 #include "./snd/__sender_to.hpp"
@@ -30,6 +30,7 @@ namespace mcs::execution
     using ::mcs::execution::snd::sender_to;
     using ::mcs::execution::snd::sender_for;
     using ::mcs::execution::snd::sender_of;
+    using ::mcs::execution::snd::single_sender;
 
     //
     using ::mcs::execution::snd::get_completion_signatures;

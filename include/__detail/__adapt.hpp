@@ -10,6 +10,8 @@
 #include "./adapt/__when_alll.hpp"
 #include "./adapt/__into_variant.hpp"
 #include "./adapt/__when_all_with_variant.hpp"
+#include "./adapt/__stopped_as_optional.hpp"
+#include "./adapt/__stopped_as_error.hpp"
 
 namespace mcs::execution
 {
@@ -27,6 +29,8 @@ namespace mcs::execution
     using ::mcs::execution::adapt::when_all_t;
     using ::mcs::execution::adapt::into_variant_t;
     using ::mcs::execution::adapt::when_all_with_variant_t;
+    using ::mcs::execution::adapt::stopped_as_optional_t;
+    using ::mcs::execution::adapt::stopped_as_error_t;
 
     using ::mcs::execution::adapt::continues_on;
     using ::mcs::execution::adapt::then;
@@ -42,5 +46,7 @@ namespace mcs::execution
     using ::mcs::execution::adapt::when_all;
     using ::mcs::execution::adapt::into_variant;
     using ::mcs::execution::adapt::when_all_with_variant;
+    using ::mcs::execution::adapt::stopped_as_optional;
+    using ::mcs::execution::adapt::stopped_as_error;
 
 }; // namespace mcs::execution
