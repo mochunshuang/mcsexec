@@ -19,6 +19,14 @@ namespace mcs::execution
                     dom, snd::make_sender(*this, std::forward<Err>(err),
                                           std::forward<Sndr>(sndr)));
             }
+
+            template <movable_value E>
+            auto operator()(E &&e) const
+                -> pipeable::sender_adaptor<stopped_as_error_t, E>
+            {
+                return {*this, std::forward<E>(e)};
+            }
+
             template <snd::sender Sndr, typename Env> // NOLINTNEXTLINE
             auto transform_sender(Sndr &&sndr, const Env &env) noexcept
                 requires(snd::sender_for<decltype((sndr)), stopped_as_error_t>)
@@ -33,13 +41,21 @@ namespace mcs::execution
                     });
             }
         };
+        inline constexpr stopped_as_error_t stopped_as_error{}; // NOLINT
     }; // namespace adapt
 
-    template <typename Sndr, typename Env>
+    template <typename Sndr, typename E, typename Env>
     struct cmplsigs::completion_signatures_for_impl<
-        snd::__detail::basic_sender<adapt::stopped_as_error_t, Sndr>, Env>
+        snd::__detail::basic_sender<adapt::stopped_as_error_t, E, Sndr>, Env>
     {
-        using type = snd::completion_signatures_of_t<Sndr, Env>;
+        using Add_E = cmplsigs::completion_signatures<set_error_t(E),
+                                                      set_error_t(std::exception_ptr)>;
+        using Filter_Sig = cmplsigs::__detail::filter_sigs_by_completion<
+            set_stopped_t, snd::completion_signatures_of_t<Sndr, Env>>;
+
+        using type = typename tfxcmplsigs::unique_variadic_template<
+            typename cmplsigs::__detail::merge_type_lists<cmplsigs::completion_signatures,
+                                                          Filter_Sig, Add_E>::type>::type;
     };
 
 }; // namespace mcs::execution
