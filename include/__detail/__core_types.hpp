@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <tuple>
 namespace mcs::execution
 {
@@ -42,7 +43,7 @@ namespace mcs::execution
     struct type_list; // exposition only
 
     // [exec.queries], queries
-    enum class forward_progress_guarantee
+    enum class forward_progress_guarantee : std::uint8_t
     {
         concurrent,     // NOLINT
         parallel,       // NOLINT

@@ -6,8 +6,6 @@
 #include "../queries/__get_completion_scheduler.hpp"
 #include "../queries/__get_env.hpp"
 
-#include <cassert>
-
 namespace mcs::execution::factories
 {
 

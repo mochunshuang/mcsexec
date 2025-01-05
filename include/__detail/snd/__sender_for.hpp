@@ -1,5 +1,5 @@
 #pragma once
-#include "./__sender.hpp"
+
 #include "./__tag_of_t.hpp"
 
 namespace mcs::execution::snd
