@@ -26,7 +26,7 @@ int main()
 
     TEST("cpo for just_stopped") = [] {
         using T = decltype(ex::just_stopped());
-        using CO = cmplsigs::get_completion_signatures<T>;
+        using CO = ex::snd::completion_signatures_of_t<T>;
         static_assert(
             std::is_same_v<
                 cmplsigs::completion_signatures<mcs::execution::recv::set_stopped_t()>,
