@@ -1,14 +1,9 @@
 #pragma once
 
-#include "./__is_awaitable.hpp"
-#include <utility>
+#include "./__has_as_awaitable.hpp"
+
 namespace mcs::execution::awaitables
 {
-    template <class T, class Promise>
-    concept has_as_awaitable = // exposition only
-        requires(T &&t, Promise &p) {
-            { std::forward<T>(t).as_awaitable(p) } -> is_awaitable<Promise &>;
-        };
 
     template <class Derived>
     struct with_await_transform

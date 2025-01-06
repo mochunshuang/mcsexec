@@ -11,12 +11,14 @@ namespace mcs::execution::awaitables::__detail
     template <typename Awaitable>
     constexpr decltype(auto) GET_AWAITER(Awaitable &&awaitable, void * /*unused*/)
     {
+        // 1. member operator co_await
         if constexpr (requires {
                           std::forward<Awaitable>(awaitable).operator co_await();
                       })
         {
             return std::forward<Awaitable>(awaitable).operator co_await();
         }
+        // 2. global operator co_await
         else if constexpr (requires {
                                operator co_await(std::forward<Awaitable>(awaitable));
                            })
@@ -34,10 +36,10 @@ namespace mcs::execution::awaitables::__detail
     template <typename Awaitable, typename Promise>
     constexpr decltype(auto) GET_AWAITER(Awaitable &&awaitable, Promise &promise)
         requires(requires {
-            promise->await_transform(std::forward<Awaitable>(awaitable));
+            promise.await_transform(std::forward<Awaitable>(awaitable));
         })
     {
-        return GET_AWAITER(promise->await_transform(std::forward<Awaitable>(awaitable)),
+        return GET_AWAITER(promise.await_transform(std::forward<Awaitable>(awaitable)),
                            static_cast<void *>(&promise));
     }
 }; // namespace mcs::execution::awaitables::__detail
