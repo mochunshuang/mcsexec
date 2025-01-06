@@ -10,6 +10,8 @@
 #include "./queries/__get_stop_token.hpp"
 #include "./queries/__env_of_t.hpp"
 
+#include "./queries/__forwar_dingquery_concept.hpp"
+
 namespace mcs::execution
 {
     using ::mcs::execution::queries::forwarding_query_t;
@@ -33,7 +35,6 @@ namespace mcs::execution
     using ::mcs::execution::queries::completion_tag;
     using ::mcs::execution::queries::env_of_t;
 
-    template <class T>
-    concept forwardingquery = forwarding_query(T{}); // exposition only
+    using ::mcs::execution::queries::forwardingquery;
 
 }; // namespace mcs::execution
