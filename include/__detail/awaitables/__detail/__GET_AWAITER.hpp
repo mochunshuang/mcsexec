@@ -4,41 +4,32 @@
 
 namespace mcs::execution::awaitables::__detail
 {
-    // This functions returns the value of applying co_await (awaitable), when called
-    // in a coroutine a specified promise type. C++ first tries to call a member
-    // operator co_await, then a global operator co_await, and finally returns the
-    // awaitable unmodified.
-    template <typename Awaitable>
-    constexpr decltype(auto) GET_AWAITER(Awaitable &&awaitable)
-    {
-        // 1. member operator co_await
-        if constexpr (requires {
-                          std::forward<Awaitable>(awaitable).operator co_await();
-                      })
-        {
-            return std::forward<Awaitable>(awaitable).operator co_await();
-        }
-        // 2. global operator co_await
-        else if constexpr (requires {
-                               operator co_await(std::forward<Awaitable>(awaitable));
-                           })
-        {
-            return operator co_await(std::forward<Awaitable>(awaitable));
-        }
-        else
-        {
-            return std::forward<Awaitable>(awaitable);
-        }
-    }
 
-    // When a concrete promise type is known, and it has a member await_transform(),
-    // C++ calls that function before applying the above rules.
-    template <typename Awaitable, typename Promise>
-    constexpr decltype(auto) GET_AWAITER(Awaitable &&awaitable, Promise &promise)
-        requires(requires {
-            promise.await_transform(std::forward<Awaitable>(awaitable));
-        })
+    template <typename Expr, typename Promise>
+    constexpr decltype(auto) GET_AWAITER(Expr &&expr, Promise &promise)
     {
-        return GET_AWAITER(promise.await_transform(std::forward<Awaitable>(awaitable)));
+        // 0. promise can await_transform do await_transform
+        auto transform{[&]() -> decltype(auto) {
+            if constexpr (requires {
+                              promise.await_transform(::std::forward<Expr>(expr));
+                          })
+                return promise.await_transform(::std::forward<Expr>(expr));
+            else
+                return ::std::forward<Expr>(expr);
+        }};
+        // 1. first global co_await
+        if constexpr (requires { operator co_await(transform()); })
+        {
+
+            static_assert(
+                not requires { transform().operator co_await(); },
+                "only one operator co_await is allowed");
+            return operator co_await(transform());
+        }
+        // 2. member co_await8 or transform() itself
+        else if constexpr (requires { transform().operator co_await(); })
+            return transform().operator co_await();
+        else
+            return transform();
     }
 }; // namespace mcs::execution::awaitables::__detail
