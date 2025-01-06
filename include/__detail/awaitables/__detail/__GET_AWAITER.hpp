@@ -9,7 +9,7 @@ namespace mcs::execution::awaitables::__detail
     // operator co_await, then a global operator co_await, and finally returns the
     // awaitable unmodified.
     template <typename Awaitable>
-    constexpr decltype(auto) GET_AWAITER(Awaitable &&awaitable, void * /*unused*/)
+    constexpr decltype(auto) GET_AWAITER(Awaitable &&awaitable)
     {
         // 1. member operator co_await
         if constexpr (requires {
@@ -39,7 +39,6 @@ namespace mcs::execution::awaitables::__detail
             promise.await_transform(std::forward<Awaitable>(awaitable));
         })
     {
-        return GET_AWAITER(promise.await_transform(std::forward<Awaitable>(awaitable)),
-                           static_cast<void *>(&promise));
+        return GET_AWAITER(promise.await_transform(std::forward<Awaitable>(awaitable)));
     }
 }; // namespace mcs::execution::awaitables::__detail
