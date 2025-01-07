@@ -1,8 +1,8 @@
 #pragma once
-#include "../queries/__env_of_t.hpp"
-#include "../cmplsigs/__single_sender_value_type.hpp"
+#include "../../queries/__env_of_t.hpp"
+#include "../../cmplsigs/__single_sender_value_type.hpp"
 
-namespace mcs::execution::awaitables
+namespace mcs::execution::awaitables::__detail
 {
     template <class Sndr, class Promise>
     using value_type =

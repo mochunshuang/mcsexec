@@ -3,7 +3,6 @@
 #include "./cmplsigs/__completion_signature.hpp"
 #include "./cmplsigs/__completion_signatures.hpp"
 #include "./cmplsigs/__valid_completion_signatures.hpp"
-#include "./cmplsigs/__detail/__tpl_param_trnsfr.hpp"
 #include "./cmplsigs/__error_types_of_t.hpp"
 #include "./cmplsigs/__value_types_of_t.hpp"
 #include "./cmplsigs/__single_sender_value_type.hpp"
@@ -19,7 +18,6 @@ namespace mcs::execution
     // [exec.utils.cmplsigs]
     using cmplsigs::completion_signature;
     using cmplsigs::valid_completion_signatures;
-    using cmplsigs::__detail::tpl_param_trnsfr_t;
     using cmplsigs::completion_signatures; // template
     using cmplsigs::value_types_of_t;
     using cmplsigs::error_types_of_t;

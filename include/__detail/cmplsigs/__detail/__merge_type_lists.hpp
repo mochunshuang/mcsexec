@@ -3,9 +3,6 @@
 #include "./__concat_same_list.hpp"
 namespace mcs::execution::cmplsigs::__detail
 {
-    // concat_tuples 依赖 std::tuple
-    // 这个算法不需要
-
     template <template <typename...> class TypeList, typename... Lists>
     struct merge_type_lists;
 

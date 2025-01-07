@@ -1,10 +1,5 @@
 #pragma once
 
-// TODO 未来删掉掉旧的API
-// #include "./__filter_tuple.hpp"
-// #include "./__tpl_param_trnsfr.hpp"
-// #include "./__select_tag.hpp"
-
 #include "../__completion_signatures.hpp"
 #include "./__concat_same_list.hpp"
 namespace mcs::execution::cmplsigs::__detail

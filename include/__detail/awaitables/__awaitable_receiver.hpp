@@ -1,7 +1,7 @@
 #pragma once
 #include "../__core_types.hpp"
-#include "./__value_type.hpp"
-#include "./__result_type.hpp"
+#include "./__detail/__value_type.hpp"
+#include "./__detail/__result_type.hpp"
 #include "../consumers/__AS_EXCEPT_PTR.hpp"
 #include "../queries/__forwar_dingquery_concept.hpp"
 
@@ -28,8 +28,8 @@ namespace mcs::execution
         {
             using receiver_concept = receiver_t;
 
-            using value_type = awaitables::value_type<Sndr, Promise>; // exposition only
-            using result_type = awaitables::result_type<value_type>;
+            using value_type = __detail::value_type<Sndr, Promise>; // exposition only
+            using result_type = __detail::result_type<value_type>;
 
             // NOLINTNEXTLINE
             std::variant<std::monostate, result_type, std::exception_ptr> *result_ptr;
