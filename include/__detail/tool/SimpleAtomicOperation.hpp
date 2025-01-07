@@ -1,5 +1,6 @@
 #pragma once
 #include <atomic>
+#include <utility>
 
 namespace mcs::execution::tool
 {
@@ -24,7 +25,7 @@ namespace mcs::execution::tool
             int expected = 0;
             if (m_atomicVar.compare_exchange_strong(expected, 1))
             {
-                (ops(), ...);
+                (std::forward<Ops>(ops)(), ...);
                 m_atomicVar.store(0);
             }
             // do nothing
