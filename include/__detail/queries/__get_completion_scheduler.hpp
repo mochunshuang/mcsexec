@@ -28,9 +28,9 @@ namespace mcs::execution::queries
             requires requires(T &&env) {
                 { std::as_const(env).query(std::declval<__self_t>()) } noexcept;
             }
-        constexpr auto operator()(T &&env) const noexcept -> auto
+        constexpr auto operator()(const T &env) const noexcept -> auto
         {
-            return std::as_const(env).query(*this);
+            return env.query(*this);
         }
         // get_completion_scheduler<completion-tag>(get_env(sndr)) is well-formed and
         // denotes a scheduler sch.

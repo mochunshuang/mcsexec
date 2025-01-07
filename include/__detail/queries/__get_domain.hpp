@@ -12,9 +12,9 @@ namespace mcs::execution::queries
             requires requires(T &&env) {
                 { std::as_const(env).query(std::declval<__self_t>()) } noexcept;
             }
-        constexpr auto operator()(T &&env) const noexcept
+        constexpr auto operator()(const T &env) const noexcept
         {
-            return std::as_const(env).query(*this);
+            return env.query(*this);
         }
     };
     inline constexpr get_domain_t get_domain{}; // NOLINT

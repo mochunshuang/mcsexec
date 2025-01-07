@@ -12,9 +12,9 @@ namespace mcs::execution::queries
             requires requires(T &&env) {
                 { std::as_const(env).query(std::declval<__self_t>()) } noexcept;
             }
-        constexpr auto operator()(T &&env) const noexcept -> stoppable_token auto
+        constexpr auto operator()(const T &env) const noexcept -> stoppable_token auto
         {
-            return std::as_const(env).query(*this);
+            return env.query(*this);
         }
 
         constexpr auto operator()(auto && /*unused*/) const -> never_stop_token

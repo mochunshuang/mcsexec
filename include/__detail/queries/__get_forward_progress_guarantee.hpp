@@ -14,7 +14,8 @@ namespace mcs::execution::queries
         using __self_t = get_forward_progress_guarantee_t;
 
         template <typename T>
-        constexpr auto operator()(T &&sch) const noexcept -> forward_progress_guarantee
+        constexpr auto operator()(T &&sch [[maybe_unused]]) const noexcept
+            -> forward_progress_guarantee
             requires(sched::scheduler<decltype((sch))>)
         {
             if constexpr (requires {

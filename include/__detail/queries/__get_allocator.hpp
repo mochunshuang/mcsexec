@@ -9,13 +9,15 @@ namespace mcs::execution::queries
     {
         using __self_t = get_allocator_t;
 
+        // get_allocator(env) is expression-equivalent to
+        // MANDATE-NOTHROW(as_const(env).query(get_allocator)).
         template <typename T>
             requires requires(T &&env) {
                 { std::as_const(env).query(std::declval<__self_t>()) } noexcept;
             }
-        constexpr auto operator()(T &&env) const noexcept -> simple_allocator auto
+        constexpr auto operator()(const T &env) const noexcept -> simple_allocator auto
         {
-            return std::as_const(env).query(*this);
+            return env.query(*this);
         }
     };
     inline constexpr get_allocator_t get_allocator{}; // NOLINT

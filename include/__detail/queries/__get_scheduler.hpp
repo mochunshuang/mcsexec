@@ -14,9 +14,9 @@ namespace mcs::execution::queries
             requires requires(T &&env) {
                 { std::as_const(env).query(std::declval<__self_t>()) } noexcept;
             }
-        constexpr auto operator()(T &&env) const noexcept -> sched::scheduler auto
+        constexpr auto operator()(const T &env) const noexcept -> sched::scheduler auto
         {
-            return std::as_const(env).query(*this);
+            return env.query(*this);
         }
     };
     inline constexpr get_scheduler_t get_scheduler{}; // NOLINT
