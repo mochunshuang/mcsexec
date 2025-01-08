@@ -64,7 +64,7 @@ namespace mcs::execution
     {
         using type = decltype(snd::get_completion_signatures(
             std::declval<Sndr>(),
-            snd::general::JOIN_ENV(std::declval<NewEnv>(), std::declval<Env>())));
+            factories::write_env_env_t(std::declval<NewEnv>(), std::declval<Env>())));
     };
 
 }; // namespace mcs::execution
