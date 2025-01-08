@@ -27,6 +27,23 @@ namespace mcs::execution
             };
         };
         inline constexpr write_env_t write_env{}; // NOLINT
+
+        template <typename State, typename Rcvr>
+        struct write_env_env_t
+        {
+            template <typename Q>
+            constexpr auto query(Q &&q) const noexcept
+            {
+                if constexpr (requires { state.query(std::forward<Q>(q)); })
+                    return state.query(std::forward<Q>(q));
+                else if (requires { queries::get_env(rcvr).query(std::forward<Q>(q)); })
+                    return queries::get_env(rcvr).query(std::forward<Q>(q));
+                else
+                    return empty_env{};
+            }
+            const State &state; // NOLINT
+            const Rcvr &rcvr;   // NOLINT
+        };
     }; // namespace factories
 
     template <>
@@ -34,7 +51,8 @@ namespace mcs::execution
     {
         static constexpr auto get_env = // NOLINT
             [](auto, const auto &state, const auto &rcvr) noexcept {
-                return snd::general::JOIN_ENV(state, queries::get_env(rcvr));
+                // return snd::general::JOIN_ENV(state, queries::get_env(rcvr));
+                return factories::write_env_env_t{state, rcvr};
             };
     };
 

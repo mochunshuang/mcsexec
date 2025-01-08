@@ -201,6 +201,28 @@ namespace mcs::execution
                 using type = typename compute_when_all_errors_variant_Impl<All_Es>::type;
             };
 
+            template <typename State, typename Rcvr>
+            struct when_all_env_t
+            {
+                constexpr auto query(
+                    const queries::get_stop_token_t & /*q*/) const noexcept
+                {
+                    return state.stop_src.get_token();
+                }
+                template <typename Q>
+                constexpr auto query(Q &&q) const noexcept
+                {
+                    if constexpr (requires {
+                                      queries::get_env(rcvr).query(std::forward<Q>(q));
+                                  })
+                        return queries::get_env(rcvr).query(std::forward<Q>(q));
+                    else
+                        return empty_env{};
+                }
+                State &state;     // NOLINT
+                const Rcvr &rcvr; // NOLINT
+            };
+
         }; // namespace __detail
 
         template <class Rcvr>
@@ -317,10 +339,12 @@ namespace mcs::execution
         static constexpr auto get_env = // NOLINT
             []<class State, class Rcvr>(auto &&, State &state,
                                         const Rcvr &rcvr) noexcept {
-                return snd::general::JOIN_ENV(
-                    snd::general::MAKE_ENV(queries::get_stop_token,
-                                           state.stop_src.get_token()),
-                    queries::get_env(rcvr));
+                return adapt::__when_all::__detail::when_all_env_t<State, Rcvr>{state,
+                                                                                rcvr};
+                // return snd::general::JOIN_ENV(
+                //     snd::general::MAKE_ENV(queries::get_stop_token,
+                //                            state.stop_src.get_token()),
+                //     queries::get_env(rcvr));
             };
 
         static constexpr auto get_state = // NOLINT

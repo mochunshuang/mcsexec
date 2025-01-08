@@ -86,8 +86,7 @@ namespace mcs::execution::ctx
 
             void execute() noexcept override
             {
-                if (queries::get_stop_token(rcvr)
-                        .stop_requested()) // TODO(mcs): 需要线程池支持
+                if (queries::get_stop_token(rcvr).stop_requested())
                 {
                     recv::set_stopped(std::move(rcvr));
                 }
@@ -105,8 +104,7 @@ namespace mcs::execution::ctx
                 }
                 catch (...)
                 {
-                    auto &o = rcvr;
-                    recv::set_error(std::move(o), std::current_exception());
+                    recv::set_error(std::move(rcvr), std::current_exception());
                 }
             }
 

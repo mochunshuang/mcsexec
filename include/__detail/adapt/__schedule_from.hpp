@@ -1,6 +1,7 @@
 #pragma once
 
 #include <tuple>
+#include <type_traits>
 #include <variant>
 
 #include "./__as_tuple.hpp"
@@ -127,6 +128,29 @@ namespace mcs::execution
                 // async_result set value when children call complete
             }
         };
+        template <typename Sigs>
+        struct check_type_no_copy_move_throw;
+        template <typename Tag, typename... T>
+        struct check_type_no_copy_move_throw<Tag(T...)>
+        {
+            static constexpr bool value = // NOLINT
+                ((noexcept(T(std::declval<T &>())) &&
+                  noexcept(T(std::declval<T &&>()))) &&
+                 ...);
+        };
+        template <typename Tag>
+        struct check_type_no_copy_move_throw<Tag()>
+        {
+            static constexpr bool value = true; // NOLINT
+        };
+        template <typename Sigs>
+        struct is_Sig_no_throw;
+        template <typename... Sig>
+        struct is_Sig_no_throw<cmplsigs::completion_signatures<Sig...>>
+        {
+            static constexpr bool value = // NOLINT
+                (check_type_no_copy_move_throw<Sig>::value && ...);
+        };
 
     }; // namespace adapt
 
@@ -148,10 +172,15 @@ namespace mcs::execution
             auto &[_, sch, child] = sndr;
             using sched_t = decltype(auto(sch));
 
-            // Note: add E_CS because as complete try-catch
+            //  Note: add E_CS because as complete try-catch
+            using Add_E = std::conditional_t<
+                adapt::is_Sig_no_throw<snd::completion_signatures_of_t<
+                    OutSndr, queries::env_of_t<OutRcvr>>>::value,
+                cmplsigs::completion_signatures<>,
+                cmplsigs::completion_signatures<set_error_t(std::exception_ptr)>>;
             using Sigs = tfxcmplsigs::transform_completion_signatures<
                 snd::completion_signatures_of_t<OutSndr, queries::env_of_t<OutRcvr>>,
-                cmplsigs::completion_signatures<set_error_t(std::exception_ptr)>>;
+                Add_E>;
             /**
              * @brief
              * 1、Objects of the local class state-type can be used to initialize a
@@ -176,24 +205,21 @@ namespace mcs::execution
             constexpr bool nothrow = // NOLINT
                 std::is_nothrow_constructible_v<result_t, Tag, Args...>;
 
-            // TRY_EVAL(rcvr,exor );
             try
             {
-                [&]() noexcept(nothrow) {
-                    state.async_result.template emplace<result_t>(
-                        Tag(), std::forward<Args>(args)...);
-                }();
+                state.async_result.template emplace<result_t>(
+                    Tag(), std::forward<Args>(args)...);
             }
             catch (...)
             {
-                recv::set_error(std::move(rcvr), std::current_exception());
+                if constexpr (not nothrow)
+                {
+                    recv::set_error(std::move(rcvr), std::current_exception());
+                    return;
+                }
             }
-
-            if (state.async_result.valueless_by_exception())
-                return;
-            if (state.async_result.index() == 0)
-                return;
-
+            // As the call to set_error() can potentially end up destroying the
+            // operation-state. may a dangling reference to state
             opstate::start(state.op_state);
         };
     };
@@ -202,8 +228,10 @@ namespace mcs::execution
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<adapt::schedule_from_t, Sched, Sndr>, Env>
     {
-        using Add_Sig =
-            cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr)>;
+        using Add_Sig = std::conditional_t<
+            adapt::is_Sig_no_throw<snd::completion_signatures_of_t<Sndr, Env>>::value,
+            cmplsigs::completion_signatures<>,
+            cmplsigs::completion_signatures<set_error_t(std::exception_ptr)>>;
 
         using type = tfxcmplsigs::transform_completion_signatures<
             snd::completion_signatures_of_t<Sndr, Env>, Add_Sig>;

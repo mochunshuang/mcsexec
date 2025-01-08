@@ -22,6 +22,6 @@ namespace mcs::execution::sched
                     queries::get_env(factories::schedule(std::forward<Sch>(sch)))))
             } -> std::same_as<std::remove_cvref_t<Sch>>;
         } && std::equality_comparable<std::remove_cvref_t<Sch>> &&
-        std::copy_constructible<std::remove_cvref_t<Sch>>;
+        std::copyable<std::remove_cvref_t<Sch>>;
 
 }; // namespace mcs::execution::sched

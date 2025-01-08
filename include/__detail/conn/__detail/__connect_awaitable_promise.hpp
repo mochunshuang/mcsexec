@@ -21,15 +21,11 @@ namespace mcs::execution::conn::__detail
 
             explicit operation_state_task(std::coroutine_handle<> h) noexcept : coro(h) {}
 
-            operation_state_task(operation_state_task &&o) noexcept
-                : coro(std::exchange(o.coro, {}))
-            {
-            }
+            operation_state_task(operation_state_task &&o) = delete;
 
             ~operation_state_task()
             {
-                if (coro)
-                    coro.destroy();
+                coro.destroy();
             }
 
             void start() & noexcept

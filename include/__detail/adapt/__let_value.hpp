@@ -125,6 +125,24 @@ namespace mcs::execution
 
     namespace adapt
     {
+        template <typename Env, typename Rcvr>
+        struct receiver2_env_t
+        {
+
+            template <typename Q>
+            constexpr auto query(Q &&q) const noexcept
+            {
+                if constexpr (requires { env.query(std::forward<Q>(q)); })
+                    return env.query(std::forward<Q>(q));
+                else if (requires { queries::get_env(rcvr).query(std::forward<Q>(q)); })
+                    return queries::get_env(rcvr).query(std::forward<Q>(q));
+                else
+                    return empty_env{};
+            }
+            Env &env;   // NOLINT
+            Rcvr &rcvr; // NOLINT
+        };
+
         template <class Rcvr, class Env>
         struct receiver2
         {
@@ -149,8 +167,9 @@ namespace mcs::execution
 
             decltype(auto) get_env() const noexcept // NOLINT
             {
-                return snd::general::JOIN_ENV(
-                    env, snd::general::FWD_ENV(queries::get_env(std::as_const(rcvr))));
+                // return snd::general::JOIN_ENV(
+                //     env, snd::general::FWD_ENV(queries::get_env(std::as_const(rcvr))));
+                return receiver2_env_t{env, rcvr};
             }
 
             Rcvr &rcvr; // exposition only // NOLINT

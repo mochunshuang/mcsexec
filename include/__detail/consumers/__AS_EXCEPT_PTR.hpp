@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <exception>
 #include <system_error>
 
@@ -15,7 +16,10 @@ namespace mcs::execution::consumers
             // Mandates: err != exception_ptr() is true.
             // static_assert(err != std::exception_ptr(),
             //               "err must not be a null exception_ptr");
-            assert(err != std::exception_ptr() && "err must not be a nullexception_ptr");
+            // assert(err != std::exception_ptr() && "err must not be a
+            // nullexception_ptr");
+            // if (err) std::terminate();
+            assert(!err == false);
             return err;
         }
         else if constexpr (std::is_same_v<DecayedErr, std::error_code>)
