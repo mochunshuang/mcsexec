@@ -3,7 +3,7 @@
 #include "../../../include/execution.hpp"
 #include "../test_macro.hpp"
 #include "./channel.hpp"
-
+#include "../../sched/MyScheduler.hpp"
 #include <any>
 #include <utility>
 
@@ -56,9 +56,35 @@ namespace test
             return *chanel;
         }
 
+        struct env_t
+        {
+            template <class Tag>
+                requires(std::is_same_v<Tag, mcs::execution::set_value_t> ||
+                         std::is_same_v<Tag, mcs::execution::set_stopped_t>)
+            [[nodiscard]] constexpr auto query(
+                mcs::execution::queries::get_completion_scheduler_t<Tag> /*unused*/)
+                const noexcept
+            {
+                return MyScheduler();
+            }
+            [[nodiscard]] constexpr auto query( // NOLINT
+                const mcs::execution::queries::get_scheduler_t & /*unused*/)
+                const noexcept
+            {
+                return MyScheduler();
+            }
+
+            [[nodiscard]] constexpr auto query(
+                const mcs::execution::queries::get_domain_t & /*unused*/) const noexcept
+            {
+                return mcs::execution::default_domain();
+            }
+        };
+
         constexpr auto get_env() const noexcept // NOLINT
         {
-            return mcs::execution::empty_env{};
+
+            return env_t{};
         }
     };
 }; // namespace test

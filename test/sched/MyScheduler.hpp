@@ -13,7 +13,9 @@ struct state
         ex::set_value(::std::move(this->receiver));
     }
 };
-
+struct custom_domain : ex::default_domain
+{
+};
 struct MyScheduler
 {
     using scheduler_concept = ex::scheduler_t;
@@ -24,6 +26,12 @@ struct MyScheduler
             -> MyScheduler
         {
             return {};
+        }
+
+        [[nodiscard]] constexpr auto query(
+            const mcs::execution::queries::get_domain_t & /*unused*/) const noexcept
+        {
+            return mcs::execution::default_domain();
         }
     };
 

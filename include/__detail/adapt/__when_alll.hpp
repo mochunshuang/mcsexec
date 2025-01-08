@@ -216,8 +216,6 @@ namespace mcs::execution
                                       queries::get_env(rcvr).query(std::forward<Q>(q));
                                   })
                         return queries::get_env(rcvr).query(std::forward<Q>(q));
-                    else
-                        return empty_env{};
                 }
                 State &state;     // NOLINT
                 const Rcvr &rcvr; // NOLINT

@@ -22,10 +22,12 @@ int main()
             called = true;
             return ex::just();
         });
+        std::any data;
         bool called2{false};
         test::channel chanel{test::channel::NO_CALL};
         auto op = ex::conn::connect(
-            std::move(snd), test::void_receiver{.called = &called2, .chanel = &chanel});
+            std::move(snd),
+            test::any_receiver{.called = &called2, .data = &data, .chanel = &chanel});
         EXPECT(not called && not called2 && chanel == test::channel::NO_CALL);
         start(op);
         EXPECT(called && called2 && chanel == test::channel::VALUE_CHANNEL);
@@ -91,10 +93,13 @@ int main()
     TEST("let_value can be used to change the sender") = [] {
         bool called{false};
         int err_code = 17;
+        std::any data;
+        test::channel chanel{test::channel::NO_CALL};
         ex::sender auto snd =
             ex::just(13) | ex::let_value([](int x) { return ex::just_error(x + 4); });
-        auto op = connect(std::move(snd),
-                          test::error_receiver{.called = &called, .error = err_code});
+        auto op = connect(
+            std::move(snd),
+            test::any_receiver{.called = &called, .data = &data, .chanel = &chanel});
         EXPECT(not called);
         start(op);
         EXPECT(called);
@@ -249,7 +254,24 @@ int main()
 
         constexpr auto get_env() const noexcept // NOLINT
         {
-            return mcs::execution::empty_env{};
+            struct env_t
+            {
+
+                [[nodiscard]] constexpr auto query( // NOLINT
+                    const mcs::execution::queries::get_scheduler_t & /*unused*/)
+                    const noexcept
+                {
+                    return MyScheduler();
+                }
+
+                [[nodiscard]] constexpr auto query(
+                    const mcs::execution::queries::get_domain_t & /*unused*/)
+                    const noexcept
+                {
+                    return mcs::execution::default_domain();
+                }
+            };
+            return env_t{};
         }
 
         bool &completed;

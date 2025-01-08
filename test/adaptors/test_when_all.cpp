@@ -16,6 +16,7 @@ int main()
         auto snd = ex::when_all(ex::just(3), ex::just(0.1415)); // NOLINT
         static_assert(ex::sender_in<decltype(snd), ex::empty_env>);
     };
+
     TEST("when_all simple example") = [] {
         bool called{false};
         std::any any;

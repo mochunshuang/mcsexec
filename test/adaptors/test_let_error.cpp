@@ -21,14 +21,16 @@ int main()
     TEST("let_error simple example") = [] {
         bool called{false};
         bool fun_called{false};
+        std::any data;
         auto snd = ex::let_error(ex::just_error(std::exception_ptr{}),
                                  [&](const std::exception_ptr &) {
                                      fun_called = true;
                                      return ex::just();
                                  });
         test::channel chanel{test::channel::NO_CALL};
-        auto op = connect(std::move(snd),
-                          test::void_receiver{.called = &called, .chanel = &chanel});
+        auto op = connect(
+            std::move(snd),
+            test::any_receiver{.called = &called, .data = &data, .chanel = &chanel});
         EXPECT(not fun_called && not called && chanel == test::channel::NO_CALL);
         start(op);
         EXPECT(fun_called && called && chanel == test::channel::VALUE_CHANNEL);

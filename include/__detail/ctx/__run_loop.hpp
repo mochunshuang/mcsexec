@@ -146,7 +146,7 @@ namespace mcs::execution::ctx
                     // Let C be either set_value_t or set_stopped_t
                     template <class Tag>
                         requires(std::is_same_v<Tag, set_value_t> ||
-                                 std::is_same_v<Tag, set_error_t>)
+                                 std::is_same_v<Tag, set_stopped_t>)
                     [[nodiscard]] constexpr auto query(
                         queries::get_completion_scheduler_t<Tag> /*unused*/)
                         const noexcept -> scheduler
