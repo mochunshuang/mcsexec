@@ -1,7 +1,9 @@
 #include "../test_base_head.hpp"
+#include "boost/ut.hpp"
 #include <algorithm>
 #include <optional>
 #include <stdexcept>
+#include <thread>
 #include <tuple>
 
 int main()
@@ -117,10 +119,12 @@ int main()
 
     TEST("test sync_wait: 100000 times for sndr to excution resource") = [] {
         ex::static_thread_pool<3> thread_pool;
+        auto m_id = std::this_thread::get_id();
         for (int i = 0; i < 100000; i++) // NOLINT
         {
-            auto snd0 = ex::just() | ex::then([] { //
+            auto snd0 = ex::just() | ex::then([&] { //
                             // Note: 原因是 for 循环优化. move 即可 不需要 std::cout
+                            EXPECT(m_id != std::this_thread::get_id());
                         });
             auto snd = ex::starts_on(thread_pool.get_scheduler(), snd0);
             if (i > 0 && i % 10000 == 0) // NOLINT
