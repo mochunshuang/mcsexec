@@ -35,12 +35,11 @@ int main()
 
     TEST("starts_on works when changing threads") = [] {
         ex::static_thread_pool<2> pool{};
-
         std::atomic<bool> called{false};
         std::thread::id out_id = std::this_thread::get_id();
         std::thread::id id;
 
-        ex::sender auto snd = ex::continues_on(ex::just(), pool.get_scheduler()) //
+        ex::sender auto snd = ex::starts_on(pool.get_scheduler(), ex::just()) //
                               | ex::then([&] { called.store(true); });
         mcs::this_thread::sync_wait(snd);
 

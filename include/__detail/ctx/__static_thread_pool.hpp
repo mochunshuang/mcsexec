@@ -34,8 +34,9 @@ namespace mcs::execution::ctx
           public:
             void wait_done() noexcept // NOLINT
             {
-                run_loop.finish();
-                worker.join();
+                run_loop.state.store(run_loop::State::finishing,
+                                     std::memory_order_release);
+                run_loop.cv.notify_one();
             }
 
             [[nodiscard]] auto get_scheduler() noexcept -> sched::scheduler auto // NOLINT
@@ -48,69 +49,48 @@ namespace mcs::execution::ctx
                 thread_pool = pool;
                 id = index;
 
+                if (not run_loop.state.is_lock_free())
+                    std::terminate();
+
                 std::latch worker_started(1);
 
+                // Note: overwrite run_loop::run()
+                // Note: can't steal as run_loop is execution resource of thread itself
                 worker = std::jthread{[&](const std::stop_token &stoken) {
                     worker_started.count_down();
                     t_id = std::this_thread::get_id();
 
-                    run_loop.state.store(run_loop::State::running,
-                                         std::memory_order_release);
+                    run_loop.state.store(run_loop::State::running);
                     while (not stoken.stop_requested() &&
-                           run_loop.state.load(std::memory_order_consume) ==
-                               run_loop::State::running)
+                           run_loop.state.load() == run_loop::State::running)
                     {
-                        // do work
-                        if (run_loop.count.load(std::memory_order_consume) > 0)
+                        // Note: overwrite run_loop::pop_front(). wake by push_back notify
+                        std::unique_lock lk(run_loop.mtx);
+                        run_loop.cv.wait(lk, [this] {
+                            return run_loop.head != nullptr ||
+                                   run_loop.state.load() == run_loop::State::finishing;
+                        });
+                        if (run_loop.head != nullptr)
                         {
-                            if (auto *op = run_loop.pop_front())
-                                op->execute();
-                        }
-                        else
-                        {
-                            // stealing
-                            bool success = try_steal_one();
-
-                            // to sleep unitil push_back notify
-                            if (not success &&
-                                run_loop.count.load(std::memory_order_consume) == 0)
-                            {
-                                if (auto *op = run_loop.pop_front())
-                                    op->execute();
-                            }
+                            auto *op = std::exchange(run_loop.head, run_loop.head->next);
+                            if (run_loop.head == nullptr)
+                                run_loop.tail = nullptr;
+                            op->execute();
                         }
                     }
-
-                    // clear work
-                    while (auto *op = run_loop.pop_front())
+                    // Note: Clean up the remaining work
+                    while (not stoken.stop_requested() && run_loop.head != nullptr)
+                    {
+                        auto *op = std::exchange(run_loop.head, run_loop.head->next);
+                        if (run_loop.head == nullptr)
+                            run_loop.tail = nullptr;
                         op->execute();
+                    }
+                    run_loop.state.store(run_loop::State::finished,
+                                         std::memory_order_release);
                 }};
 
                 worker_started.wait();
-            }
-
-          private:
-            bool try_steal_one() noexcept // NOLINT
-            {
-                constexpr auto k_threshold = (Num - 1) / 3;
-
-                for (thread_item &item : thread_pool->pool)
-                {
-                    if (item.id == id ||
-                        item.run_loop.state.load(std::memory_order_consume) ==
-                            thread_context::State::finishing)
-                        continue;
-
-                    if (item.run_loop.count.load(std::memory_order_consume) >
-                            k_threshold &&
-                        not item.run_loop.is_locked())
-                    {
-                        if (auto *op = item.run_loop.pop_front())
-                            op->execute();
-                        return true;
-                    }
-                }
-                return false;
             }
         };
 

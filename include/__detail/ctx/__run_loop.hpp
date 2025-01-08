@@ -43,11 +43,6 @@ namespace mcs::execution::ctx
             finished   // NOLINT
         };
 
-        [[nodiscard]] inline bool is_locked() const // NOLINT
-        {
-            return this->locked.load(std::memory_order_consume);
-        }
-
       private:
         // [exec.run.loop.types] Associated types
         // models scheduler: run_loop_scheduler
@@ -58,17 +53,18 @@ namespace mcs::execution::ctx
             virtual void execute() = 0;  // exposition only
             run_loop *loop;              // exposition only // NOLINT
             run_loop_opstate_base *next; // exposition only // NOLINT
+
+            // Note: No Need. children can't move copy
+            //  virtual ~run_loop_opstate_base() = default;
         };
 
         // FIFO
-        using Node = run_loop_opstate_base;
-        Node *head{nullptr};                       // NOLINT
-        Node *tail{nullptr};                       // NOLINT
+        using state_node = run_loop_opstate_base;
+        state_node *head{nullptr};                 // NOLINT
+        state_node *tail{nullptr};                 // NOLINT
         std::atomic<State> state{State::starting}; // NOLINT
         std::mutex mtx;                            // NOLINT
         std::condition_variable cv;                // NOLINT
-        std::atomic<std::size_t> count{0};         // NOLINT
-        std::atomic_bool locked{true};             // NOLINT
 
         template <typename Rcvr>
         struct run_loop_opstate : public run_loop_opstate_base
@@ -90,15 +86,14 @@ namespace mcs::execution::ctx
 
             void execute() noexcept override
             {
-                auto &o = rcvr;
-                if (queries::get_stop_token(o)
+                if (queries::get_stop_token(rcvr)
                         .stop_requested()) // TODO(mcs): 需要线程池支持
                 {
-                    recv::set_stopped(std::move(o));
+                    recv::set_stopped(std::move(rcvr));
                 }
                 else
                 {
-                    recv::set_value(std::move(o));
+                    recv::set_value(std::move(rcvr));
                 }
             }
 
@@ -169,7 +164,7 @@ namespace mcs::execution::ctx
                 }
 
                 template <typename Self, typename Rcvr>
-                auto connect(this Self &&self,
+                auto connect(this Self &&self [[maybe_unused]],
                              Rcvr rcvr) noexcept(noexcept((void(self), auto(rcvr))))
                     -> run_loop_opstate<std::decay_t<decltype((rcvr))>>
                     requires(recv::receiver_of<decltype((rcvr)), completion_signatures>)
@@ -201,8 +196,8 @@ namespace mcs::execution::ctx
         };
 
         // [exec.run.loop.members] Member functions:
-        Node *pop_front() noexcept;      // NOLINT // exposition only
-        void push_back(Node *) noexcept; // NOLINT// exposition only
+        state_node *pop_front() noexcept;      // NOLINT // exposition only
+        void push_back(state_node *) noexcept; // NOLINT// exposition only
 
       public:
         // [exec.run.loop.ctor] construct/copy/destroy
@@ -213,11 +208,9 @@ namespace mcs::execution::ctx
         run_loop &operator=(const run_loop &) = delete;
         ~run_loop() noexcept
         {
-            if (count.load(std::memory_order_consume) != 0 ||
+            if (head != nullptr ||
                 state.load(std::memory_order_consume) == State::running)
-            {
                 std::terminate();
-            }
         }
 
         // [exec.run.loop.members] Member functions:
@@ -240,64 +233,39 @@ namespace mcs::execution::ctx
      *
      * @return run_loop::Node*
      */
-    run_loop::Node *run_loop::pop_front() noexcept // NOLINT
+    run_loop::state_node *run_loop::pop_front() noexcept // NOLINT
     {
-        if (auto status = state.load(std::memory_order_consume);
-            status == State::finished || (count.load(std::memory_order_consume) == 0 &&
-                                          status == State::finishing)) // no need to wait
-            return nullptr;
-
         std::unique_lock lk(mtx);
-        locked.store(true, std::memory_order_release);
         cv.wait(lk, [this] {
-            return count.load(std::memory_order_consume) > 0 ||
-                   state.load(std::memory_order_consume) == State::finishing;
+            // block until one of the following conditions is true
+            return head != nullptr ||
+                   (head == nullptr &&
+                    state.load(std::memory_order_consume) == State::finishing);
         });
-
-        if (count.load(std::memory_order_consume) == 0)
+        if (head == nullptr && state.load(std::memory_order_consume) == State::finishing)
         {
-            // now has locked so memory_order_relaxed is good
-            if (state.load(std::memory_order_consume) == State::finishing)
-                state.exchange(State::finished, std::memory_order_relaxed);
-            lk.unlock();
-            locked.store(false, std::memory_order_release);
-            cv.notify_one();
+            state.store(State::finished);
             return nullptr;
         }
-
-        Node *op = std::exchange(head, head->next);
-        op->next = nullptr; // Ensure the returned task's next pointer is nullptr
-        count--;
-
-        lk.unlock();
-        locked.store(false, std::memory_order_release);
-        cv.notify_one();
-        return op;
+        // safe do wolk
+        state_node *cur_op = std::exchange(head, head->next);
+        if (head == nullptr)
+            tail = nullptr;
+        return cur_op;
     }
 
-    void run_loop::push_back(run_loop::Node *item) noexcept // NOLINT
+    void run_loop::push_back(run_loop::state_node *new_node) noexcept // NOLINT
     {
-        // TODO(mcs): Define behavior of push_back  when state is finishing
         std::unique_lock lk(mtx);
-        locked.store(true, std::memory_order_release);
-
-        if (count.load(std::memory_order_consume) == 0)
-        {
-            // init
-            head = tail = item;
-        }
+        if (head == nullptr)
+            head = tail = new_node;
         else
         {
             // update
-            tail->next = item;
-            tail = item;
+            tail->next = new_node;
+            tail = new_node;
         }
-
-        count++;
-        tail->next = nullptr; // update chain tail.next
-
         lk.unlock();
-        locked.store(false, std::memory_order_release);
         cv.notify_one(); // synchronizes with the pop_front operation
     }
 
@@ -341,23 +309,17 @@ namespace mcs::execution::ctx
      */
     void run_loop::finish() noexcept // NOLINT
     {
+        // Note: notify no depend on lock but finish() is execute atomically.
+        std::unique_lock lk(mtx);
         State expected = state.load();
         if (expected != State::starting && expected != State::running)
         {
             // 1 、 Preconditions: state is one of starting or running.
             std::terminate();
         }
-        state.exchange(State::finishing);
-
-        // Note: avoid Lost_Wake_up。 notify 没有锁住在前面会 死锁。卡死
-        //  Synchronization: finish synchronizes with the pop-front operation that
-        //  returns nullptr
-        {
-            // Note: 条件变量的设计要求在使用 cv.wait()、cv.notify_one() 或
-            // Note: cv.notify_all() 时必须持有锁。这是 C++ 标准库的规范
-            std::unique_lock lk(mtx);
-            cv.notify_all();
-        }
+        state.store(State::finishing);
+        lk.unlock();
+        cv.notify_all();
     }
 
 }; // namespace mcs::execution::ctx
