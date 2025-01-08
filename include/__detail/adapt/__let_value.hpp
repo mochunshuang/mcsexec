@@ -134,7 +134,9 @@ namespace mcs::execution
             {
                 if constexpr (requires { env.query(std::forward<Q>(q)); })
                     return env.query(std::forward<Q>(q));
-                else if (requires { queries::get_env(rcvr).query(std::forward<Q>(q)); })
+                else if constexpr (requires {
+                                       queries::get_env(rcvr).query(std::forward<Q>(q));
+                                   })
                     return queries::get_env(rcvr).query(std::forward<Q>(q));
                 else
                     return empty_env{};
