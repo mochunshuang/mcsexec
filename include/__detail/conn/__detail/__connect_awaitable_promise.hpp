@@ -6,6 +6,7 @@
 
 #include "../../__core_types.hpp"
 #include "../../queries/__env_of_t.hpp"
+#include "../../recv/__set_stopped.hpp"
 
 namespace mcs::execution::conn::__detail
 {
@@ -58,7 +59,7 @@ namespace mcs::execution::conn::__detail
 
         std::coroutine_handle<> unhandled_stopped() noexcept // NOLINT
         {
-            set_stopped(std::move(rcvr));
+            recv::set_stopped(std::move(rcvr));
             return std::noop_coroutine();
         }
 
