@@ -11,8 +11,6 @@
 
 #include "../factories/__write_env.hpp"
 
-#include "../tfxcmplsigs/__transform_completion_signatures.hpp"
-
 namespace mcs::execution
 {
     namespace adapt
@@ -190,10 +188,28 @@ namespace mcs::execution
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<adapt::on_t, Sched, Sndr>, Env>
     {
-        using type = tfxcmplsigs::transform_completion_signatures<
-            snd::completion_signatures_of_t<Sndr, Env>,
-            snd::completion_signatures_of_t<decltype(std::declval<Sched>().schedule()),
-                                            Env>>;
+        using type = cmplsigs::completion_signatures_for_impl<
+            snd::__detail::basic_sender<adapt::starts_on_t, Sched, Sndr>, Env>::type;
+    };
+    template <typename Sndr, typename Sched, typename Adaptor, typename Env>
+    struct cmplsigs::completion_signatures_for_impl<
+        snd::__detail::basic_sender<adapt::on_t, Sndr, Sched, Adaptor>, Env>
+    {
+        using orig_sch = decltype(queries::get_completion_scheduler<set_value_t>(
+            queries::get_env(std::as_const(std::declval<Sndr>()))));
+        using WriteEnvReturnType = decltype(factories::write_env(
+            std::declval<Sndr>(),
+            std::declval<decltype(snd::general::SCHED_ENV(std::declval<orig_sch>()))>()));
+        using ContinuesOnReturnType = decltype(adapt::continues_on(
+            std::declval<WriteEnvReturnType>(),
+            std::declval<decltype(std::declval<Sched>())>()));
+        using ClosureCallResultType =
+            decltype(std::declval<Adaptor>()(std::declval<ContinuesOnReturnType>()));
+
+        static_assert(snd::sender<ClosureCallResultType>,
+                      "closure(cotinues_sndr) must return a sndr");
+
+        using type = snd::completion_signatures_of_t<ClosureCallResultType, Env>;
     };
 
 }; // namespace mcs::execution
