@@ -11,6 +11,7 @@ int main()
         auto snd = cpu.get_scheduler().schedule() | ex::then([] {
                        std::cout << "id: " << std::this_thread::get_id() << "\n";
                    });
+        mcs::this_thread::sync_wait(snd);
         auto task =
             ex::on(io.get_scheduler(), std::move(snd)) | // NOLINT
             ex::then([] { std::cout << "id: " << std::this_thread::get_id() << "\n"; });

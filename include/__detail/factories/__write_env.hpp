@@ -18,7 +18,12 @@ namespace mcs::execution
     {
         struct write_env_t
         {
-            // TODO(mcs): 或许要更改
+            /**
+             * write_env is sender adaptor that accepts a sender and a queryable object,
+             * and that returns a sender that, when connected with a receiver rcvr,
+             * connects the adapted sender with a receiver whose execution environment is
+             * the result of joining the queryable object to the result of get_env(rcvr).
+             */
             template <snd::sender Sndr, queryable Env>
             constexpr auto operator()(Sndr &&sndr, Env &&env)
             {
