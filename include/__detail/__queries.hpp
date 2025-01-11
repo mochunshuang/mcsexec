@@ -12,6 +12,9 @@
 
 #include "./queries/__forwar_dingquery_concept.hpp"
 
+#include "./queries/__prop.hpp"
+#include "./queries/__env.hpp"
+
 namespace mcs::execution
 {
     using ::mcs::execution::queries::forwarding_query_t;
@@ -22,6 +25,9 @@ namespace mcs::execution
     using ::mcs::execution::queries::get_scheduler_t;
     using ::mcs::execution::queries::get_delegation_scheduler_t;
     using ::mcs::execution::queries::get_completion_scheduler_t;
+
+    using ::mcs::execution::queries::prop;
+    using ::mcs::execution::queries::env;
 
     using ::mcs::execution::queries::forwarding_query;
     using ::mcs::execution::queries::get_allocator;

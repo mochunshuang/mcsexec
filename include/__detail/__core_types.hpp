@@ -1,5 +1,6 @@
 #pragma once
 
+#include "__core_concepts.hpp"
 #include <cstdint>
 #include <tuple>
 namespace mcs::execution
@@ -32,9 +33,21 @@ namespace mcs::execution
     struct operation_state_t
     {
     };
-    struct empty_env
+
+    namespace queries
     {
-    };
+        // https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p3325r5.html
+        template <queryable... Envs>
+        struct env;
+        template <>
+        struct env<>
+        {
+        };
+    }; // namespace queries
+    // struct empty_env
+    // {
+    // };
+    using empty_env = queries::env<>;
 
     template <class... Ts>
     using decayed_tuple = std::tuple<std::decay_t<Ts>...>;
