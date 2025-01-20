@@ -15,23 +15,26 @@ namespace mcs::execution::tool
     {
       public:
         // 默认构造函数
-        SimpleAtomicOperation() : m_atomicVar(0) {}
+        explicit SimpleAtomicOperation(std::atomic<bool> &atomicVar) : locked(atomicVar)
+        {
+        }
 
         // 成员函数模板，接受多个操作
         template <typename... Ops>
         void operator()(Ops &&...ops)
         {
-            // 在弱版本会要求循环而强版本不要求时，更偏好强版本
-            int expected = 0;
-            if (m_atomicVar.compare_exchange_strong(expected, 1))
+            bool expected = false;
+            while (!locked.compare_exchange_weak(
+                expected, true, std::memory_order_acquire, std::memory_order_relaxed))
             {
-                (std::forward<Ops>(ops)(), ...);
-                m_atomicVar.store(0);
+                // 如果 expected 被修改为其他值，则重置为 false
+                expected = false;
             }
-            // do nothing
+            (std::forward<Ops>(ops)(), ...);
+            locked.store(false, std::memory_order_release);
         }
 
       private:
-        std::atomic<int> m_atomicVar;
+        std::atomic<bool> &locked; // NOLINT
     };
 }; // namespace mcs::execution::tool

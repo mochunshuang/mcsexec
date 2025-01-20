@@ -12,7 +12,6 @@
 
 #include "../snd/general/__get_domain_early.hpp"
 #include "../snd/general/__impls_for.hpp"
-#include "../snd/general/__on_stop_request.hpp"
 #include "../snd/__completion_signatures_of_t.hpp"
 
 #include "../snd/__sender_in.hpp"
@@ -60,10 +59,25 @@ namespace mcs::execution
 
         template <class Sndr, class Rcvr>
         struct local_state : local_state_base
-        {                          // exposition only
+        { // exposition only
+
+            struct forward_stop_request
+            {
+                stoptoken::single_inplace_stop_source &stop_source; // NOLINT
+                void operator()() noexcept
+                {
+                    stop_source.request_stop();
+                }
+            };
             using onstopcallback = // Note: Rcvr + get_stop_token_t => token_type
                 stop_callback_of_t<queries::stop_token_of_t<queries::env_of_t<Rcvr>>,
-                                   snd::general::on_stop_request>;
+                                   forward_stop_request>;
+
+            void register_stop_callback( // exposition only // NOLINT
+                queries::stop_token_of_t<queries::env_of_t<Rcvr>> st) noexcept
+            {
+                on_stop.emplace(std::move(st), forward_stop_request{sh_state->stop_src});
+            }
 
             ~local_state() noexcept override
             {
@@ -157,7 +171,6 @@ namespace mcs::execution
                 [[nodiscard]] inplace_stop_token query(
                     queries::get_stop_token_t /*unused*/) const noexcept
                 {
-                    // Note: stop_src == stoptoken::inplace_stop_source
                     return sh_state->stop_src.get_token();
                 }
             };
@@ -192,7 +205,7 @@ namespace mcs::execution
             struct state_list_type // NOLINT
             {
                 std::atomic<local_state_base *> head{nullptr}; // NOLINT
-
+                std::atomic<bool> list_lock{false};            // NOLINT
                 state_list_type() = default;
 
                 // 定义 move 赋值操作符
@@ -307,7 +320,7 @@ namespace mcs::execution
                 // 1. Sets completed to true,
                 // 2. Exchanges waiting_states with an empty list,
                 //      storing the old value in a local prior_states.
-                tool::SimpleAtomicOperation atomicOpration;
+                tool::SimpleAtomicOperation atomicOpration{waiting_states.list_lock};
                 state_list_type prior_states;
                 atomicOpration([&] { completed.store(true, std::memory_order_release); },
                                [&] { prior_states = std::move(waiting_states); });
@@ -358,7 +371,7 @@ namespace mcs::execution
                     delete this;
                 }
             }
-            stoptoken::inplace_stop_source stop_src{};                   // NOLINT
+            stoptoken::single_inplace_stop_source stop_src{};            // NOLINT
             variant_type result{};                                       // NOLINT
             state_list_type waiting_states{};                            // NOLINT
             std::atomic<bool> completed{false};                          // NOLINT
@@ -382,7 +395,8 @@ namespace mcs::execution
             [[nodiscard]] constexpr auto query( // NOLINT
                 queries::get_stop_token_t const & /*unused*/) const
             {
-                return stoptoken::inplace_stop_token{};
+                // https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p3409r1.html#orgb5a09bc
+                return stoptoken::single_inplace_stop_token{};
             }
         };
 
@@ -534,9 +548,8 @@ namespace mcs::execution
                  */
 
                 // 1、Calls: here
-                state.on_stop.emplace(
-                    queries::get_stop_token(queries::get_env(rcvr)),
-                    snd::general::on_stop_request{state.sh_state->stop_src});
+                state.register_stop_callback(
+                    queries::get_stop_token(queries::get_env(rcvr)));
 
                 // 2、Then: here
                 // Then atomically does the following:
@@ -545,7 +558,8 @@ namespace mcs::execution
                 // 2. Inserts addressof(state) into waiting_states if c is false.
                 bool c{false};
                 bool first_item{false};
-                tool::SimpleAtomicOperation atomicOpration;
+                tool::SimpleAtomicOperation atomicOpration{
+                    state.sh_state->waiting_states.list_lock};
                 atomicOpration([&] { c = state.sh_state->completed.load(); },
                                [&] {
                                    if (not c)
