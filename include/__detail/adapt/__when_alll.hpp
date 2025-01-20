@@ -201,13 +201,13 @@ namespace mcs::execution
                 using type = typename compute_when_all_errors_variant_Impl<All_Es>::type;
             };
 
-            template <typename State, typename Rcvr>
+            template <typename State, typename Rcvr, std::size_t Idx>
             struct when_all_env_t
             {
                 constexpr auto query(
                     const queries::get_stop_token_t & /*q*/) const noexcept
                 {
-                    return state.stop_src.get_token();
+                    return state.stop_src.template get_token<Idx>();
                 }
                 template <typename Q>
                 constexpr auto query(Q &&q) const noexcept
@@ -247,10 +247,21 @@ namespace mcs::execution
                 // variant 用 none-such 做哨兵类型
                 using errors_variant = typename __detail::compute_when_all_errors_variant<
                     queries::env_of_t<Rcvr>, Sndrs...>::type;
+
+                // https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p3409r1.html#orgab1aee9
+                using stop_source = finite_inplace_stop_source<sizeof...(Sndrs)>;
+                struct forward_stop_request
+                {
+                    stop_source &stop_source; // NOLINT
+                    void operator()() noexcept
+                    {
+                        stop_source.request_stop();
+                    }
+                };
                 // stop_callback == token + CallbackFn
                 using stop_callback = typename stoptoken::stop_callback_of_t<
                     queries::stop_token_of_t<queries::env_of_t<Rcvr>>,
-                    snd::general::on_stop_request>;
+                    forward_stop_request>;
 
                 struct state_type
                 {
@@ -261,9 +272,14 @@ namespace mcs::execution
                             this->complete(rcvr);
                         }
                     }
+                    void register_stop_callback( // exposition only // NOLINT
+                        queries::stop_token_of_t<queries::env_of_t<Rcvr>> st) noexcept
+                    {
+                        on_stop.emplace(std::move(st), forward_stop_request{stop_src});
+                    }
 
                     std::atomic<size_t> count{sizeof...(Sndrs)};         // NOLINT
-                    inplace_stop_source stop_src{};                      // NOLINT
+                    stop_source stop_src{};                              // NOLINT
                     std::atomic<disposition> disp{disposition::started}; // NOLINT
                     errors_variant errors{};                             // NOLINT
                     values_tuple values{};                               // NOLINT
@@ -335,10 +351,11 @@ namespace mcs::execution
             };
 
         static constexpr auto get_env = // NOLINT
-            []<class State, class Rcvr>(auto &&, State &state,
-                                        const Rcvr &rcvr) noexcept {
-                return adapt::__when_all::__detail::when_all_env_t<State, Rcvr>{state,
-                                                                                rcvr};
+            []<class State, class Rcvr, std::size_t Idx>(
+                std::integral_constant<size_t, Idx>, State &state,
+                const Rcvr &rcvr) noexcept {
+                return adapt::__when_all::__detail::when_all_env_t<State, Rcvr, Idx>{
+                    state, rcvr};
                 // return snd::general::JOIN_ENV(
                 //     snd::general::MAKE_ENV(queries::get_stop_token,
                 //                            state.stop_src.get_token()),
@@ -359,8 +376,7 @@ namespace mcs::execution
             // Note: 赋值 make_state::on_stop.值为 token + stop_callback的组合模板实例
             // 其中：on_stop_request 是 stop_callback。当stop_request发生时调用
             // Note: 标准规定，request_stop之后的 注册的callback，都立即调用
-            state.on_stop.emplace(queries::get_stop_token(queries::get_env(rcvr)),
-                                  snd::general::on_stop_request{state.stop_src});
+            state.register_stop_callback(queries::get_stop_token(queries::get_env(rcvr)));
             if (state.stop_src.stop_requested())
             {
                 // Note: 收到 request_stop 后，不再start. 立即有异步结果： stopped通道

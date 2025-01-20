@@ -7,10 +7,6 @@
 
 #include "./__detail/__stoptoken/__nostopstate_t.hpp"
 
-// Note: no need. inplace_xxx replace
-//  #include "./__detail/__stoptoken/__stop_token.hpp"
-//  #include "./__detail/__stoptoken/__stop_source.hpp"
-//  #include "./__detail/__stoptoken/__stop_callback.hpp"
 #include "./__detail/__stoptoken/__never_stop_token.hpp"
 #include "./__detail/__stoptoken/__inplace_stop_token.hpp"
 #include "./__detail/__stoptoken/__inplace_stop_source.hpp"
@@ -18,6 +14,14 @@
 #include "./__detail/__stoptoken/__impl/__inplace_stop_token_impl.hpp"
 #include "./__detail/__stoptoken/__impl/__inplace_stop_source_impl.hpp"
 #include "./__detail/__stoptoken/__impl/__inplace_stop_callback_impl.hpp"
+
+#include "./__detail/__stoptoken/__finite_inplace_stop_token.hpp"
+#include "./__detail/__stoptoken/__finite_inplace_stop_source.hpp"
+#include "./__detail/__stoptoken/__finite_inplace_stop_callback.hpp"
+
+#include "./__detail/__stoptoken/__single_inplace_stop_token.hpp"
+#include "./__detail/__stoptoken/__single_inplace_stop_source.hpp"
+#include "./__detail/__stoptoken/__single_inplace_stop_callback.hpp"
 
 namespace mcs::execution
 {
@@ -51,5 +55,14 @@ namespace mcs::execution
     using stoptoken::inplace_stop_callback;
 
     using stoptoken::stop_callback_for_t;
+
+    // https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p3409r1.html
+    using stoptoken::finite_inplace_stop_token;
+    using stoptoken::finite_inplace_stop_source;
+    using stoptoken::finite_inplace_stop_callback;
+
+    using stoptoken::single_inplace_stop_token;
+    using stoptoken::single_inplace_stop_source;
+    using stoptoken::single_inplace_stop_callback;
 
 }; // namespace mcs::execution
