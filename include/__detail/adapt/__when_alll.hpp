@@ -9,11 +9,9 @@
 #include "../snd/__transform_sender.hpp"
 #include "../snd/__make_sender.hpp"
 
-#include "../snd/general/__JOIN_ENV.hpp"
 #include "../snd/general/__MAKE_ENV.hpp"
 #include "../snd/general/__get_domain_early.hpp"
 #include "../snd/general/__impls_for.hpp"
-#include "../snd/general/__on_stop_request.hpp"
 
 #include "../snd/__sender_in.hpp"
 
