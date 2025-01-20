@@ -320,6 +320,9 @@ namespace mcs::execution
                 // 1. Sets completed to true,
                 // 2. Exchanges waiting_states with an empty list,
                 //      storing the old value in a local prior_states.
+                // Note: repeatedly std::move(waiting_states) no effect
+                // Note: std::move only change waiting_states.head
+                // Note: waiting_states.list_lock is live after std::move
                 tool::SimpleAtomicOperation atomicOpration{waiting_states.list_lock};
                 state_list_type prior_states;
                 atomicOpration([&] { completed.store(true, std::memory_order_release); },
