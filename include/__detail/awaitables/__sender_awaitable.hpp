@@ -26,15 +26,17 @@ namespace mcs::execution::awaitables
         sender_awaitable(Sndr &sndr, Promise &p)
             : state{conn::connect(
                   sndr,
-                  awaitable_receiver{::std::addressof(result),
-                                     ::std::coroutine_handle<Promise>::from_promise(p)})}
+                  awaitable_receiver{
+                      .result_ptr = ::std::addressof(result),
+                      .continuation = ::std::coroutine_handle<Promise>::from_promise(p)})}
         {
         }
         sender_awaitable(Sndr &&sndr, Promise &p)
             : state{conn::connect(
                   ::std::move(sndr),
-                  awaitable_receiver{::std::addressof(result),
-                                     ::std::coroutine_handle<Promise>::from_promise(p)})}
+                  awaitable_receiver{
+                      .result_ptr = ::std::addressof(result),
+                      .continuation = ::std::coroutine_handle<Promise>::from_promise(p)})}
         {
         }
 
