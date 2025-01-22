@@ -1,7 +1,6 @@
 #pragma once
 #include <utility>
 #include "./__is_awaitable.hpp"
-#include "./__unspecified_promise.hpp"
 #include "./__sender_awaitable.hpp"
 #include "./__awaitable_sender.hpp"
 
@@ -10,6 +9,8 @@ namespace mcs::execution::awaitables
 
     struct as_awaitable_t
     {
+        struct unspecified_class;
+
         template <typename Expr, typename Promise>
         auto operator()(Expr &&expr, Promise &p) const
         {
@@ -25,13 +26,16 @@ namespace mcs::execution::awaitables
             // 2. (void(p), expr) if is-awaitable<Expr, U> is true, where U is an
             // unspecified class type that is not Promise and that lacks a member
             // named await_transform.
-            else if constexpr (awaitables::is_awaitable<Expr, unspecified_promise>)
+            else if constexpr (awaitables::is_awaitable<Expr, unspecified_class>)
             {
                 // Preconditions: is-awaitable<Expr, Promise> is true and the expression
                 // co_await expr in a coroutine with promise type U is
                 // expression-equivalent to the same expression in a coroutine with
                 // promise type Promise.
-                // TODO(mcs): 待完善
+                // Note:要求 await_suspend(std::coroutine_handle<Promise>) 和
+                // await_suspend(std::coroutine_handle<unspecified_class>) 的行为是一样的
+                // Note: 对await_suspend实现是软约束的，编译期无法约束
+                // Note: 类型std::coroutine_handle<>可以接收任意 std::coroutine_handle<T>
                 static_assert(awaitables::is_awaitable<Expr, Promise>);
                 return (void(p), std::forward<Expr>(expr));
             }

@@ -26,7 +26,7 @@ namespace mcs::execution::awaitables::__detail
                 "only one operator co_await is allowed");
             return operator co_await(transform());
         }
-        // 2. member co_await8 or transform() itself
+        // 2. has member co_await or transform() itself
         else if constexpr (requires { transform().operator co_await(); })
             return transform().operator co_await();
         else

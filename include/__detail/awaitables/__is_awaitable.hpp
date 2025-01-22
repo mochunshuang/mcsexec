@@ -7,10 +7,10 @@
 namespace mcs::execution::awaitables
 {
 
-    template <class C, class Promise>
-    concept is_awaitable = requires(C &&c, Promise &p) {
+    template <class Expr, class Promise>
+    concept is_awaitable = requires(Expr &&expr, Promise &p) {
         {
-            __detail::GET_AWAITER(::std::forward<C>(c), p)
+            __detail::GET_AWAITER(::std::forward<Expr>(expr), p)
         } -> awaitables::is_awaiter<Promise>;
     };
 

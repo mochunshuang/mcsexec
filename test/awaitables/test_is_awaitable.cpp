@@ -3,7 +3,7 @@
 #include <coroutine>
 
 using namespace mcs::execution::awaitables; // NOLINT
-struct SimplePromise
+struct has_await_transform
 {
     template <typename Expr>
     auto await_transform(Expr &&expr) // NOLINT
@@ -107,16 +107,16 @@ struct mem_co_awaiter
 int main()
 {
     TEST("is_awaitable") = [] {
-        static_assert(is_awaitable<ValidAwaitable, SimplePromise>);
+        static_assert(is_awaitable<ValidAwaitable, has_await_transform>);
 
-        static_assert(not is_awaitable<InvalidAwaitable, SimplePromise>);
+        static_assert(not is_awaitable<InvalidAwaitable, has_await_transform>);
 
         {
-            static_assert(is_awaitable<GlobalAwaitable, SimplePromise>);
+            static_assert(is_awaitable<GlobalAwaitable, has_await_transform>);
             // Note: GlobalAwaiter form GlobalAwaitable.co_await
-            static_assert(is_awaiter<GlobalAwaiter, SimplePromise>);
+            static_assert(is_awaiter<GlobalAwaiter, has_await_transform>);
         }
-        static_assert(not is_awaiter<SimplePromise, SimplePromise>);
+        static_assert(not is_awaiter<has_await_transform, has_await_transform>);
 
         static_assert(is_awaitable<GlobalAwaitable, GlobalAwaiter>);
 
@@ -131,6 +131,17 @@ int main()
         static_assert(is_awaitable<co_awaiter, promise_type>);
         static_assert(is_awaitable<mem_co_awaiter, promise_type>);
         static_assert(not is_awaitable<awaiter<bool, double>, promise_type>);
+    };
+
+    TEST("await_suspend(std::coroutine_handle<>) is good") = [] {
+        auto await_suspend = [](std::coroutine_handle<>) {
+        };
+        await_suspend(std::coroutine_handle<>{});
+        await_suspend(std::coroutine_handle<int>{});
+        await_suspend(std::coroutine_handle<double>{});
+
+        struct unspecified_class;
+        await_suspend(std::coroutine_handle<unspecified_class>{});
     };
 
     return 0;
