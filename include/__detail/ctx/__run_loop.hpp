@@ -207,7 +207,7 @@ namespace mcs::execution::ctx
         ~run_loop() noexcept
         {
             if (head != nullptr ||
-                state.load(std::memory_order_consume) == State::running)
+                state.load(std::memory_order_acquire) == State::running)
                 std::terminate();
         }
 
@@ -238,9 +238,9 @@ namespace mcs::execution::ctx
             // block until one of the following conditions is true
             return head != nullptr ||
                    (head == nullptr &&
-                    state.load(std::memory_order_consume) == State::finishing);
+                    state.load(std::memory_order_acquire) == State::finishing);
         });
-        if (head == nullptr && state.load(std::memory_order_consume) == State::finishing)
+        if (head == nullptr && state.load(std::memory_order_acquire) == State::finishing)
         {
             state.store(State::finished);
             return nullptr;
