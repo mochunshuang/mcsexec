@@ -21,8 +21,6 @@ namespace mcs::execution::stoptoken
         return inplace_stop_token(this);
     }
 
-    inline inplace_stop_source::~inplace_stop_source() = default;
-
     inline bool inplace_stop_source::stop_requested() const noexcept
     {
         // if the stop state inside *this has received a stop request; otherwise, false.

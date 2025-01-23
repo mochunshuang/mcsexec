@@ -29,7 +29,7 @@ namespace mcs::execution::stoptoken
         inplace_stop_source(const inplace_stop_source &) = delete;
         inplace_stop_source &operator=(inplace_stop_source &&) = delete;
         inplace_stop_source &operator=(const inplace_stop_source &) = delete;
-        ~inplace_stop_source();
+        ~inplace_stop_source() = default;
 
         //[stopsource.inplace.mem], stop handling
         // Returns: A new associated inplace_stop_token object.

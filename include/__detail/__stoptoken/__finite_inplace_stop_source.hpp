@@ -24,7 +24,10 @@ namespace mcs::execution::stoptoken
             : finite_inplace_stop_source(std::make_index_sequence<N>{})
         {
         }
-
+        static constexpr bool stop_possible() noexcept // NOLINT
+        {
+            return true;
+        }
         bool request_stop() noexcept // NOLINT
         {
             return finite_inplace_stop_source_base::request_stop_impl(N, states.data());
