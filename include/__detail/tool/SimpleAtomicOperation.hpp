@@ -15,7 +15,7 @@ namespace mcs::execution::tool
     {
       public:
         // 默认构造函数
-        explicit SimpleAtomicOperation(std::atomic<bool> &atomicVar) : locked(atomicVar)
+        explicit SimpleAtomicOperation(std::atomic_flag &atomicFlag) : locked(atomicFlag)
         {
         }
 
@@ -23,18 +23,19 @@ namespace mcs::execution::tool
         template <typename... Ops>
         void operator()(Ops &&...ops)
         {
-            bool expected = false;
-            while (!locked.compare_exchange_weak(
-                expected, true, std::memory_order_acquire, std::memory_order_relaxed))
+            while (locked.test_and_set(std::memory_order_acquire))
             {
-                // 如果 expected 被修改为其他值，则重置为 false
-                expected = false;
+                // C++ 20 起可以仅在 unlock 中通知后才获得锁，从而避免任何无效自旋
+                // 注意，即使 wait
+                // 保证一定在值被更改后才返回，但锁定是在下一次执行条件时完成的
+                locked.wait(true, std::memory_order_relaxed);
             }
             (std::forward<Ops>(ops)(), ...);
-            locked.store(false, std::memory_order_release);
+            locked.clear(std::memory_order_release); // 释放锁
+            locked.notify_one();
         }
 
       private:
-        std::atomic<bool> &locked; // NOLINT
+        std::atomic_flag &locked; // NOLINT
     };
 }; // namespace mcs::execution::tool

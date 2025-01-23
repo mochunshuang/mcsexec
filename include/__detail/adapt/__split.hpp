@@ -205,7 +205,7 @@ namespace mcs::execution
             struct state_list_type // NOLINT
             {
                 std::atomic<local_state_base *> head{nullptr}; // NOLINT
-                std::atomic<bool> list_lock{false};            // NOLINT
+                std::atomic_flag list_lock{false};             // NOLINT
                 state_list_type() = default;
 
                 // 定义 move 赋值操作符
