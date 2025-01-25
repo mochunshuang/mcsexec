@@ -24,7 +24,7 @@ namespace mcs::execution::stoptoken
         // [stoptoken.inplace.mem], member functions
         // Effects: Equivalent to:
         //  return stop-source != nullptr && stop-source->stop_requested();
-        // Note:
+        // Note: Define Implementation in inplace_stop_source
         // As specified in [basic.life], the behavior of stop_requested() is undefined
         // unless the call strongly happens before the start of the destructor of the
         // associated inplace_stop_source, if any.
@@ -35,10 +35,16 @@ namespace mcs::execution::stoptoken
         // the behavior of stop_possible() is implementation-defined unless the call
         // strongly happens before the end of the storage duration of
         // the associated inplace_stop_source object, if any
-        bool stop_possible() const noexcept; // NOLINT
-
+        bool stop_possible() const noexcept // NOLINT
+        {
+            // Note: happens before the end of the associated inplace_stop_source
+            return stop_source != nullptr;
+        }
         // Effects: Exchanges the values of stop-source and rhs.stop-source.
-        void swap(inplace_stop_token &rhs) noexcept;
+        void swap(inplace_stop_token &rhs) noexcept
+        {
+            std::swap(this->stop_source, rhs.stop_source);
+        }
 
       private:
         const inplace_stop_source *stop_source = nullptr; // NOLINT // exposition only

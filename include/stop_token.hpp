@@ -11,9 +11,6 @@
 #include "./__detail/__stoptoken/__inplace_stop_token.hpp"
 #include "./__detail/__stoptoken/__inplace_stop_source.hpp"
 #include "./__detail/__stoptoken/__inplace_stop_callback.hpp"
-#include "./__detail/__stoptoken/__impl/__inplace_stop_token_impl.hpp"
-#include "./__detail/__stoptoken/__impl/__inplace_stop_source_impl.hpp"
-#include "./__detail/__stoptoken/__impl/__inplace_stop_callback_impl.hpp"
 
 #include "./__detail/__stoptoken/__finite_inplace_stop_token.hpp"
 #include "./__detail/__stoptoken/__finite_inplace_stop_source.hpp"
