@@ -163,7 +163,7 @@ void test_base() // NOLINT
         auto &result = c.handle.promise().result_or_exception;
         std::visit(
             [](auto &ret) {
-                if constexpr (requires { assert(ret == 1); })
+                if constexpr (requires { ret == 1; })
                 {
                     std::cout << "co_return called\n";
                     assert(ret == 1);
