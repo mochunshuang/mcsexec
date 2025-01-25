@@ -1,0 +1,26 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 30,
+        "patch": 0
+    },
+    "include": [
+        "CMakeUserPresets.json"
+    ],
+    "configurePresets": [
+        {
+            "name": "windows-g++",
+            "inherits": [
+                "impl_windows-g++"
+            ],
+            "displayName": "windows-g++",
+            "description": "This is available after impl_windows-g++ implemented",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        }
+    ]
+}

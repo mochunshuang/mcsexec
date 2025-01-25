@@ -1,0 +1,73 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 30,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "impl_windows-g++",
+            "displayName": "local windows-g++ setting for your self",
+            "description": "implemente windows-g++ configure",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
+                "CMAKE_CXX_COMPILER": "D:/mysoftware/winlibs-x86_64-posix-seh-gcc-14.2.0-mingw-w64msvcrt-12.0.0-r2/mingw64/bin/g++.exe",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "windows-g++",
+            "configurePreset": "windows-g++",
+            "description": "implemente windows-g++ buildPresets"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "windows-g++",
+            "configurePreset": "windows-g++",
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error",
+                "stopOnFailure": true
+            },
+            "description": "implemente windows-g++ testPresets"
+        }
+    ],
+    "packagePresets": [
+        {
+            "name": "windows-g++",
+            "configurePreset": "windows-g++",
+            "generators": [
+                "TGZ"
+            ],
+            "description": "implemente windows-g++ packagePresets"
+        }
+    ],
+    "workflowPresets": [
+        {
+            "name": "windows-g++-workflow",
+            "description": "implemente windows-g++ workflowPresets",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "windows-g++"
+                },
+                {
+                    "type": "build",
+                    "name": "windows-g++"
+                },
+                {
+                    "type": "test",
+                    "name": "windows-g++"
+                }
+            ]
+        }
+    ]
+}
