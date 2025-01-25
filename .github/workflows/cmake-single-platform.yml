@@ -37,14 +37,14 @@ jobs:
         sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
         sudo update-alternatives --set g++ /usr/bin/g++-14
 
-    - name: Install CMake 3.30
+    - name: Install CMake 3.30 (from official binaries)
       run: |
         sudo apt-get update
         sudo apt-get install -y wget
-        wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
-        echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ focal main' | sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
-        sudo apt-get update
-        sudo apt-get install -y cmake=3.30.0-0kitware1ubuntu20.04.1
+        wget https://github.com/Kitware/CMake/releases/download/v3.30.0/cmake-3.30.0-linux-x86_64.tar.gz
+        tar -xzf cmake-3.30.0-linux-x86_64.tar.gz
+        sudo mv cmake-3.30.0-linux-x86_64 /opt/cmake-3.30.0
+        sudo ln -sf /opt/cmake-3.30.0/bin/cmake /usr/bin/cmake
 
     - name: Install Ninja (Latest Version)
       run: |
