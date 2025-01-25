@@ -16,7 +16,6 @@ namespace mcs::execution
     {
         struct continues_on_t;
     };
-    using adapt::continues_on_t;
 
     namespace snd::general
     {
@@ -28,12 +27,12 @@ namespace mcs::execution
             using queries::get_domain;
             using queries::get_env;
             using queries::get_scheduler;
-            if constexpr (snd::sender_for<Sndr, continues_on_t>)
+            if constexpr (snd::sender_for<Sndr, adapt::continues_on_t>)
             {
-                return sndr.apply([]<typename Sch>(auto &, Sch &sch,
-                                                   auto &...) -> decltype(auto) {
-                    return query_or_default(queries::get_domain, sch, default_domain());
-                });
+                return sndr.apply(
+                    []<typename Sch>(auto &, Sch &sch, auto &...) -> decltype(auto) {
+                        return query_or_default(get_domain, sch, default_domain());
+                    });
             }
             else if constexpr (requires {
                                    { get_domain(get_env(sndr)) } -> not_void;
