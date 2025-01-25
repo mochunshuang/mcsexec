@@ -46,8 +46,8 @@ jobs:
       run: cmake -B build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -S .
 
     - name: Build
-      run: cmake --build build --config ${{env.BUILD_TYPE}}
+      run: cmake --build ./build --config ${{env.BUILD_TYPE}}
 
     - name: Test
-      working-directory: build
+      working-directory: ./build
       run: ctest -C ${{env.BUILD_TYPE}}
