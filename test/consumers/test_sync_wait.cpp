@@ -24,6 +24,11 @@ int main()
     using namespace std;              // NOLINT
     using namespace mcs::this_thread; // NOLINT
 
+    // 调整 测试顺序，为了ctest 可以并行测试。上面的测试效果1s多
+    TEST("sync_wait simple test") = [] {
+        optional<tuple<int>> res = sync_wait(ex::just(1));
+        EXPECT(std::get<0>(res.value()) == 1);
+    };
     TEST("sync_wait can wait on void values") = [] {
         optional<tuple<>> res = sync_wait(ex::just());
         EXPECT(res.has_value());
@@ -127,12 +132,6 @@ int main()
                 std::cout << "times: " << i << " thread_pool  done\n";
             mcs::this_thread::sync_wait(std::move(snd));
         }
-    };
-
-    // 调整 测试顺序，为了ctest 可以并行测试。上面的测试效果1s多
-    TEST("sync_wait simple test") = [] {
-        optional<tuple<int>> res = sync_wait(ex::just(1));
-        EXPECT(std::get<0>(res.value()) == 1);
     };
     return 0;
 }
