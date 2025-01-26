@@ -2,6 +2,18 @@ partial implementation of the *Senders* model of asynchronous programming propos
 
 For the sole purpose of learning c++ templates, without any suggestion or hint
 
+[![Build Status](https://github.com/your-username/your-repo/actions/workflows/cmake.yml/badge.svg)](https://github.com/your-username/your-repo/actions/workflows/cmake.yml)
+[![Codecov](https://codecov.io/gh/your-username/your-repo/branch/main/graph/badge.svg)](https://codecov.io/gh/your-username/your-repo)
+[![CMake Version](https://img.shields.io/badge/CMake-3.30.0-blue)](https://cmake.org/)
+[![G++ Version](https://img.shields.io/badge/G++-14.2-green)](https://gcc.gnu.org/)
+
+## Features
+
+- CMake 3.30
+- G++ 14.2
+- Code coverage with `gcov` and `lcov`
+- Automated testing with GitHub Actions
+
 **example**
 
 ~~~c++
