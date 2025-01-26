@@ -2,7 +2,7 @@ partial implementation of the *Senders* model of asynchronous programming propos
 
 For the sole purpose of learning c++ templates, without any suggestion or hint
 
-![Build Status](https://github.com/my-org/my-repo/workflows/CMake%20with%20g%2B%2B-14.2%20(C%2B%2B%20Only)/badge.svg)
+![Build Status](https://github.com/mochunshuang/mcsexec/workflows/linux_g++_14_2/badge.svg)
 
 ## Features
 
