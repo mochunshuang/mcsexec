@@ -134,6 +134,7 @@ int main()
                 mcs::this_thread::sync_wait(std::move(snd));
             }
         }
+        std::cout << "test sync_wait: 100000:  done\n";
     };
     return 0;
 }
