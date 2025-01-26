@@ -250,10 +250,10 @@ namespace mcs::execution
                 using stop_source = finite_inplace_stop_source<sizeof...(Sndrs)>;
                 struct forward_stop_request
                 {
-                    stop_source &stop_source; // NOLINT
+                    stop_source &stop_src;
                     void operator()() noexcept
                     {
-                        stop_source.request_stop();
+                        stop_src.request_stop();
                     }
                 };
                 // stop_callback == token + CallbackFn

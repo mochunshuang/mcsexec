@@ -303,8 +303,8 @@ namespace mcs::execution::task
         struct state : state_base, state_rep<Receiver> // NOLINT
         {
             using operation_state_concept = operation_state_t;
-            using stop_token_t =
-                decltype(get_stop_token(get_env(std::declval<Receiver>())));
+            using stop_token_t = decltype(queries::get_stop_token(
+                queries::get_env(std::declval<Receiver>())));
             struct stop_link
             {
                 stop_source_type &source; // NOLINT
