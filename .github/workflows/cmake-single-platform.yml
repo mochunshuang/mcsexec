@@ -66,16 +66,3 @@ jobs:
         env:
           CTEST_PARALLEL_LEVEL: ${{env.CORES}}
         run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure --verbose
-
-      - name: Install lcov
-        run: sudo apt-get install -y lcov
-
-      - name: Generate coverage data
-        run: |
-          lcov --capture --directory ./build --output-file coverage.info
-          lcov --remove coverage.info '/usr/*' --output-file coverage.info
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.info
