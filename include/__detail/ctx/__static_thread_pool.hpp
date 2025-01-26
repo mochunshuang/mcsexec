@@ -11,6 +11,7 @@
 #include <execution>
 
 #include "./__thread_context.hpp"
+#include "../tool/spin_wait.hpp"
 
 namespace mcs::execution::ctx
 {
@@ -37,6 +38,10 @@ namespace mcs::execution::ctx
                 run_loop.state.store(run_loop::State::finishing,
                                      std::memory_order_release);
                 run_loop.cv.notify_one();
+                tool::spin_wait spin_wait;
+                while (run_loop.state.load(std::memory_order_relaxed) !=
+                       run_loop::State::finished)
+                    spin_wait.wait();
             }
 
             [[nodiscard]] auto get_scheduler() noexcept -> sched::scheduler auto // NOLINT
