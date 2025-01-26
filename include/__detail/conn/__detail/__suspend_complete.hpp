@@ -14,7 +14,7 @@ namespace mcs::execution::conn::__detail
 
         struct awaiter
         {
-            decltype(fn) fn; // NOLINT
+            decltype(fn) fn_;
 
             static constexpr bool await_ready() noexcept // NOLINT
             {
@@ -22,7 +22,7 @@ namespace mcs::execution::conn::__detail
             }
             void await_suspend(std::coroutine_handle<>) noexcept // NOLINT
             {
-                fn();
+                fn_();
             }
             [[noreturn]] void await_resume() noexcept // NOLINT
             {
