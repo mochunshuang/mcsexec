@@ -38,7 +38,7 @@ void test_stop_callback()
     }
 
     // 第一次调用 request_stop
-    assert(stop_source.request_stop());
+    EXPECT(stop_source.request_stop());
     std::cout << "      stop_source.request_stop()" << '\n';
 
     // （在 request_stop 后注册）
@@ -48,7 +48,7 @@ void test_stop_callback()
     });
 
     // 第二次调用 request_stop
-    assert(not stop_source.request_stop());
+    EXPECT(not stop_source.request_stop());
     std::cout << "      stop_source.request_stop()" << '\n';
 
     // （在 request_stop 后注册）
