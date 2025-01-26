@@ -54,13 +54,17 @@ jobs:
       - name: Configure CMake (with Ninja)
         run: cmake -B build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -G Ninja -S .
 
-      - name: Build
-        run: cmake --build ./build --config ${{env.BUILD_TYPE}}
+      - name: Get number of logical cores
+        id: get_cores
+        run: echo "CORES=$(nproc)" >> $GITHUB_ENV
 
-      - name: Test
+      - name: Build (with parallel)
+        run: cmake --build ./build --config ${{env.BUILD_TYPE}} --parallel ${{env.CORES}}
+
+      - name: Test (with parallel)
         working-directory: ./build
         env:
-          CTEST_PARALLEL_LEVEL: 0
+          CTEST_PARALLEL_LEVEL: ${{env.CORES}}
         run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure --verbose
 
       - name: Install lcov
