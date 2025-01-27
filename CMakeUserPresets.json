@@ -11,9 +11,9 @@
             "displayName": "local windows-g++ setting for your self",
             "description": "implemente windows-g++ configure",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build/${presetName}",
+            "binaryDir": "${sourceDir}/build/",
             "cacheVariables": {
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/",
                 "CMAKE_CXX_COMPILER": "D:/mysoftware/winlibs-x86_64-posix-seh-gcc-14.2.0-mingw-w64msvcrt-12.0.0-r2/mingw64/bin/g++.exe",
                 "CMAKE_BUILD_TYPE": "Release"
             }

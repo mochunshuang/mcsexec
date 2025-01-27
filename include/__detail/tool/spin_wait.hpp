@@ -11,7 +11,7 @@
 
 namespace mcs::execution::tool
 {
-    constexpr static inline void __spin_pause() noexcept // NOLINT
+    static inline void __spin_pause() noexcept // NOLINT
     {
 #if defined(__x86_64__) || defined(_M_X64)
         _mm_pause(); // x86/x64 架构 // NOLINT

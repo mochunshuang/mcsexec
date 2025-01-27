@@ -28,6 +28,7 @@ auto_add_test_by_dir("stop_token")
 
 # 定义自定义命令，用于构建所有目标：注意，要在build目录下
 # 等价于：E:\0_github_project\mcsexec\mcsexec\build> ctest --parallel 16 -C Debug
+# 不需要这个目标 因为和 cmaketool 启动并行测试冲突。依赖 DEPENDS all，没生成完就结束了
 # add_custom_target(run_all_tests
 # COMMAND ${CMAKE_COMMAND} -E echo "Running All Tests!"
 # COMMAND ${CMAKE_CTEST_COMMAND} --parallel ${NUM_CPUS} -C ${CMAKE_BUILD_TYPE} --output-on-failure
