@@ -1,3 +1,5 @@
+# This starter workflow is for a CMake project running on a single platform. There is a different starter workflow if you need cross-platform coverage.
+# See: https://github.com/actions/st
 name: windows_mingw_14_2
 
 on:
