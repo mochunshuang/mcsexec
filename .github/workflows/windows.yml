@@ -1,0 +1,80 @@
+# This starter workflow is for a CMake project running on a single platform. There is a different starter workflow if you need cross-platform coverage.
+# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-multi-platform.yml
+name: windows_mingw_14_2
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4 # 检出代码
+
+      - name: Print working directory
+        run: echo "Working directory: ${{ github.workspace }}"
+
+      - name: List files (for debugging)
+        run: dir /s
+
+      - name: Download and extract MinGW-w64 GCC 14.2.0
+        run: |
+          $url = "https://github.com/brechtsanders/winlibs_mingw/releases/download/14.2.0posix-19.1.1-12.0.0-msvcrt-r2/winlibs-i686-posix-dwarf-gcc-14.2.0-mingw-w64msvcrt-12.0.0-r2.7z"
+          $output = "$env:RUNNER_TEMP\mingw.7z"
+          Invoke-WebRequest -Uri $url -OutFile $output
+          7z x $output -o"$env:RUNNER_TEMP\mingw" -y
+
+      - name: Add MinGW-w64 to PATH
+        run: |
+          $mingwPath = "$env:RUNNER_TEMP\mingw\mingw32\bin"
+          echo "Adding $mingwPath to PATH"
+          echo "$mingwPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Install CMake 3.30 (from official binaries)
+        run: |
+          $url = "https://github.com/Kitware/CMake/releases/download/v3.30.0/cmake-3.30.0-windows-x86_64.zip"
+          $output = "$env:RUNNER_TEMP\cmake.zip"
+          Invoke-WebRequest -Uri $url -OutFile $output
+          Expand-Archive -Path $output -DestinationPath "$env:RUNNER_TEMP\cmake"
+          $cmakePath = "$env:RUNNER_TEMP\cmake\cmake-3.30.0-windows-x86_64\bin"
+          echo "Adding $cmakePath to PATH"
+          echo "$cmakePath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Download and install Ninja
+        run: |
+          $url = "https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-win.zip"
+          $output = "$env:RUNNER_TEMP\ninja.zip"
+          Invoke-WebRequest -Uri $url -OutFile $output
+          Expand-Archive -Path $output -DestinationPath "$env:RUNNER_TEMP\ninja"
+          $ninjaPath = "$env:RUNNER_TEMP\ninja"
+          echo "Adding $ninjaPath to PATH"
+          echo "$ninjaPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Configure CMake (with Ninja)
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -G Ninja -S .
+
+      - name: Get number of logical cores
+        id: get_cores
+        shell: pwsh
+        run: |
+          $cores = (Get-WmiObject -Class Win32_Processor).NumberOfLogicalProcessors
+          echo "CORES=$cores" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build (with parallel)
+        run: |
+          cmake --build ./build --config ${{ env.BUILD_TYPE }} --parallel ${{ env.CORES }}
+
+      - name: Test (with parallel)
+        working-directory: ./build
+        env:
+          CTEST_PARALLEL_LEVEL: ${{ env.CORES }}
+        run: |
+          ctest -C ${{ env.BUILD_TYPE }} --output-on-failure --verbose
