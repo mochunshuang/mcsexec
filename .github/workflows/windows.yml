@@ -1,5 +1,3 @@
-# This starter workflow is for a CMake project running on a single platform. There is a different starter workflow if you need cross-platform coverage.
-# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-multi-platform.yml
 name: windows_mingw_14_2
 
 on:
@@ -17,6 +15,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4 # 检出代码
+
+      - name: Print working directory
+        run: echo "Working directory: ${{ github.workspace }}"
+
+      - name: List files (for debugging)
+        run: dir /s
 
       - name: Download and extract MinGW-w64 GCC 14.2.0
         run: |
@@ -53,7 +57,7 @@ jobs:
 
       - name: Configure CMake (with Ninja)
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE -G Ninja -S .
+          cmake -B build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -G Ninja -S .
 
       - name: Get number of logical cores
         id: get_cores
@@ -64,12 +68,11 @@ jobs:
 
       - name: Build (with parallel)
         run: |
-          cmake --build ./build --config $env:BUILD_TYPE --parallel $env:CORES
+          cmake --build ./build --config ${{ env.BUILD_TYPE }} --parallel ${{ env.CORES }}
 
       - name: Test (with parallel)
         working-directory: ./build
         env:
-          CTEST_PARALLEL_LEVEL: ${{env.CORES}}
+          CTEST_PARALLEL_LEVEL: ${{ env.CORES }}
         run: |
-          ctest -C $env:BUILD_TYPE --output-on-failure --verbose
-
+          ctest -C ${{ env.BUILD_TYPE }} --output-on-failure --verbose
