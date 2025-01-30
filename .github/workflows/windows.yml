@@ -22,7 +22,8 @@ jobs:
 
       - name: Download and extract MinGW-w64 GCC 14.2.0
         run: |
-          $url = "https://github.com/brechtsanders/winlibs_mingw/releases/download/14.2.0posix-19.1.1-12.0.0-msvcrt-r2/winlibs-i686-posix-dwarf-gcc-14.2.0-mingw-w64msvcrt-12.0.0-r2.7z"
+          $url = "https://github.com/niXman/mingw-builds-binaries/releases/download/14.2.0-rt_v12-rev1/x86_64-14.2.0-release-posix-seh-ucrt-rt_v12-rev1.7z"
+"
           $output = "$env:RUNNER_TEMP\mingw.7z"
           Invoke-WebRequest -Uri $url -OutFile $output
           7z x $output -o"$env:RUNNER_TEMP\mingw" -y
