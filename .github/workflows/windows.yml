@@ -38,7 +38,7 @@ jobs:
       - name: Download and Install Ninja
         shell: pwsh
         run: |
-          $ninjaUrl = "https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-win.zip"
+          $ninjaUrl = "https://github.com/ninja-build/ninja/releases/download/v1.12.0/ninja-win.zip"
           $ninjaZip = "$env:RUNNER_TEMP\ninja-win.zip"
           $ninjaDir = "$env:RUNNER_TEMP\ninja"
           Invoke-WebRequest -Uri $ninjaUrl -OutFile $ninjaZip
@@ -49,7 +49,7 @@ jobs:
       - name: Download and Install CMake
         shell: pwsh
         run: |
-          $cmakeUrl = "https://github.com/Kitware/CMake/releases/download/v3.30.6/cmake-3.30.6-windows-x86_64.zip"
+          $cmakeUrl = "https://github.com/Kitware/CMake/releases/download/v3.30.0/cmake-3.30.0-windows-x86_64.zip"
           $cmakeZip = "$env:RUNNER_TEMP\cmake.zip"
           $cmakeDir = "$env:RUNNER_TEMP\cmake"
           Invoke-WebRequest -Uri $cmakeUrl -OutFile $cmakeZip
