@@ -68,12 +68,12 @@ jobs:
       - name: Build (with parallel)
         shell: pwsh
         run: |
-          cmake --build ./build --target all --parallel $env:CORES
+          cmake --build ./build --target all --parallel  ${{env.CORES}}
 
       - name: Test (with parallel)
         shell: pwsh
         working-directory: ./build
         env:
-          CTEST_PARALLEL_LEVEL: ${{ env.CORES }}
+          CTEST_PARALLEL_LEVEL: ${{env.CORES}}
         run: |
           ctest -T test --output-on-failure --verbose
