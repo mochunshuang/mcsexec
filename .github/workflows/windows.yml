@@ -67,7 +67,7 @@ jobs:
       - name: Build (with parallel)
         shell: pwsh
         run: |
-          cmake --build ./build --target all
+          cmake --build ./build --target all --parallel ${{env.CORES}}
 
       - name: Test (with parallel)
         shell: pwsh
