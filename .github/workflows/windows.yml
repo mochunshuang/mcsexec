@@ -68,7 +68,7 @@ jobs:
       - name: Build (with parallel)
         shell: pwsh
         run: |
-          cmake --build ./build --target all --parallel  ${{env.CORES}}
+          cmake --build ./build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} --target all --parallel ${{env.CORES}}
 
       - name: Test (with parallel)
         shell: pwsh
@@ -76,4 +76,4 @@ jobs:
         env:
           CTEST_PARALLEL_LEVEL: ${{env.CORES}}
         run: |
-          ctest -T test --output-on-failure --verbose
+          ctest -T test --output-on-failure --output-on-failure --stop-on-failure --no-tests=error --verbose
