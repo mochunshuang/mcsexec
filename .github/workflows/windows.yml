@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: ["main"]
 
-env:
-  BUILD_TYPE: Release
-
 jobs:
   build:
     runs-on: windows-latest
@@ -53,17 +50,17 @@ jobs:
           echo "Adding $cmakeDir\bin to PATH"
           echo "$cmakeDir\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: Configure CMake (with Ninja)
-        shell: pwsh
-        run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE -G Ninja -S .
-
       - name: Get number of logical cores
         id: get_cores
         shell: pwsh
         run: |
           $cores = (Get-WmiObject -Class Win32_Processor).NumberOfLogicalProcessors
           echo "CORES=$cores" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
+
+      - name: Configure CMake (with Ninja)
+        shell: pwsh
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -G Ninja -S .
 
       - name: Build (with parallel)
         shell: pwsh
