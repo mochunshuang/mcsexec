@@ -21,6 +21,7 @@ jobs:
       - uses: actions/checkout@v4 # Check out the code
 
       - name: Download and Install Clang 19.1
+        shell: pwsh
         run: |
           $clangUrl = "https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.7/LLVM-19.1.7-win64.exe"
           $clangInstaller = "$env:RUNNER_TEMP\LLVM-19.1.7-win64.exe"
@@ -28,32 +29,53 @@ jobs:
           Start-Process -Wait -FilePath $clangInstaller -ArgumentList "/S"
 
       - name: Add Clang to PATH
+        shell: pwsh
         run: |
           $clangPath = "C:\Program Files\LLVM\bin"
           echo "Adding $clangPath to PATH"
           echo "$clangPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: Install CMake (Latest Version)
-        run: choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+      - name: Download and Install Ninja
+        shell: pwsh
+        run: |
+          $ninjaUrl = "https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-win.zip"
+          $ninjaZip = "$env:RUNNER_TEMP\ninja-win.zip"
+          $ninjaDir = "$env:RUNNER_TEMP\ninja"
+          Invoke-WebRequest -Uri $ninjaUrl -OutFile $ninjaZip
+          Expand-Archive -Path $ninjaZip -DestinationPath $ninjaDir
+          echo "Adding $ninjaDir to PATH"
+          echo "$ninjaDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: Install Ninja (Latest Version)
-        run: choco install ninja -y
+      - name: Download and Install CMake
+        shell: pwsh
+        run: |
+          $cmakeUrl = "https://github.com/Kitware/CMake/releases/download/v3.30.6/cmake-3.30.6-windows-x86_64.zip"
+          $cmakeZip = "$env:RUNNER_TEMP\cmake.zip"
+          $cmakeDir = "$env:RUNNER_TEMP\cmake"
+          Invoke-WebRequest -Uri $cmakeUrl -OutFile $cmakeZip
+          Expand-Archive -Path $cmakeZip -DestinationPath $cmakeDir
+          echo "Adding $cmakeDir\bin to PATH"
+          echo "$cmakeDir\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Configure CMake (with Ninja)
+        shell: pwsh
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE -G Ninja -S .
 
       - name: Get number of logical cores
         id: get_cores
+        shell: pwsh
         run: |
           $cores = (Get-WmiObject -Class Win32_Processor).NumberOfLogicalProcessors
           echo "CORES=$cores" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
 
       - name: Build (with parallel)
+        shell: pwsh
         run: |
           cmake --build ./build --config $env:BUILD_TYPE --parallel $env:CORES
 
       - name: Test (with parallel)
+        shell: pwsh
         working-directory: ./build
         env:
           CTEST_PARALLEL_LEVEL: ${{ env.CORES }}
