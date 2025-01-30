@@ -1,5 +1,5 @@
 #pragma once
-
+#include <array>
 #include "./__finite_inplace_stop_source_base.hpp"
 
 namespace mcs::execution::stoptoken
