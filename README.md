@@ -3,6 +3,7 @@ partial implementation of the *Senders* model of asynchronous programming propos
 For the sole purpose of learning c++ templates, without any suggestion or hint
 
 ![Build Status](https://github.com/mochunshuang/mcsexec/workflows/linux_g++_14_2/badge.svg)
+![Build Status](https://github.com/mochunshuang/mcsexec/workflows/windows_clang_19_1/badge.svg)
 
 ## Features
 
