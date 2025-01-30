@@ -70,12 +70,10 @@ jobs:
           echo "CORES=$cores" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
 
       - name: Build (with parallel)
-        shell: pwsh
         run: |
           cmake --build ./build --config ${{env.BUILD_TYPE}} --parallel ${{env.CORES}}
 
       - name: Test (with parallel)
-        shell: pwsh
         working-directory: ./build
         env:
           CTEST_PARALLEL_LEVEL: ${{ env.CORES }}
