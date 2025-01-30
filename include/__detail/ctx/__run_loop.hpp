@@ -162,12 +162,13 @@ namespace mcs::execution::ctx
                 }
 
                 template <typename Self, typename Rcvr>
-                auto connect(this Self &&self [[maybe_unused]],
+                auto connect(this Self &&self,
                              Rcvr rcvr) noexcept(noexcept((void(self), auto(rcvr))))
                     -> run_loop_opstate<std::decay_t<decltype((rcvr))>>
                     requires(recv::receiver_of<decltype((rcvr)), completion_signatures>)
                 {
-                    return run_loop_opstate{self.run_loop_, std::move(rcvr)};
+                    return run_loop_opstate{std::forward<Self>(self).run_loop_,
+                                            std::move(rcvr)};
                 }
 
                 template <decays_to<sender> Self, class Env>
