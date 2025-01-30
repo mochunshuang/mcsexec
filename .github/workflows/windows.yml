@@ -20,12 +20,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4 # Check out the code
 
-      - name: Print working directory
-        run: echo "Working directory: ${{ github.workspace }}"
-
-      - name: List files (for debugging)
-        run: dir /s /b
-
       - name: Download and Install Clang 19.1
         run: |
           $clangUrl = "https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.7/LLVM-19.1.7-win64.exe"
