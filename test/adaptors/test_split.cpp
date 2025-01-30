@@ -1,7 +1,6 @@
 #include "../test_base_head.hpp"
 #include "../sched/MyScheduler.hpp"
 
-#include "boost/ut.hpp"
 #include <concepts>
 
 using my_sender = MyScheduler::MySender;
@@ -49,7 +48,7 @@ int main()
     };
 
     TEST("split executes predecessor sender once") = [] {
-        boost::ut::should("when parameters are passed") = [] {
+        TEST("when parameters are passed") = [] {
             int counter{};
             auto snd = ex::split(ex::just() //
                                  | ex::then([&] {
@@ -82,7 +81,7 @@ int main()
             auto [ret2] = std::any_cast<std::tuple<int>>(any2);
             EXPECT(ret1 == ret2 && ret1 == 1);
         };
-        boost::ut::should("without parameters") = [] {
+        TEST("without parameters") = [] {
             int counter{};
             auto snd = ex::split(ex::just() | ex::then([&] { counter++; }));
             bool called_1{false};
@@ -121,7 +120,7 @@ int main()
         }
     };
     TEST("split forwards errors") = [] {
-        boost::ut::should("of exception_ptr type") = [] {
+        TEST("of exception_ptr type") = [] {
             auto snd = ex::split(ex::just_error(std::exception_ptr{}));
 
             bool called{false};
@@ -138,7 +137,7 @@ int main()
 
             auto ret [[maybe_unused]] = std::any_cast<std::exception_ptr>(any);
         };
-        boost::ut::should("of any type") = [] {
+        TEST("of any type") = [] {
             auto snd = ex::split(ex::just_error(1));
 
             bool called{false};
@@ -208,29 +207,29 @@ int main()
     };
 
     TEST("split into then") = [] {
-        should("split with move only input sender of temporary") = [] {
+        TEST("split with move only input sender of temporary") = [] {
             auto pre_snd = ex::split(ex::just(move_only_type{0}));
             auto snd =
                 std::move(pre_snd) | ex::then([](const move_only_type &) { return; });
             mcs::this_thread::sync_wait(std::move(snd));
         };
-        should("split with move only input sender by moving in") = [] {
+        TEST("split with move only input sender by moving in") = [] {
             auto snd0 = ex::just(move_only_type{});
             auto snd =
                 ex::split(std::move(snd0)) | ex::then([](const move_only_type &) {});
             mcs::this_thread::sync_wait(std::move(snd));
         };
-        should("split with copyable rvalue input sender") = [] {
+        TEST("split with copyable rvalue input sender") = [] {
             auto snd = ex::split(ex::just(copy_and_movable_type{0})) |
                        ex::then([](const copy_and_movable_type &) {});
             mcs::this_thread::sync_wait(std::move(snd));
         };
-        should("split with copyable lvalue input sender") = [] {
+        TEST("split with copyable lvalue input sender") = [] {
             auto snd0 = ex::just(copy_and_movable_type{0});
             auto snd = ex::split(snd0) | ex::then([](const copy_and_movable_type &) {});
             mcs::this_thread::sync_wait(std::move(snd));
         };
-        should("lvalue split move only sender") = [] {
+        TEST("lvalue split move only sender") = [] {
             auto multishot [[maybe_unused]] = ex::split(ex::just(move_only_type{0}));
             // Note: basic-sender<Tag, decay_t<Data>, decay_t<Child>...>
             // Note: T& -> T fail for move_only_type no copy constructor
@@ -239,7 +238,7 @@ int main()
             // ex::then([](const move_only_type &) {});
             // mcs::this_thread::sync_wait(snd);
         };
-        should("lvalue split copyable sender") = [] {
+        TEST("lvalue split copyable sender") = [] {
             auto multishot = ex::split(ex::just(copy_and_movable_type{0}));
             auto snd = multishot | ex::then([](const copy_and_movable_type &) {});
 

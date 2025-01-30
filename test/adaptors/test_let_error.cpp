@@ -11,10 +11,10 @@ int main()
     {
         auto sndr =
             ex::let_error(ex::just(), [](std::exception_ptr) { return ex::just(); });
-        "let_error returns a sender"_test = [&] {
+        TEST("let_error returns a sender") = [&] {
             static_assert(ex::sender<decltype(sndr)>);
         };
-        "let_error with environment returns a sender"_test = [&] {
+        TEST("let_error with environment returns a sender") = [&] {
             static_assert(ex::sender_in<decltype(sndr), ex::empty_env>);
         };
     }

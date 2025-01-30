@@ -7,10 +7,10 @@ int main()
 
     using namespace mcs::execution; // NOLINT
     auto sndr = ex::let_value(ex::just(), [] { return ex::just(); });
-    "let_value returns a sender"_test = [&] {
+    TEST("let_value returns a sender") = [&] {
         static_assert(ex::sender<decltype(sndr)>);
     };
-    "let_value with environment returns a sender"_test = [&] {
+    TEST("let_value with environment returns a sender") = [&] {
         // 检查 Sndr 是否可以在 Rcvr 的环境中作为 sender 使用
         // sender_in 检查 sndr + env 能不能 生成完成签名
         static_assert(ex::sender_in<decltype(sndr), ex::empty_env>);

@@ -12,7 +12,7 @@ class base_expect_receiver // NOLINT
 
     ~base_expect_receiver()
     {
-        boost::ut::expect(m_called.load());
+        EXPECT(m_called.load());
     }
 
     explicit base_expect_receiver(Env env) : m_env(std::move(env)) {}

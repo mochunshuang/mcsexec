@@ -1,5 +1,4 @@
 #include "../test_base_head.hpp"
-#include "boost/ut.hpp"
 #include <optional>
 #include <stdexcept>
 #include <thread>

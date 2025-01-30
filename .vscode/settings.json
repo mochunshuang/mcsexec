@@ -26,7 +26,7 @@
     "terminal.integrated.defaultProfile.windows": "PowerShell -NoProfile",
     "clangd.arguments": [
         "--compile-commands-dir=${workspaceFolder}/build",
-        "--query-driver=D:/mysoftware/winlibs-x86_64-posix-seh-gcc-14.2.0-mingw-w64msvcrt-12.0.0-r2/mingw64/bin/g++.exe",
+        "--query-driver=D:/mysoftware/x86_64-14.2.0-release-posix-seh-ucrt-rt_v12/mingw64/bin/g++.exe",
         "--log=verbose",
         "--pretty",
         "--all-scopes-completion",
@@ -50,7 +50,7 @@
     // },
     "cmake.debugConfig": {
         "type": "cppdbg",
-        "miDebuggerPath": "D:/mysoftware/winlibs-x86_64-posix-seh-gcc-14.2.0-mingw-w64msvcrt-12.0.0-r2/mingw64/bin/gdb.exe"
+        "miDebuggerPath": "D:/mysoftware/x86_64-14.2.0-release-posix-seh-ucrt-rt_v12/mingw64/bin/gdb.exe"
     },
     // clangd 或 c_cpp
     "C_Cpp.intelliSenseEngine": "disabled",

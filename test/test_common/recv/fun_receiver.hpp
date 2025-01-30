@@ -40,7 +40,8 @@ namespace test
             }
             catch (const std::exception &e)
             {
-                UNEXPECT("Exception thrown: " << e.what());
+
+                UNEXPECT(e.what());
             }
         }
 

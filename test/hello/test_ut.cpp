@@ -1,5 +1,5 @@
 
-#include <boost/ut.hpp>
+#include "../test_common/test_macro.hpp"
 
 int add(int a, int b)
 {
@@ -7,6 +7,6 @@ int add(int a, int b)
 }
 int main()
 {
-    boost::ut::expect(add(1, 2) == 3);
+    EXPECT(add(1, 2) == 3);
     return 0;
 }
