@@ -21,6 +21,19 @@
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             }
+        },
+        {
+            "name": "windows-clang++",
+            "inherits": [
+                "impl_windows-clang++"
+            ],
+            "displayName": "windows-clang++",
+            "description": "This is available after impl_windows-clang++ implemented",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
         }
     ]
 }
