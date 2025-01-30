@@ -59,10 +59,12 @@ jobs:
         run: echo "CORES=$(nproc)" >> $GITHUB_ENV
 
       - name: Build (with parallel)
-        run: cmake --build ./build --config ${{env.BUILD_TYPE}} --parallel ${{env.CORES}}
+        run: |
+          cmake --build ./build --parallel $env:CORES
 
       - name: Test (with parallel)
         working-directory: ./build
         env:
-          CTEST_PARALLEL_LEVEL: ${{env.CORES}}
-        run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure --verbose
+          CTEST_PARALLEL_LEVEL: ${{ env.CORES }}
+        run: |
+          ctest --output-on-failure --verbose

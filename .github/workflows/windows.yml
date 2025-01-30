@@ -1,7 +1,3 @@
-# This starter workflow is for a CMake project running on a single platform. There is a different starter workflow if you need cross-platform coverage.
-# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-multi-platform.yml
-# This starter workflow is for a CMake project running on a single platform. There is a different starter workflow if you need cross-platform coverage.
-# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-multi-platform.yml
 name: windows_clang_19_1
 
 on:
@@ -70,12 +66,14 @@ jobs:
           echo "CORES=$cores" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
 
       - name: Build (with parallel)
+        shell: pwsh
         run: |
-          cmake --build ./build --config ${{env.BUILD_TYPE}} --parallel ${{env.CORES}}
+          cmake --build ./build --parallel $env:CORES
 
       - name: Test (with parallel)
+        shell: pwsh
         working-directory: ./build
         env:
           CTEST_PARALLEL_LEVEL: ${{ env.CORES }}
         run: |
-          ctest --config ${{env.BUILD_TYPE}} --output-on-failure --verbose
+          ctest --output-on-failure --verbose
