@@ -44,11 +44,12 @@ jobs:
           mv ${{env.TOOLS_DIR}}/LLVM-${{env.LLVM_VERSION}}-macOS-${{env.LLVM_ARCH}} ${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}
           echo "${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin" >> $GITHUB_PATH
           echo "${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/lib" >> $GITHUB_PATH
+          echo "${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin" >> $GITHUB_ENV
 
       - name: Verify LLVM Installation
         shell: bash
         run: |
-          clang --version
+          ${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang --version
 
       - name: Download and Install Ninja
         shell: bash
@@ -92,6 +93,12 @@ jobs:
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{env.CMAKE_BUILD_TYPE}} \
             -G Ninja \
+            -DCMAKE_C_COMPILER=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang \
+            -DCMAKE_CXX_COMPILER=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang++ \
+            -DCMAKE_AR=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/llvm-ar \
+            -DCMAKE_RANLIB=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/llvm-ranlib \
+            -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
+            -DCMAKE_BUILD_RPATH="${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/lib" \
             -S .
 
       - name: Build (with parallel)
