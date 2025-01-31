@@ -25,7 +25,7 @@ jobs:
       - name: Download and Install LLVM
         shell: bash
         run: |
-          LLVM_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${{env.LLVM_VERSION}}/LLVM-${{env.LLVM_VERSION}}-macOS-X64.tar.xz"
+          LLVM_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${{env.LLVM_VERSION}}/LLVM-${{env.LLVM_VERSION}}-macOS-ARM64.tar.xz"
           curl -L -o llvm.tar.xz $LLVM_URL
           tar -xf llvm.tar.xz -C ${{env.TOOLS_DIR}}
           mv ${{env.TOOLS_DIR}}/LLVM-${{env.LLVM_VERSION}}-macOS-X64 ${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}
