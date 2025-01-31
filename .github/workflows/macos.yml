@@ -79,13 +79,9 @@ jobs:
         shell: bash
         run: cmake --version
 
-      - name: Set environment variables
+      - name: Set environment variables for toolchain file
         run: |
-          echo "LLVM_VERSION=19.1.7" >> $GITHUB_ENV
-          echo "TOOLS_DIR=${HOME}/tools" >> $GITHUB_ENV
-          echo "LLVM_ARCH=arm64" >> $GITHUB_ENV
-          echo "LLVM_INSTALL_PREFIX=${HOME}/tools/llvm-19.1.7" >> $GITHUB_ENV
-          echo "LLVM_LIB_PATH=${HOME}/tools/llvm-19.1.7/lib" >> $GITHUB_ENV
+          echo "LLVM_INSTALL_PREFIX=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}" >> $GITHUB_ENV
 
       - name: Generate llvm-toolchain.cmake
         shell: bash
@@ -105,17 +101,6 @@ jobs:
           EOF
 
       - name: Configure CMake
-        run: |
-          cmake -B build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE=./llvm-toolchain.cmake \
-            -DLLVM_INSTALL_PREFIX=${{ env.LLVM_INSTALL_PREFIX }} \
-            -DLLVM_LIB_PATH=${{ env.LLVM_LIB_PATH }} \
-            -DLLVM_VERSION=${{ env.LLVM_VERSION }} \
-            -DLLVM_ARCH=${{ env.LLVM_ARCH }} \
-            -G Ninja
-
-      - name: Configure CMake
         shell: bash
         run: |
           cmake -B build \
@@ -123,15 +108,13 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE=./llvm-toolchain.cmake \
             -G Ninja
 
-      - name: Build (with parallel)
+      - name: Build
         shell: bash
         run: |
           cmake --build build --parallel $(sysctl -n hw.logicalcpu)
 
-      - name: Test (with parallel)
+      - name: Test
         shell: bash
         working-directory: ./build
-        env:
-          CTEST_PARALLEL_LEVEL: $(sysctl -n hw.logicalcpu)
         run: |
-          ctest -T test --output-on-failure --stop-on-failure --no-tests=error --verbose
+          ctest -T test --output-on-failure --stop-on-failure --no-tests=error --verbose -j $(sysctl -n hw.logicalcpu)
