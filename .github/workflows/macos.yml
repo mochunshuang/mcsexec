@@ -34,7 +34,7 @@ jobs:
       - name: Verify LLVM Installation
         shell: bash
         run: |
-          ${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang --version
+          clang --version
 
       - name: Download and Install Ninja
         shell: bash
@@ -49,7 +49,7 @@ jobs:
       - name: Verify Ninja Installation
         shell: bash
         run: |
-          ${{env.TOOLS_DIR}}/ninja/ninja --version
+          ninja --version
 
       - name: Download and Install CMake
         shell: bash
@@ -64,7 +64,7 @@ jobs:
       - name: Verify CMake Installation
         shell: bash
         run: |
-          ${{env.TOOLS_DIR}}/cmake-${CMAKE_VERSION}/CMake.app/Contents/bin/cmake --version
+          cmake --version
 
       - name: Get number of logical cores
         id: get_cores
@@ -78,8 +78,8 @@ jobs:
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{env.CMAKE_BUILD_TYPE}} \
             -G Ninja \
-            -DCMAKE_C_COMPILER=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang \
-            -DCMAKE_CXX_COMPILER=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang++ \
+            -DCMAKE_C_COMPILER=$(which clang) \
+            -DCMAKE_CXX_COMPILER=$(which clang++) \
             -S .
 
       - name: Build (with parallel)
