@@ -59,6 +59,33 @@ jobs:
           echo "LLVM_INSTALL_PREFIX: ${{ env.LLVM_INSTALL_PREFIX }}"
           echo "LLVM_LIB_PATH: ${{ env.LLVM_LIB_PATH }}"
           clang++ --version  # 直接调用应能工作，因为 PATH 已设置
+      - name: Download and Install Ninja
+        shell: bash
+        run: |
+          NINJA_VERSION="1.12.0"
+          NINJA_URL="https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/ninja-mac.zip"
+          curl -L -o ninja.zip "$NINJA_URL"
+          unzip ninja.zip -d ${{env.TOOLS_DIR}}/ninja
+          chmod +x ${{env.TOOLS_DIR}}/ninja/ninja
+          echo "${{env.TOOLS_DIR}}/ninja" >> $GITHUB_PATH
+
+      - name: Verify Ninja Installation
+        shell: bash
+        run: ninja --version
+
+      - name: Download and Install CMake
+        shell: bash
+        run: |
+          CMAKE_VERSION="3.30.0"
+          CMAKE_URL="https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-macos-universal.tar.gz"
+          curl -L -o cmake.tar.gz "$CMAKE_URL"
+          tar -xf cmake.tar.gz -C ${{env.TOOLS_DIR}}
+          mv ${{env.TOOLS_DIR}}/cmake-${CMAKE_VERSION}-macos-universal ${{env.TOOLS_DIR}}/cmake-${CMAKE_VERSION}
+          echo "${{env.TOOLS_DIR}}/cmake-${CMAKE_VERSION}/CMake.app/Contents/bin" >> $GITHUB_PATH
+
+      - name: Verify CMake Installation
+        shell: bash
+        run: cmake --version
 
       - name: Configure CMake
         shell: bash
