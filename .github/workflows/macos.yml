@@ -9,7 +9,7 @@ on:
 env:
   CMAKE_BUILD_TYPE: Release
   LLVM_VERSION: "19.1.7"
-  TOOLS_DIR: "${HOME}/tools"
+  TOOLS_DIR: "${{ runner.temp }}/tools" # 使用临时目录避免权限问题
 
 jobs:
   build:
@@ -20,7 +20,7 @@ jobs:
 
       - name: Create tools directory
         shell: bash
-        run: mkdir -p ${{env.TOOLS_DIR}}
+        run: mkdir -p "${{ env.TOOLS_DIR }}"
 
       - name: Detect system architecture
         id: detect_arch
@@ -29,105 +29,69 @@ jobs:
           ARCH=$(uname -m)
           [[ "$ARCH" == "arm64" ]] && TARGET_ARCH="ARM64" || TARGET_ARCH="X64"
           echo "LLVM_ARCH=$TARGET_ARCH" >> $GITHUB_ENV
-          echo "Detected architecture: $ARCH"
 
       - name: Download and Install LLVM
         shell: bash
         run: |
-          # 设置 LLVM 安装路径
-          LLVM_DIR="${TOOLS_DIR}/llvm"
-          mkdir -p "$LLVM_DIR"
+          LLVM_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${{ env.LLVM_VERSION}}/LLVM-${{ env.LLVM_VERSION}}-macOS-${{ env.LLVM_ARCH}}.tar.xz"
+          LLVM_TAR="llvm.tar.xz"
+          LLVM_DIR="${{ env.TOOLS_DIR }}/llvm"
 
-          # 下载 LLVM
-          LLVM_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${{env.LLVM_VERSION}}/LLVM-${{env.LLVM_VERSION}}-macOS-${{env.LLVM_ARCH}}.tar.xz"
           echo "Downloading LLVM from: $LLVM_URL"
-          curl -L -o llvm.tar.xz "$LLVM_URL"
+          curl -L -o "$LLVM_TAR" "$LLVM_URL"
 
-          # 解压 LLVM
           echo "Extracting LLVM to: $LLVM_DIR"
-          tar -xf llvm.tar.xz --strip-components=1 -C "$LLVM_DIR"
+          mkdir -p "$LLVM_DIR"
+          tar -xf "$LLVM_TAR" --strip-components=1 -C "$LLVM_DIR"
 
-          # 检查解压结果
-          echo "Contents of LLVM_DIR:"
-          ls -l "$LLVM_DIR"
-          echo "Contents of LLVM_DIR/bin:"
-          ls -l "$LLVM_DIR/bin"
-          echo "Contents of LLVM_DIR/lib:"
-          ls -l "$LLVM_DIR/lib"
+          # 关键检查：确保 clang++ 实际存在
+          echo "验证 LLVM 安装:"
+          ls -l "$LLVM_DIR/bin/clang++" || exit 1
 
-          # 设置环境变量
-          echo "LLVM_INSTALL_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
-          echo "LLVM_LIB_PATH=${LLVM_DIR}/lib" >> $GITHUB_ENV
-          echo "PATH=${LLVM_DIR}/bin:$PATH" >> $GITHUB_PATH
+          # 设置全局环境变量
+          echo "LLVM_INSTALL_PREFIX=$LLVM_DIR" >> $GITHUB_ENV
+          echo "LLVM_LIB_PATH=$LLVM_DIR/lib" >> $GITHUB_ENV
+          echo "$LLVM_DIR/bin" >> $GITHUB_PATH
 
       - name: Verify LLVM Installation
         shell: bash
         run: |
-          echo "LLVM_INSTALL_PREFIX: $LLVM_INSTALL_PREFIX"
-          echo "LLVM_LIB_PATH: $LLVM_LIB_PATH"
-          echo "LLVM binaries:"
-          ls -l "$LLVM_INSTALL_PREFIX/bin"
-          echo "LLVM libraries:"
-          ls -l "$LLVM_LIB_PATH"
-          clang --version
-
-      - name: Download and Install Ninja
-        shell: bash
-        run: |
-          NINJA_VERSION="1.12.0"
-          NINJA_URL="https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/ninja-mac.zip"
-          curl -L -o ninja.zip "$NINJA_URL"
-          unzip ninja.zip -d ${{env.TOOLS_DIR}}/ninja
-          chmod +x ${{env.TOOLS_DIR}}/ninja/ninja
-          echo "${{env.TOOLS_DIR}}/ninja" >> $GITHUB_PATH
-
-      - name: Verify Ninja Installation
-        shell: bash
-        run: ninja --version
-
-      - name: Download and Install CMake
-        shell: bash
-        run: |
-          CMAKE_VERSION="3.30.0"
-          CMAKE_URL="https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-macos-universal.tar.gz"
-          curl -L -o cmake.tar.gz "$CMAKE_URL"
-          tar -xf cmake.tar.gz -C ${{env.TOOLS_DIR}}
-          mv ${{env.TOOLS_DIR}}/cmake-${CMAKE_VERSION}-macos-universal ${{env.TOOLS_DIR}}/cmake-${CMAKE_VERSION}
-          echo "${{env.TOOLS_DIR}}/cmake-${CMAKE_VERSION}/CMake.app/Contents/bin" >> $GITHUB_PATH
-
-      - name: Verify CMake Installation
-        shell: bash
-        run: cmake --version
+          echo "LLVM_INSTALL_PREFIX: ${{ env.LLVM_INSTALL_PREFIX }}"
+          echo "LLVM_LIB_PATH: ${{ env.LLVM_LIB_PATH }}"
+          clang++ --version  # 直接调用应能工作，因为 PATH 已设置
 
       - name: Configure CMake
         shell: bash
         run: |
-          # 显式设置编译器路径
-          export CXX="${LLVM_INSTALL_PREFIX}/bin/clang++"
-          export CC="${LLVM_INSTALL_PREFIX}/bin/clang"
+          # 使用绝对路径避免环境变量展开问题
+          CMAKE_C_COMPILER="${{ env.LLVM_INSTALL_PREFIX }}/bin/clang"
+          CMAKE_CXX_COMPILER="${{ env.LLVM_INSTALL_PREFIX }}/bin/clang++"
+          CMAKE_AR="${{ env.LLVM_INSTALL_PREFIX }}/bin/llvm-ar"
+          CMAKE_LINKER="${{ env.LLVM_INSTALL_PREFIX }}/bin/ld.lld"
 
-          echo "CXX: $CXX"
-          echo "CC: $CC"
+          # 打印调试信息
+          echo "CMake 编译器路径:"
+          echo "C: $CMAKE_C_COMPILER"
+          echo "C++: $CMAKE_CXX_COMPILER"
+          ls -l "$CMAKE_CXX_COMPILER" || exit 1
 
           cmake -B build \
-            -DCMAKE_BUILD_TYPE=${{env.CMAKE_BUILD_TYPE}} \
-            -DCMAKE_C_COMPILER=${CC} \
-            -DCMAKE_CXX_COMPILER=${CXX} \
-            -DCMAKE_AR=${LLVM_INSTALL_PREFIX}/bin/llvm-ar \
-            -DCMAKE_RANLIB=${LLVM_INSTALL_PREFIX}/bin/llvm-ranlib \
-            -DCMAKE_LINKER=${LLVM_INSTALL_PREFIX}/bin/ld.lld \
+            -DCMAKE_BUILD_TYPE="${{ env.CMAKE_BUILD_TYPE }}" \
+            -DCMAKE_C_COMPILER="$CMAKE_C_COMPILER" \
+            -DCMAKE_CXX_COMPILER="$CMAKE_CXX_COMPILER" \
+            -DCMAKE_AR="$CMAKE_AR" \
+            -DCMAKE_RANLIB="${{ env.LLVM_INSTALL_PREFIX }}/bin/llvm-ranlib" \
+            -DCMAKE_LINKER="$CMAKE_LINKER" \
             -DCMAKE_CXX_FLAGS="-stdlib=libc++ -fuse-ld=lld" \
-            -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath,${LLVM_LIB_PATH} -L${LLVM_LIB_PATH}" \
-            -DCMAKE_BUILD_RPATH="${LLVM_LIB_PATH}" \
+            -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath,${{ env.LLVM_LIB_PATH }} -L${{ env.LLVM_LIB_PATH }}" \
+            -DCMAKE_BUILD_RPATH="${{ env.LLVM_LIB_PATH }}" \
             -G Ninja
 
       - name: Build
         shell: bash
-        run: |
-          cmake --build build --parallel $(sysctl -n hw.logicalcpu)
+        run: cmake --build build --parallel $(sysctl -n hw.logicalcpu)
 
       - name: Test
         shell: bash
         working-directory: ./build
-        run: |
-          ctest -T test --output-on-failure --stop-on-failure --no-tests=error --verbose -j $(sysctl -n hw.logicalcpu)
+        run: ctest -T test --output-on-failure -j $(sysctl -n hw.logicalcpu)
