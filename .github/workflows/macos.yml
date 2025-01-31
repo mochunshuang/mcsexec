@@ -55,23 +55,6 @@ jobs:
           # 设置PATH确保LLVM工具链优先级最高
           echo "PATH=$LLVM_DIR/bin:$PATH" >> $GITHUB_ENV  # 强制LLVM路径在首位
 
-          # 新增工具链文件生成步骤
-      - name: Create LLVM Toolchain File
-        shell: bash
-        run: |
-          cat << EOF > llvm-toolchain.cmake
-          set(CMAKE_SYSTEM_NAME Darwin)
-          set(CMAKE_C_COMPILER "${{ env.LLVM_INSTALL_PREFIX }}/bin/clang")
-          set(CMAKE_CXX_COMPILER "${{ env.LLVM_INSTALL_PREFIX }}/bin/clang++")
-          set(CMAKE_AR "${{ env.LLVM_INSTALL_PREFIX }}/bin/llvm-ar")
-          set(CMAKE_RANLIB "${{ env.LLVM_INSTALL_PREFIX }}/bin/llvm-ranlib")
-          set(CMAKE_LINKER "${{ env.LLVM_INSTALL_PREFIX }}/bin/ld.lld")
-          set(CMAKE_CXX_FLAGS_INIT "-stdlib=libc++ -fuse-ld=lld")
-          set(CMAKE_EXE_LINKER_FLAGS "-Wl,-rpath,${{ env.LLVM_LIB_PATH }} -L${{ env.LLVM_LIB_PATH }}")
-          add_compile_definitions(_LIBCPP_HAS_THREAD_API_PTHREAD)
-          EOF
-          cat llvm-toolchain.cmake
-
       - name: Verify LLVM Installation
         shell: bash
         run: |
@@ -111,7 +94,6 @@ jobs:
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE="${{ env.CMAKE_BUILD_TYPE }}" \
-            -DCMAKE_TOOLCHAIN_FILE=llvm-toolchain.cmake \
             -G Ninja
 
       - name: Verify C++ Standard
