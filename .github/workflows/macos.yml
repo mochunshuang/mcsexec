@@ -44,12 +44,19 @@ jobs:
           mkdir -p "$LLVM_DIR"
           tar -xf llvm.tar.xz --strip-components=1 -C "$LLVM_DIR"
 
+          echo "LLVM extracted to: $LLVM_DIR"
           echo "PATH=$LLVM_DIR/bin:$PATH" >> $GITHUB_PATH
           echo "LLVM_LIB_PATH=$LLVM_DIR/lib" >> $GITHUB_ENV
+          echo "LLVM_INSTALL_PREFIX=$LLVM_DIR" >> $GITHUB_ENV
 
       - name: Verify LLVM Installation
         shell: bash
-        run: clang --version
+        run: |
+          echo "LLVM binaries:"
+          ls -l ${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin
+          echo "LLVM libraries:"
+          ls -l ${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/lib
+          clang --version
 
       - name: Download and Install Ninja
         shell: bash
@@ -78,12 +85,6 @@ jobs:
       - name: Verify CMake Installation
         shell: bash
         run: cmake --version
-
-      - name: Verify LLVM Compiler Path
-        shell: bash
-        run: |
-          echo "LLVM C++ Compiler Path: ${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang++"
-          ls -l ${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang++
 
       - name: Configure CMake
         shell: bash
