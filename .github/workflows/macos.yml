@@ -9,7 +9,7 @@ on:
 env:
   CMAKE_BUILD_TYPE: Release
   LLVM_VERSION: "19.1.7"
-  TOOLS_DIR: "$HOME/tools"
+  TOOLS_DIR: "${HOME}/tools"
 
 jobs:
   build:
@@ -34,7 +34,7 @@ jobs:
       - name: Download and Install LLVM
         shell: bash
         run: |
-          LLVM_DIR="${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}"
+          LLVM_DIR="${TOOLS_DIR}/llvm-${{env.LLVM_VERSION}}"
           LLVM_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${{env.LLVM_VERSION}}/LLVM-${{env.LLVM_VERSION}}-macOS-${{env.LLVM_ARCH}}.tar.xz"
 
           echo "Downloading LLVM from: $LLVM_URL"
@@ -84,13 +84,13 @@ jobs:
         run: |
           cat << EOF > llvm-toolchain.cmake
           set(CMAKE_SYSTEM_NAME Darwin)
-          set(CMAKE_C_COMPILER "$ENV{TOOLS_DIR}/llvm-$ENV{LLVM_VERSION}/bin/clang")
-          set(CMAKE_CXX_COMPILER "$ENV{TOOLS_DIR}/llvm-$ENV{LLVM_VERSION}/bin/clang++")
-          set(CMAKE_AR "$ENV{TOOLS_DIR}/llvm-$ENV{LLVM_VERSION}/bin/llvm-ar")
-          set(CMAKE_RANLIB "$ENV{TOOLS_DIR}/llvm-$ENV{LLVM_VERSION}/bin/llvm-ranlib")
-          set(CMAKE_LINKER "$ENV{TOOLS_DIR}/llvm-$ENV{LLVM_VERSION}/bin/ld.lld")  # 关键修改
+          set(CMAKE_C_COMPILER "${TOOLS_DIR}/llvm-${LLVM_VERSION}/bin/clang")
+          set(CMAKE_CXX_COMPILER "${TOOLS_DIR}/llvm-${LLVM_VERSION}/bin/clang++")
+          set(CMAKE_AR "${TOOLS_DIR}/llvm-${LLVM_VERSION}/bin/llvm-ar")
+          set(CMAKE_RANLIB "${TOOLS_DIR}/llvm-${LLVM_VERSION}/bin/llvm-ranlib")
+          set(CMAKE_LINKER "${TOOLS_DIR}/llvm-${LLVM_VERSION}/bin/ld.lld")
 
-          set(CMAKE_CXX_FLAGS "-stdlib=libc++ -fuse-ld=lld")  # 强制使用lld链接器
+          set(CMAKE_CXX_FLAGS "-stdlib=libc++ -fuse-ld=lld")
           set(CMAKE_EXE_LINKER_FLAGS "-Wl,-rpath,$ENV{LLVM_LIB_PATH} -L$ENV{LLVM_LIB_PATH}")
           set(CMAKE_BUILD_RPATH "$ENV{LLVM_LIB_PATH}")
           EOF
@@ -100,7 +100,7 @@ jobs:
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{env.CMAKE_BUILD_TYPE}} \
-            -DCMAKE_TOOLCHAIN_FILE=$(pwd)/llvm-toolchain.cmake \
+            -DCMAKE_TOOLCHAIN_FILE=./llvm-toolchain.cmake \
             -G Ninja
 
       - name: Build (with parallel)
