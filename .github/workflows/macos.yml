@@ -92,9 +92,6 @@ jobs:
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{env.CMAKE_BUILD_TYPE}} \
             -G Ninja \
-            -DCMAKE_CXX_COMPILER=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang++ \
-            -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
-            -DCMAKE_BUILD_RPATH="${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/lib" \
             -S .
 
       - name: Build (with parallel)
