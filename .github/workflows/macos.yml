@@ -131,7 +131,6 @@ jobs:
         run: |
           echo "编译标准验证:"
           grep -rn "CMAKE_CXX_STANDARD" CMakeLists.txt
-          grep -rn "c++2a" build/CMakeFiles/
 
       - name: Build
         shell: bash
