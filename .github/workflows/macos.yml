@@ -9,7 +9,7 @@ on:
 env:
   CMAKE_BUILD_TYPE: Release
   LLVM_VERSION: "19.1.7"
-  TOOLS_DIR: "${{ runner.temp }}/tools" # 使用临时目录避免权限问题
+  TOOLS_DIR: "${HOME}/tools" # 改用用户家目录
 
 jobs:
   build:
