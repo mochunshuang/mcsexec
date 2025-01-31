@@ -63,6 +63,8 @@ jobs:
           echo "当前使用的clang++路径: $(which clang++)"
           clang++ --version
           echo "C++标准库路径: $(clang++ -print-search-dirs | grep libraries | head -n1)"
+          clang++ -print-search-dirs | grep libraries
+          clang++ -stdlib=libc++ -dM -E -x c++ /dev/null
           clang++ -stdlib=libc++ -dM -E -x c++ /dev/null | grep _LIBCPP_VERSION
 
       - name: Download and Install Ninja
