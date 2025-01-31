@@ -5,7 +5,7 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
-
+# 20* clang才执行jthread，不敢相信....。知识和偏见太像了
 env:
   CMAKE_BUILD_TYPE: Release
   LLVM_VERSION: "19.1.7"
@@ -105,12 +105,9 @@ jobs:
             -DCMAKE_BUILD_TYPE="${{ env.CMAKE_BUILD_TYPE }}" \
             -DCMAKE_C_COMPILER="${{ env.LLVM_INSTALL_PREFIX }}/bin/clang" \
             -DCMAKE_CXX_COMPILER="${{ env.LLVM_INSTALL_PREFIX }}/bin/clang++" \
-            -DCMAKE_OSX_ARCHITECTURES=arm64 \
-            -DCMAKE_CXX_STANDARD=23 \
-            -DCMAKE_CXX_EXTENSIONS=OFF \
-            -DCMAKE_CXX_STANDARD_REQUIRED=ON \
-            -DCMAKE_CXX_FLAGS="-stdlib=libc++ -fuse-ld=lld -lpthread" \
-            -DCMAKE_EXE_LINKER_FLAGS="-stdlib=libc++ -fuse-ld=lld -lpthread" \
+            -DCMAKE_OSX_ARCHITECTURES=${{ env.LLVM_ARCH}} \
+            -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
+            -DCMAKE_EXE_LINKER_FLAGS="-stdlib=libc++ -fuse-ld=lld" \
             -DCMAKE_OSX_SYSROOT="$SDK_PATH" \
             -G Ninja
 
