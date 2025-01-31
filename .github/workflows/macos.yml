@@ -96,6 +96,14 @@ jobs:
         shell: bash
         run: rm -rf build
 
+      - name: Detect macOS SDK Path
+        id: detect_sdk
+        shell: bash
+        run: |
+          SDK_PATH=$(xcrun --sdk macosx --show-sdk-path)
+          echo "Detected macOS SDK Path: $SDK_PATH"
+          echo "CMAKE_OSX_SYSROOT=$SDK_PATH" >> $GITHUB_ENV
+
       - name: Configure CMake
         shell: bash
         run: |
@@ -108,8 +116,8 @@ jobs:
             -DCMAKE_CXX_EXTENSIONS=OFF \
             -DCMAKE_CXX_STANDARD_REQUIRED=ON \
             -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
-            -DCMAKE_EXE_LINKER_FLAGS="-stdlib=libc++ -fuse-ld=lld" \  
-            -DCMAKE_OSX_SYSROOT=/Applications/Xcode_15.4.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk \
+            -DCMAKE_EXE_LINKER_FLAGS="-stdlib=libc++ -fuse-ld=lld" \  # 强制使用 lld 链接器
+            -DCMAKE_OSX_SYSROOT="${{ env.CMAKE_OSX_SYSROOT }}" \  # 使用自动检测的 SDK 路径
             -G Ninja
 
       - name: Build
