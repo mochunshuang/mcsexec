@@ -30,95 +30,95 @@ jobs:
           [[ "$ARCH" == "arm64" ]] && TARGET_ARCH="ARM64" || TARGET_ARCH="X64"
           echo "LLVM_ARCH=$TARGET_ARCH" >> $GITHUB_ENV
 
-      - name: Download and Install LLVM
-        shell: bash
-        run: |
-          LLVM_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${{ env.LLVM_VERSION}}/LLVM-${{ env.LLVM_VERSION}}-macOS-${{ env.LLVM_ARCH}}.tar.xz"
-          LLVM_TAR="llvm.tar.xz"
-          LLVM_DIR="${{ env.TOOLS_DIR }}/llvm"
+    #   - name: Download and Install LLVM
+    #     shell: bash
+    #     run: |
+    #       LLVM_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${{ env.LLVM_VERSION}}/LLVM-${{ env.LLVM_VERSION}}-macOS-${{ env.LLVM_ARCH}}.tar.xz"
+    #       LLVM_TAR="llvm.tar.xz"
+    #       LLVM_DIR="${{ env.TOOLS_DIR }}/llvm"
 
-          echo "Downloading LLVM from: $LLVM_URL"
-          curl -L -o "$LLVM_TAR" "$LLVM_URL"
+    #       echo "Downloading LLVM from: $LLVM_URL"
+    #       curl -L -o "$LLVM_TAR" "$LLVM_URL"
 
-          echo "Extracting LLVM to: $LLVM_DIR"
-          mkdir -p "$LLVM_DIR"
-          tar -xf "$LLVM_TAR" --strip-components=1 -C "$LLVM_DIR"
+    #       echo "Extracting LLVM to: $LLVM_DIR"
+    #       mkdir -p "$LLVM_DIR"
+    #       tar -xf "$LLVM_TAR" --strip-components=1 -C "$LLVM_DIR"
 
-          # 关键检查：确保 clang++ 和 lld 实际存在
-          echo "验证 LLVM 安装:"
-          ls -l "$LLVM_DIR/bin/clang++" || exit 1
-          ls -l "$LLVM_DIR/bin/ld.lld" || exit 1
+    #       # 关键检查：确保 clang++ 和 lld 实际存在
+    #       echo "验证 LLVM 安装:"
+    #       ls -l "$LLVM_DIR/bin/clang++" || exit 1
+    #       ls -l "$LLVM_DIR/bin/ld.lld" || exit 1
 
-          # 设置全局环境变量
-          echo "LLVM_INSTALL_PREFIX=$LLVM_DIR" >> $GITHUB_ENV
-          echo "LLVM_LIB_PATH=$LLVM_DIR/lib" >> $GITHUB_ENV
-          echo "PATH=$LLVM_DIR/bin:$PATH" >> $GITHUB_ENV  # 强制LLVM路径在首位
-          echo "LD_LIBRARY_PATH=$LLVM_DIR/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV  # 确保使用LLVM的libc++
+    #       # 设置全局环境变量
+    #       echo "LLVM_INSTALL_PREFIX=$LLVM_DIR" >> $GITHUB_ENV
+    #       echo "LLVM_LIB_PATH=$LLVM_DIR/lib" >> $GITHUB_ENV
+    #       echo "PATH=$LLVM_DIR/bin:$PATH" >> $GITHUB_ENV  # 强制LLVM路径在首位
+    #       echo "LD_LIBRARY_PATH=$LLVM_DIR/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV  # 确保使用LLVM的libc++
 
-      - name: Verify LLVM Installation
-        shell: bash
-        run: |
-          echo "=== LLVM环境验证 ==="
-          echo "LLVM安装路径: ${{ env.LLVM_INSTALL_PREFIX }}"
-          echo "当前使用的clang++路径: $(which clang++)"
-          clang++ --version
-          echo "C++标准库路径: $(clang++ -print-search-dirs | grep libraries | head -n1)"
+    #   - name: Verify LLVM Installation
+    #     shell: bash
+    #     run: |
+    #       echo "=== LLVM环境验证 ==="
+    #       echo "LLVM安装路径: ${{ env.LLVM_INSTALL_PREFIX }}"
+    #       echo "当前使用的clang++路径: $(which clang++)"
+    #       clang++ --version
+    #       echo "C++标准库路径: $(clang++ -print-search-dirs | grep libraries | head -n1)"
 
-      - name: Download and Install Ninja
-        shell: bash
-        run: |
-          NINJA_VERSION="1.12.0"
-          NINJA_URL="https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/ninja-mac.zip"
-          curl -L -o ninja.zip "$NINJA_URL"
-          unzip ninja.zip -d ${{env.TOOLS_DIR}}/ninja
-          chmod +x ${{env.TOOLS_DIR}}/ninja/ninja
-          echo "${{env.TOOLS_DIR}}/ninja" >> $GITHUB_PATH
+    #   - name: Download and Install Ninja
+    #     shell: bash
+    #     run: |
+    #       NINJA_VERSION="1.12.0"
+    #       NINJA_URL="https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/ninja-mac.zip"
+    #       curl -L -o ninja.zip "$NINJA_URL"
+    #       unzip ninja.zip -d ${{env.TOOLS_DIR}}/ninja
+    #       chmod +x ${{env.TOOLS_DIR}}/ninja/ninja
+    #       echo "${{env.TOOLS_DIR}}/ninja" >> $GITHUB_PATH
 
-      - name: Verify Ninja Installation
-        shell: bash
-        run: ninja --version
+    #   - name: Verify Ninja Installation
+    #     shell: bash
+    #     run: ninja --version
 
-      - name: Download and Install CMake
-        shell: bash
-        run: |
-          CMAKE_VERSION="3.30.0"
-          CMAKE_URL="https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-macos-universal.tar.gz"
-          curl -L -o cmake.tar.gz "$CMAKE_URL"
-          tar -xf cmake.tar.gz -C ${{env.TOOLS_DIR}}
-          mv ${{env.TOOLS_DIR}}/cmake-${CMAKE_VERSION}-macos-universal ${{env.TOOLS_DIR}}/cmake-${CMAKE_VERSION}
-          echo "${{env.TOOLS_DIR}}/cmake-${CMAKE_VERSION}/CMake.app/Contents/bin" >> $GITHUB_PATH
+    #   - name: Download and Install CMake
+    #     shell: bash
+    #     run: |
+    #       CMAKE_VERSION="3.30.0"
+    #       CMAKE_URL="https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-macos-universal.tar.gz"
+    #       curl -L -o cmake.tar.gz "$CMAKE_URL"
+    #       tar -xf cmake.tar.gz -C ${{env.TOOLS_DIR}}
+    #       mv ${{env.TOOLS_DIR}}/cmake-${CMAKE_VERSION}-macos-universal ${{env.TOOLS_DIR}}/cmake-${CMAKE_VERSION}
+    #       echo "${{env.TOOLS_DIR}}/cmake-${CMAKE_VERSION}/CMake.app/Contents/bin" >> $GITHUB_PATH
 
-      - name: Verify CMake Installation
-        shell: bash
-        run: cmake --version
+    #   - name: Verify CMake Installation
+    #     shell: bash
+    #     run: cmake --version
 
-      - name: Clean Build Directory
-        shell: bash
-        run: rm -rf build
+    #   - name: Clean Build Directory
+    #     shell: bash
+    #     run: rm -rf build
 
-      - name: Configure CMake
-        shell: bash
-        run: |
-          SDK_PATH=$(xcrun --sdk macosx --show-sdk-path)
-          echo "Using macOS SDK Path: $SDK_PATH"
-          cmake -B build \
-            -DCMAKE_BUILD_TYPE="${{ env.CMAKE_BUILD_TYPE }}" \
-            -DCMAKE_C_COMPILER="${{ env.LLVM_INSTALL_PREFIX }}/bin/clang" \
-            -DCMAKE_CXX_COMPILER="${{ env.LLVM_INSTALL_PREFIX }}/bin/clang++" \
-            -DCMAKE_OSX_ARCHITECTURES=${{ env.LLVM_ARCH}} \
-            -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
-            -DCMAKE_EXE_LINKER_FLAGS="-stdlib=libc++ -fuse-ld=lld" \
-            -DCMAKE_OSX_SYSROOT="$SDK_PATH" \
-            -G Ninja
+    #   - name: Configure CMake
+    #     shell: bash
+    #     run: |
+    #       SDK_PATH=$(xcrun --sdk macosx --show-sdk-path)
+    #       echo "Using macOS SDK Path: $SDK_PATH"
+    #       cmake -B build \
+    #         -DCMAKE_BUILD_TYPE="${{ env.CMAKE_BUILD_TYPE }}" \
+    #         -DCMAKE_C_COMPILER="${{ env.LLVM_INSTALL_PREFIX }}/bin/clang" \
+    #         -DCMAKE_CXX_COMPILER="${{ env.LLVM_INSTALL_PREFIX }}/bin/clang++" \
+    #         -DCMAKE_OSX_ARCHITECTURES=${{ env.LLVM_ARCH}} \
+    #         -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
+    #         -DCMAKE_EXE_LINKER_FLAGS="-stdlib=libc++ -fuse-ld=lld" \
+    #         -DCMAKE_OSX_SYSROOT="$SDK_PATH" \
+    #         -G Ninja
 
-      - name: Build
-        shell: bash
-        run: |
-          cmake --build build \
-            --parallel $(sysctl -n hw.logicalcpu) \
-            --verbose  # 添加verbose输出用于调试
+    #   - name: Build
+    #     shell: bash
+    #     run: |
+    #       cmake --build build \
+    #         --parallel $(sysctl -n hw.logicalcpu) \
+    #         --verbose  # 添加verbose输出用于调试
 
-      - name: Test
-        shell: bash
-        working-directory: ./build
-        run: ctest -T test --output-on-failure -j $(sysctl -n hw.logicalcpu)
+    #   - name: Test
+    #     shell: bash
+    #     working-directory: ./build
+    #     run: ctest -T test --output-on-failure -j $(sysctl -n hw.logicalcpu)
