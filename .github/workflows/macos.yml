@@ -44,9 +44,10 @@ jobs:
           mkdir -p "$LLVM_DIR"
           tar -xf "$LLVM_TAR" --strip-components=1 -C "$LLVM_DIR"
 
-          # 关键检查：确保 clang++ 实际存在
+          # 关键检查：确保 clang++ 和 lld 实际存在
           echo "验证 LLVM 安装:"
           ls -l "$LLVM_DIR/bin/clang++" || exit 1
+          ls -l "$LLVM_DIR/bin/ld.lld" || exit 1
 
           # 设置全局环境变量
           echo "LLVM_INSTALL_PREFIX=$LLVM_DIR" >> $GITHUB_ENV
@@ -107,7 +108,7 @@ jobs:
             -DCMAKE_CXX_EXTENSIONS=OFF \
             -DCMAKE_CXX_STANDARD_REQUIRED=ON \
             -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
-            -DCMAKE_EXE_LINKER_FLAGS="-stdlib=libc++" \
+            -DCMAKE_EXE_LINKER_FLAGS="-stdlib=libc++ -fuse-ld=lld" \  # 强制使用 lld 链接器
             -DCMAKE_OSX_SYSROOT=/Applications/Xcode_15.4.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk \
             -G Ninja
 
