@@ -120,10 +120,9 @@ jobs:
           echo "C++: $CMAKE_CXX_COMPILER"
           ls -l "$CMAKE_CXX_COMPILER" || exit 1
 
-
           cmake -B build \
             -DCMAKE_BUILD_TYPE="${{ env.CMAKE_BUILD_TYPE }}" \
-            -DCMAKE_TOOLCHAIN_FILE=llvm-toolchain.cmake \  # 使用工具链文件
+            -DCMAKE_TOOLCHAIN_FILE=llvm-toolchain.cmake \
             -G Ninja
 
       - name: Build
