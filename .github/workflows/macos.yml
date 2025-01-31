@@ -78,8 +78,6 @@ jobs:
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{env.CMAKE_BUILD_TYPE}} \
             -G Ninja \
-            -DCMAKE_C_COMPILER=$(which clang) \
-            -DCMAKE_CXX_COMPILER=$(which clang++) \
             -S .
 
       - name: Build (with parallel)
