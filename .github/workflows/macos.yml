@@ -98,16 +98,18 @@ jobs:
       - name: Configure CMake
         shell: bash
         run: |
+          echo "LLVM_INSTALL_PREFIX: $LLVM_INSTALL_PREFIX"
+          echo "LLVM_LIB_PATH: $LLVM_LIB_PATH"
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{env.CMAKE_BUILD_TYPE}} \
-            -DCMAKE_C_COMPILER=$LLVM_INSTALL_PREFIX/bin/clang \
-            -DCMAKE_CXX_COMPILER=$LLVM_INSTALL_PREFIX/bin/clang++ \
-            -DCMAKE_AR=$LLVM_INSTALL_PREFIX/bin/llvm-ar \
-            -DCMAKE_RANLIB=$LLVM_INSTALL_PREFIX/bin/llvm-ranlib \
-            -DCMAKE_LINKER=$LLVM_INSTALL_PREFIX/bin/ld.lld \
+            -DCMAKE_C_COMPILER=${LLVM_INSTALL_PREFIX}/bin/clang \
+            -DCMAKE_CXX_COMPILER=${LLVM_INSTALL_PREFIX}/bin/clang++ \
+            -DCMAKE_AR=${LLVM_INSTALL_PREFIX}/bin/llvm-ar \
+            -DCMAKE_RANLIB=${LLVM_INSTALL_PREFIX}/bin/llvm-ranlib \
+            -DCMAKE_LINKER=${LLVM_INSTALL_PREFIX}/bin/ld.lld \
             -DCMAKE_CXX_FLAGS="-stdlib=libc++ -fuse-ld=lld" \
-            -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath,$LLVM_LIB_PATH -L$LLVM_LIB_PATH" \
-            -DCMAKE_BUILD_RPATH="$LLVM_LIB_PATH" \
+            -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath,${LLVM_LIB_PATH} -L${LLVM_LIB_PATH}" \
+            -DCMAKE_BUILD_RPATH="${LLVM_LIB_PATH}" \
             -G Ninja
 
       - name: Build
