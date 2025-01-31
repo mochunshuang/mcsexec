@@ -50,6 +50,10 @@ jobs:
           # 检查解压结果
           echo "Contents of LLVM_DIR:"
           ls -l "$LLVM_DIR"
+          echo "Contents of LLVM_DIR/bin:"
+          ls -l "$LLVM_DIR/bin"
+          echo "Contents of LLVM_DIR/lib:"
+          ls -l "$LLVM_DIR/lib"
 
           # 设置环境变量
           echo "LLVM_INSTALL_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
@@ -98,17 +102,17 @@ jobs:
       - name: Configure CMake
         shell: bash
         run: |
-          # 显式展开环境变量
-          LLVM_INSTALL_PREFIX="${HOME}/tools/llvm"
-          LLVM_LIB_PATH="${HOME}/tools/llvm/lib"
+          # 显式设置编译器路径
+          export CXX="${LLVM_INSTALL_PREFIX}/bin/clang++"
+          export CC="${LLVM_INSTALL_PREFIX}/bin/clang"
 
-          echo "LLVM_INSTALL_PREFIX: $LLVM_INSTALL_PREFIX"
-          echo "LLVM_LIB_PATH: $LLVM_LIB_PATH"
+          echo "CXX: $CXX"
+          echo "CC: $CC"
 
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{env.CMAKE_BUILD_TYPE}} \
-            -DCMAKE_C_COMPILER=${LLVM_INSTALL_PREFIX}/bin/clang \
-            -DCMAKE_CXX_COMPILER=${LLVM_INSTALL_PREFIX}/bin/clang++ \
+            -DCMAKE_C_COMPILER=${CC} \
+            -DCMAKE_CXX_COMPILER=${CXX} \
             -DCMAKE_AR=${LLVM_INSTALL_PREFIX}/bin/llvm-ar \
             -DCMAKE_RANLIB=${LLVM_INSTALL_PREFIX}/bin/llvm-ranlib \
             -DCMAKE_LINKER=${LLVM_INSTALL_PREFIX}/bin/ld.lld \
