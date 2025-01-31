@@ -84,13 +84,15 @@ jobs:
         run: |
           cat << EOF > llvm-toolchain.cmake
           set(CMAKE_SYSTEM_NAME Darwin)
-          set(CMAKE_C_COMPILER "${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang")
-          set(CMAKE_CXX_COMPILER "${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang++")
-          set(CMAKE_AR "${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/llvm-ar")
-          set(CMAKE_RANLIB "${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/llvm-ranlib")
-          set(CMAKE_CXX_FLAGS "-stdlib=libc++")
-          set(CMAKE_EXE_LINKER_FLAGS "-Wl,-rpath,${{env.LLVM_LIB_PATH}}")
-          set(CMAKE_BUILD_RPATH "${{env.LLVM_LIB_PATH}}")
+          set(CMAKE_C_COMPILER "$ENV{TOOLS_DIR}/llvm-$ENV{LLVM_VERSION}/bin/clang")
+          set(CMAKE_CXX_COMPILER "$ENV{TOOLS_DIR}/llvm-$ENV{LLVM_VERSION}/bin/clang++")
+          set(CMAKE_AR "$ENV{TOOLS_DIR}/llvm-$ENV{LLVM_VERSION}/bin/llvm-ar")
+          set(CMAKE_RANLIB "$ENV{TOOLS_DIR}/llvm-$ENV{LLVM_VERSION}/bin/llvm-ranlib")
+          set(CMAKE_LINKER "$ENV{TOOLS_DIR}/llvm-$ENV{LLVM_VERSION}/bin/ld.lld")  # 关键修改
+
+          set(CMAKE_CXX_FLAGS "-stdlib=libc++ -fuse-ld=lld")  # 强制使用lld链接器
+          set(CMAKE_EXE_LINKER_FLAGS "-Wl,-rpath,$ENV{LLVM_LIB_PATH} -L$ENV{LLVM_LIB_PATH}")
+          set(CMAKE_BUILD_RPATH "$ENV{LLVM_LIB_PATH}")
           EOF
 
       - name: Configure CMake
