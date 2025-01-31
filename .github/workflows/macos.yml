@@ -8,107 +8,108 @@ on:
 
 env:
   CMAKE_BUILD_TYPE: Release
-  LLVM_VERSION: "19.1.7" # 使用变量记录 LLVM 版本
-  TOOLS_DIR: "$HOME/tools" # 工具安装目录
+  LLVM_VERSION: "19.1.7"
+  TOOLS_DIR: "$HOME/tools"
 
 jobs:
   build:
     runs-on: macos-latest
 
     steps:
-      - uses: actions/checkout@v4 # Check out the code
+      - uses: actions/checkout@v4
 
       - name: Create tools directory
         shell: bash
-        run: |
-          mkdir -p ${{env.TOOLS_DIR}}
+        run: mkdir -p ${{env.TOOLS_DIR}}
 
       - name: Detect system architecture
         id: detect_arch
         shell: bash
         run: |
           ARCH=$(uname -m)
-          if [[ "$ARCH" == "arm64" ]]; then
-            echo "LLVM_ARCH=ARM64" >> $GITHUB_ENV
-          else
-            echo "LLVM_ARCH=X64" >> $GITHUB_ENV
-          fi
+          [[ "$ARCH" == "arm64" ]] && TARGET_ARCH="ARM64" || TARGET_ARCH="X64"
+          echo "LLVM_ARCH=$TARGET_ARCH" >> $GITHUB_ENV
           echo "Detected architecture: $ARCH"
 
       - name: Download and Install LLVM
         shell: bash
         run: |
+          LLVM_DIR="${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}"
           LLVM_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${{env.LLVM_VERSION}}/LLVM-${{env.LLVM_VERSION}}-macOS-${{env.LLVM_ARCH}}.tar.xz"
-          curl -L -o llvm.tar.xz $LLVM_URL
-          tar -xf llvm.tar.xz -C ${{env.TOOLS_DIR}}
-          mv ${{env.TOOLS_DIR}}/LLVM-${{env.LLVM_VERSION}}-macOS-${{env.LLVM_ARCH}} ${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}
-          echo "PATH=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin:$PATH" >> $GITHUB_PATH
-          echo "LD_LIBRARY_PATH=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+
+          echo "Downloading LLVM from: $LLVM_URL"
+          curl -L -o llvm.tar.xz "$LLVM_URL"
+
+          echo "Extracting LLVM to: $LLVM_DIR"
+          mkdir -p "$LLVM_DIR"
+          tar -xf llvm.tar.xz --strip-components=1 -C "$LLVM_DIR"
+
+          echo "PATH=$LLVM_DIR/bin:$PATH" >> $GITHUB_PATH
+          echo "LLVM_LIB_PATH=$LLVM_DIR/lib" >> $GITHUB_ENV
 
       - name: Verify LLVM Installation
         shell: bash
-        run: |
-          ${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang --version
+        run: clang --version
 
       - name: Download and Install Ninja
         shell: bash
         run: |
           NINJA_VERSION="1.12.0"
           NINJA_URL="https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/ninja-mac.zip"
-          curl -L -o ninja.zip $NINJA_URL
+          curl -L -o ninja.zip "$NINJA_URL"
           unzip ninja.zip -d ${{env.TOOLS_DIR}}/ninja
           chmod +x ${{env.TOOLS_DIR}}/ninja/ninja
           echo "${{env.TOOLS_DIR}}/ninja" >> $GITHUB_PATH
 
       - name: Verify Ninja Installation
         shell: bash
-        run: |
-          ninja --version
+        run: ninja --version
 
       - name: Download and Install CMake
         shell: bash
         run: |
           CMAKE_VERSION="3.30.0"
           CMAKE_URL="https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-macos-universal.tar.gz"
-          curl -L -o cmake.tar.gz $CMAKE_URL
+          curl -L -o cmake.tar.gz "$CMAKE_URL"
           tar -xf cmake.tar.gz -C ${{env.TOOLS_DIR}}
           mv ${{env.TOOLS_DIR}}/cmake-${CMAKE_VERSION}-macos-universal ${{env.TOOLS_DIR}}/cmake-${CMAKE_VERSION}
           echo "${{env.TOOLS_DIR}}/cmake-${CMAKE_VERSION}/CMake.app/Contents/bin" >> $GITHUB_PATH
 
       - name: Verify CMake Installation
         shell: bash
-        run: |
-          cmake --version
+        run: cmake --version
 
-      - name: Get number of logical cores
-        id: get_cores
+      - name: Generate llvm-toolchain.cmake
         shell: bash
         run: |
-          echo "CORES=$(sysctl -n hw.logicalcpu)" >> $GITHUB_ENV
+          cat << EOF > llvm-toolchain.cmake
+          set(CMAKE_SYSTEM_NAME Darwin)
+          set(CMAKE_C_COMPILER "$LLVM_DIR/bin/clang")
+          set(CMAKE_CXX_COMPILER "$LLVM_DIR/bin/clang++")
+          set(CMAKE_AR "$LLVM_DIR/bin/llvm-ar")
+          set(CMAKE_RANLIB "$LLVM_DIR/bin/llvm-ranlib")
+          set(CMAKE_CXX_FLAGS "-stdlib=libc++")
+          set(CMAKE_EXE_LINKER_FLAGS "-Wl,-rpath,${{env.LLVM_LIB_PATH}}")
+          set(CMAKE_BUILD_RPATH "${{env.LLVM_LIB_PATH}}")
+          EOF
 
-      - name: Configure CMake (with Ninja and Clang)
+      - name: Configure CMake
         shell: bash
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{env.CMAKE_BUILD_TYPE}} \
-            -G Ninja \
-            -DCMAKE_C_COMPILER=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang \
-            -DCMAKE_CXX_COMPILER=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang++ \
-            -DCMAKE_AR=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/llvm-ar \
-            -DCMAKE_RANLIB=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/llvm-ranlib \
-            -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
-            -DCMAKE_BUILD_RPATH="${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/lib" \
-            -S .
+            -DCMAKE_TOOLCHAIN_FILE=$(pwd)/llvm-toolchain.cmake \
+            -G Ninja
 
       - name: Build (with parallel)
         shell: bash
         run: |
-          cmake --build ./build --target all --parallel ${{env.CORES}}
+          cmake --build build --parallel $(sysctl -n hw.logicalcpu)
 
       - name: Test (with parallel)
         shell: bash
         working-directory: ./build
         env:
-          CTEST_PARALLEL_LEVEL: ${{env.CORES}}
+          CTEST_PARALLEL_LEVEL: $(sysctl -n hw.logicalcpu)
         run: |
           ctest -T test --output-on-failure --stop-on-failure --no-tests=error --verbose
