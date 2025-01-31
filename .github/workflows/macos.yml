@@ -109,18 +109,6 @@ jobs:
       - name: Configure CMake
         shell: bash
         run: |
-          # 使用绝对路径避免环境变量展开问题
-          CMAKE_C_COMPILER="${{ env.LLVM_INSTALL_PREFIX }}/bin/clang"
-          CMAKE_CXX_COMPILER="${{ env.LLVM_INSTALL_PREFIX }}/bin/clang++"
-          CMAKE_AR="${{ env.LLVM_INSTALL_PREFIX }}/bin/llvm-ar"
-          CMAKE_LINKER="${{ env.LLVM_INSTALL_PREFIX }}/bin/ld.lld"
-
-          # 打印调试信息
-          echo "CMake 编译器路径:"
-          echo "C: $CMAKE_C_COMPILER"
-          echo "C++: $CMAKE_CXX_COMPILER"
-          ls -l "$CMAKE_CXX_COMPILER" || exit 1
-
           cmake -B build \
             -DCMAKE_BUILD_TYPE="${{ env.CMAKE_BUILD_TYPE }}" \
             -DCMAKE_TOOLCHAIN_FILE=llvm-toolchain.cmake \
