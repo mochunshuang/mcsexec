@@ -47,6 +47,11 @@ jobs:
           echo "Extracting LLVM to: $LLVM_DIR"
           tar -xf llvm.tar.xz --strip-components=1 -C "$LLVM_DIR"
 
+          # 检查解压结果
+          echo "LLVM extracted to: $LLVM_DIR"
+          echo "Contents of LLVM_DIR:"
+          ls -l "$LLVM_DIR"
+
           # 设置环境变量
           echo "PATH=$LLVM_DIR/bin:$PATH" >> $GITHUB_PATH
           echo "LLVM_LIB_PATH=$LLVM_DIR/lib" >> $GITHUB_ENV
