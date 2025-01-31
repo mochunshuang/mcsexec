@@ -43,12 +43,23 @@ jobs:
           echo "Downloading LLVM from: $LLVM_URL"
           curl -L -o llvm.tar.xz "$LLVM_URL"
 
-          # 解压 LLVM
-          echo "Extracting LLVM to: $LLVM_DIR"
-          tar -xf llvm.tar.xz --strip-components=1 -C "$LLVM_DIR"
+          # 解压 LLVM 到临时目录
+          TEMP_DIR=$(mktemp -d)
+          echo "Extracting LLVM to temporary directory: $TEMP_DIR"
+          tar -xf llvm.tar.xz -C "$TEMP_DIR"
+
+          # 检查解压后的顶层目录
+          TOP_LEVEL_DIR=$(ls -1 "$TEMP_DIR")
+          echo "Top-level directory in LLVM package: $TOP_LEVEL_DIR"
+
+          # 将文件移动到目标路径
+          echo "Moving LLVM files to: $LLVM_DIR"
+          mv "$TEMP_DIR/$TOP_LEVEL_DIR"/* "$LLVM_DIR"
+
+          # 清理临时目录
+          rm -rf "$TEMP_DIR"
 
           # 检查解压结果
-          echo "LLVM extracted to: $LLVM_DIR"
           echo "Contents of LLVM_DIR:"
           ls -l "$LLVM_DIR"
 
