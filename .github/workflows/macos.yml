@@ -5,6 +5,7 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+
 env:
   CMAKE_BUILD_TYPE: Release
   LLVM_VERSION: "19.1.7" # 使用变量记录 LLVM 版本
@@ -22,13 +23,25 @@ jobs:
         run: |
           mkdir -p ${{env.TOOLS_DIR}}
 
+      - name: Detect system architecture
+        id: detect_arch
+        shell: bash
+        run: |
+          ARCH=$(uname -m)
+          if [[ "$ARCH" == "arm64" ]]; then
+            echo "LLVM_ARCH=ARM64" >> $GITHUB_ENV
+          else
+            echo "LLVM_ARCH=X64" >> $GITHUB_ENV
+          fi
+          echo "Detected architecture: $ARCH"
+
       - name: Download and Install LLVM
         shell: bash
         run: |
-          LLVM_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${{env.LLVM_VERSION}}/LLVM-${{env.LLVM_VERSION}}-macOS-ARM64.tar.xz"
+          LLVM_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${{env.LLVM_VERSION}}/LLVM-${{env.LLVM_VERSION}}-macOS-${{env.LLVM_ARCH}}.tar.xz"
           curl -L -o llvm.tar.xz $LLVM_URL
           tar -xf llvm.tar.xz -C ${{env.TOOLS_DIR}}
-          mv ${{env.TOOLS_DIR}}/LLVM-${{env.LLVM_VERSION}}-macOS-X64 ${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}
+          mv ${{env.TOOLS_DIR}}/LLVM-${{env.LLVM_VERSION}}-macOS-${{env.LLVM_ARCH}} ${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}
           echo "${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin" >> $GITHUB_PATH
           echo "${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/lib" >> $GITHUB_PATH
 
@@ -79,10 +92,9 @@ jobs:
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{env.CMAKE_BUILD_TYPE}} \
             -G Ninja \
-            -DCMAKE_C_COMPILER=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang \
             -DCMAKE_CXX_COMPILER=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang++ \
-            -DCMAKE_CXX_FLAGS="-stdlib=libc++ -L${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/lib" \
-            -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/ld.lld" \
+            -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
+            -DCMAKE_BUILD_RPATH="${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/lib" \
             -S .
 
       - name: Build (with parallel)
@@ -95,6 +107,5 @@ jobs:
         working-directory: ./build
         env:
           CTEST_PARALLEL_LEVEL: ${{env.CORES}}
-          DYLD_LIBRARY_PATH: ${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/lib
         run: |
           ctest -T test --output-on-failure --stop-on-failure --no-tests=error --verbose
