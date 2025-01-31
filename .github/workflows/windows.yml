@@ -75,4 +75,4 @@ jobs:
         env:
           CTEST_PARALLEL_LEVEL: ${{env.CORES}}
         run: |
-          ctest -T test --output-on-failure --output-on-failure --stop-on-failure --no-tests=error --verbose
+          ctest -T test --output-on-failure --stop-on-failure --no-tests=error --verbose

@@ -1,0 +1,66 @@
+name: macos_clang_19
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+env:
+  CMAKE_BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4 # Check out the code
+
+      - name: Install Clang 19
+        shell: bash
+        run: |
+          brew install llvm@19
+
+      - name: Add Clang to PATH
+        shell: bash
+        run: |
+          echo "$(brew --prefix llvm@19)/bin" >> $GITHUB_PATH
+
+      - name: Install Ninja
+        shell: bash
+        run: |
+          brew install ninja
+
+      - name: Install CMake
+        shell: bash
+        run: |
+          brew install cmake
+
+      - name: Get number of logical cores
+        id: get_cores
+        shell: bash
+        run: |
+          echo "CORES=$(sysctl -n hw.logicalcpu)" >> $GITHUB_ENV
+
+      - name: Configure CMake (with Ninja and Clang 19)
+        shell: bash
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{env.CMAKE_BUILD_TYPE}} \
+            -G Ninja \
+            -DCMAKE_C_COMPILER=$(brew --prefix llvm@19)/bin/clang \
+            -DCMAKE_CXX_COMPILER=$(brew --prefix llvm@19)/bin/clang++ \
+            -S .
+
+      - name: Build (with parallel)
+        shell: bash
+        run: |
+          cmake --build ./build --target all --parallel ${{env.CORES}}
+
+      - name: Test (with parallel)
+        shell: bash
+        working-directory: ./build
+        env:
+          CTEST_PARALLEL_LEVEL: ${{env.CORES}}
+          DYLD_LIBRARY_PATH: $(brew --prefix llvm@19)/lib
+        run: |
+          ctest -T test --output-on-failure --stop-on-failure --no-tests=error --verbose
