@@ -84,10 +84,10 @@ jobs:
         run: |
           cat << EOF > llvm-toolchain.cmake
           set(CMAKE_SYSTEM_NAME Darwin)
-          set(CMAKE_C_COMPILER "$LLVM_DIR/bin/clang")
-          set(CMAKE_CXX_COMPILER "$LLVM_DIR/bin/clang++")
-          set(CMAKE_AR "$LLVM_DIR/bin/llvm-ar")
-          set(CMAKE_RANLIB "$LLVM_DIR/bin/llvm-ranlib")
+          set(CMAKE_C_COMPILER "${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang")
+          set(CMAKE_CXX_COMPILER "${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang++")
+          set(CMAKE_AR "${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/llvm-ar")
+          set(CMAKE_RANLIB "${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/llvm-ranlib")
           set(CMAKE_CXX_FLAGS "-stdlib=libc++")
           set(CMAKE_EXE_LINKER_FLAGS "-Wl,-rpath,${{env.LLVM_LIB_PATH}}")
           set(CMAKE_BUILD_RPATH "${{env.LLVM_LIB_PATH}}")
