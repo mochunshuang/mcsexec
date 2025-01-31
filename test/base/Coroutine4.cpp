@@ -96,7 +96,8 @@ struct Awaitable
     {
         return promise.getResult();
     }
-
+    // macos 的clang 推导能力不行
+    Awaitable(promise_t &_p) : promise{_p} {}
     promise_t &promise; // NOLINT
 };
 
