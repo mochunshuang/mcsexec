@@ -53,9 +53,9 @@ jobs:
         shell: bash
         run: |
           echo "LLVM binaries:"
-          ls -l ${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin
+          ls -l ${{env.LLVM_INSTALL_PREFIX}}/bin
           echo "LLVM libraries:"
-          ls -l ${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/lib
+          ls -l ${{env.LLVM_INSTALL_PREFIX}}/lib
           clang --version
 
       - name: Download and Install Ninja
@@ -91,14 +91,14 @@ jobs:
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{env.CMAKE_BUILD_TYPE}} \
-            -DCMAKE_C_COMPILER=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang \
-            -DCMAKE_CXX_COMPILER=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/clang++ \
-            -DCMAKE_AR=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/llvm-ar \
-            -DCMAKE_RANLIB=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/llvm-ranlib \
-            -DCMAKE_LINKER=${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/bin/ld.lld \
+            -DCMAKE_C_COMPILER=${{env.LLVM_INSTALL_PREFIX}}/bin/clang \
+            -DCMAKE_CXX_COMPILER=${{env.LLVM_INSTALL_PREFIX}}/bin/clang++ \
+            -DCMAKE_AR=${{env.LLVM_INSTALL_PREFIX}}/bin/llvm-ar \
+            -DCMAKE_RANLIB=${{env.LLVM_INSTALL_PREFIX}}/bin/llvm-ranlib \
+            -DCMAKE_LINKER=${{env.LLVM_INSTALL_PREFIX}}/bin/ld.lld \
             -DCMAKE_CXX_FLAGS="-stdlib=libc++ -fuse-ld=lld" \
-            -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath,${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/lib -L${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/lib" \
-            -DCMAKE_BUILD_RPATH="${{env.TOOLS_DIR}}/llvm-${{env.LLVM_VERSION}}/lib" \
+            -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath,${{env.LLVM_LIB_PATH}} -L${{env.LLVM_LIB_PATH}}" \
+            -DCMAKE_BUILD_RPATH="${{env.LLVM_LIB_PATH}}" \
             -G Ninja
 
       - name: Build
