@@ -1,4 +1,4 @@
-name: macos_clang_19
+name: macos_clang_19.1.7
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
     branches: ["main"]
 env:
   CMAKE_BUILD_TYPE: Release
+  LLVM_VERSION: "19.1.7" # 使用变量记录 LLVM 版本
 
 jobs:
   build:
@@ -15,25 +16,48 @@ jobs:
     steps:
       - uses: actions/checkout@v4 # Check out the code
 
-      - name: Install Clang 19
+      - name: Download and Install LLVM
         shell: bash
         run: |
-          brew install llvm@19
+          LLVM_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${{env.LLVM_VERSION}}/LLVM-${{env.LLVM_VERSION}}-macOS-X64.tar.xz"
+          curl -L -o llvm.tar.xz $LLVM_URL
+          tar -xf llvm.tar.xz
+          mv LLVM-${{env.LLVM_VERSION}}-macOS-X64 /usr/local/opt/llvm-${{env.LLVM_VERSION}}
+          echo "/usr/local/opt/llvm-${{env.LLVM_VERSION}}/bin" >> $GITHUB_PATH
 
-      - name: Add Clang to PATH
+      - name: Verify LLVM Installation
         shell: bash
         run: |
-          echo "$(brew --prefix llvm@19)/bin" >> $GITHUB_PATH
+          /usr/local/opt/llvm-${{env.LLVM_VERSION}}/bin/clang --version
 
-      - name: Install Ninja
+      - name: Download and Install Ninja
         shell: bash
         run: |
-          brew install ninja
+          NINJA_VERSION="1.12.0"
+          NINJA_URL="https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/ninja-mac.zip"
+          curl -L -o ninja.zip $NINJA_URL
+          unzip ninja.zip -d /usr/local/bin
+          chmod +x /usr/local/bin/ninja
 
-      - name: Install CMake
+      - name: Verify Ninja Installation
         shell: bash
         run: |
-          brew install cmake
+          ninja --version
+
+      - name: Download and Install CMake
+        shell: bash
+        run: |
+          CMAKE_VERSION="3.30.0"
+          CMAKE_URL="https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-macos-universal.tar.gz"
+          curl -L -o cmake.tar.gz $CMAKE_URL
+          tar -xf cmake.tar.gz
+          mv cmake-${CMAKE_VERSION}-macos-universal /usr/local/opt/cmake-${CMAKE_VERSION}
+          echo "/usr/local/opt/cmake-${CMAKE_VERSION}/CMake.app/Contents/bin" >> $GITHUB_PATH
+
+      - name: Verify CMake Installation
+        shell: bash
+        run: |
+          cmake --version
 
       - name: Get number of logical cores
         id: get_cores
@@ -41,14 +65,14 @@ jobs:
         run: |
           echo "CORES=$(sysctl -n hw.logicalcpu)" >> $GITHUB_ENV
 
-      - name: Configure CMake (with Ninja and Clang 19)
+      - name: Configure CMake (with Ninja and Clang)
         shell: bash
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{env.CMAKE_BUILD_TYPE}} \
             -G Ninja \
-            -DCMAKE_C_COMPILER=$(brew --prefix llvm@19)/bin/clang \
-            -DCMAKE_CXX_COMPILER=$(brew --prefix llvm@19)/bin/clang++ \
+            -DCMAKE_C_COMPILER=/usr/local/opt/llvm-${{env.LLVM_VERSION}}/bin/clang \
+            -DCMAKE_CXX_COMPILER=/usr/local/opt/llvm-${{env.LLVM_VERSION}}/bin/clang++ \
             -S .
 
       - name: Build (with parallel)
@@ -61,6 +85,6 @@ jobs:
         working-directory: ./build
         env:
           CTEST_PARALLEL_LEVEL: ${{env.CORES}}
-          DYLD_LIBRARY_PATH: $(brew --prefix llvm@19)/lib
+          DYLD_LIBRARY_PATH: /usr/local/opt/llvm-${{env.LLVM_VERSION}}/lib
         run: |
           ctest -T test --output-on-failure --stop-on-failure --no-tests=error --verbose
