@@ -71,6 +71,8 @@ jobs:
       - name: Verify LLVM Installation
         shell: bash
         run: |
+          echo "LLVM_DIR:"
+          ls -l $LLVM_DIR
           echo "LLVM binaries:"
           ls -l ${{env.LLVM_INSTALL_PREFIX}}/bin
           echo "LLVM libraries:"
