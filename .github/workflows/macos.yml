@@ -34,17 +34,20 @@ jobs:
       - name: Download and Install LLVM
         shell: bash
         run: |
-          LLVM_DIR="${TOOLS_DIR}/llvm-${{env.LLVM_VERSION}}"
-          LLVM_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${{env.LLVM_VERSION}}/LLVM-${{env.LLVM_VERSION}}-macOS-${{env.LLVM_ARCH}}.tar.xz"
+          # 设置 LLVM 安装路径
+          LLVM_DIR="${TOOLS_DIR}/llvm"
+          mkdir -p "$LLVM_DIR"
 
+          # 下载 LLVM
+          LLVM_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${{env.LLVM_VERSION}}/LLVM-${{env.LLVM_VERSION}}-macOS-${{env.LLVM_ARCH}}.tar.xz"
           echo "Downloading LLVM from: $LLVM_URL"
           curl -L -o llvm.tar.xz "$LLVM_URL"
 
+          # 解压 LLVM
           echo "Extracting LLVM to: $LLVM_DIR"
-          mkdir -p "$LLVM_DIR"
           tar -xf llvm.tar.xz --strip-components=1 -C "$LLVM_DIR"
 
-          echo "LLVM extracted to: $LLVM_DIR"
+          # 设置环境变量
           echo "PATH=$LLVM_DIR/bin:$PATH" >> $GITHUB_PATH
           echo "LLVM_LIB_PATH=$LLVM_DIR/lib" >> $GITHUB_ENV
           echo "LLVM_INSTALL_PREFIX=$LLVM_DIR" >> $GITHUB_ENV
