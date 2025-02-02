@@ -7,6 +7,7 @@ set(TEST_EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/output/test_program)
 include(${CMAKE_SOURCE_DIR}/test/script/auto_add_test_by_dir.cmake) # 注册测试
 include(${CMAKE_SOURCE_DIR}/test/script/auto_add_exec.cmake)
 auto_add_exec("base")
+auto_add_exec("exec")
 
 # add_executable(test_hello ${CMAKE_SOURCE_DIR}/test/hello/test_hello.cpp)
 # add_test(NAME test_hello COMMAND $<TARGET_FILE:test_hello>)
