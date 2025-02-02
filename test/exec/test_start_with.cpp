@@ -41,4 +41,12 @@ int main()
     static_assert(std::ranges::starts_with(
         v, std::views::iota(1) | std::views::filter(odd) | std::views::take(3)));
 }
+#elif
+#include <iostream>
+
+int main()
+{
+    std::cout << "main done\n";
+    return 0;
+}
 #endif
