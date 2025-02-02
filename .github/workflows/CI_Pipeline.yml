@@ -7,7 +7,7 @@ on:
     branches: ["main"]
 
 env:
-  BUILD_TYPE: Debug # 改为Debug模式
+  CMake_BUILD_TYPE: Debug # 改为Debug模式
 
 jobs:
   build:
@@ -42,7 +42,7 @@ jobs:
       - name: Configure CMake
         run: |
           cmake -B build \
-            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+            -DCMAKE_CMake_BUILD_TYPE=${{env.CMake_BUILD_TYPE}} \
             -DCMAKE_CXX_FLAGS="--coverage" \  # 添加覆盖率支持
             -G Ninja
 
