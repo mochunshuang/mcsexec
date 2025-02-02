@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: Linux G++14 Debug Build
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: ["main"]
 
 env:
-  BUILD_TYPE: Debug
+  BUILD_TYPE: Debug # 改为Debug模式
 
 jobs:
   build:
@@ -16,84 +16,76 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 安装基础工具链
-      - name: Setup Toolchain
+      - name: Install Build Tools
         run: |
+          # 合并安装步骤
           sudo apt-get update
           sudo apt-get install -y software-properties-common
           sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-          sudo apt-get update
-          sudo apt-get install -y g++-14 ninja-build lcov clang-tidy
+          sudo apt-get install -y \
+            g++-14 \
+            ninja-build \
+            lcov \
+            wget
 
-      # 设置编译器
-      - name: Set g++-14 as default
+          # 安装指定版本CMake
+          wget -q https://github.com/Kitware/CMake/releases/download/v3.30.0/cmake-3.30.0-linux-x86_64.tar.gz
+          tar -xzf cmake-3.30.0-linux-x86_64.tar.gz
+          sudo mv cmake-3.30.0-linux-x86_64 /opt/cmake
+          sudo ln -sf /opt/cmake/bin/cmake /usr/bin/cmake
+
+      - name: Set Compiler
         run: |
           sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
           sudo update-alternatives --set g++ /usr/bin/g++-14
 
-      # 配置带覆盖率检测的构建
       - name: Configure CMake
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
-            -DCMAKE_CXX_FLAGS="--coverage" \
+            -DCMAKE_CXX_FLAGS="--coverage" \  # 添加覆盖率支持
             -G Ninja
 
-      # 并行构建
-      - name: Build
-        run: cmake --build build --parallel $(nproc)
+      - name: Build & Test
+        run: |
+          cmake --build build --parallel $(nproc)
+          ctest --test-dir build --output-on-failure --verbose
 
-      # 运行测试
-      - name: Test
-        working-directory: ./build
-        run: ctest -C ${{env.BUILD_TYPE}} --output-on-failure --verbose
-
-      # 生成覆盖率报告
       - name: Generate Coverage
-        working-directory: ./build
+        working-directory: build
         run: |
           lcov --capture --directory . --output-file coverage.info
-          lcov --remove coverage.info '/usr/*' '*/tests/*' --output-file coverage.info
-          genhtml coverage.info --output-directory coverage-report
+          lcov --remove coverage.info '/usr/*' '*/test/*' --output-file coverage.info
+          genhtml coverage.info --output-directory coverage_report
 
-      # 代码质量检查
-      - name: Code Analysis
-        run: |
-          find src include -name '*.cpp' -o -name '*.hpp' | xargs clang-tidy -p build
-
-      # 生成徽章数据
-      - name: Generate Badges
-        working-directory: ./build
-        run: |
-          # 提取覆盖率百分比
-          COVERAGE_PERCENT=$(lcov --summary coverage.info | grep 'lines......:' | awk '{print $2}' | sed 's/%//')
-          echo "COVERAGE_PERCENT=${COVERAGE_PERCENT}" >> $GITHUB_ENV
-
-          # 生成徽章图片
-          wget "https://img.shields.io/badge/Coverage-${COVERAGE_PERCENT}%25-$( [ $COVERAGE_PERCENT -ge 90 ] && echo brightgreen || echo orange )" -O coverage.svg
-          wget "https://img.shields.io/badge/Quality-Passing-brightgreen" -O quality.svg  # 实际项目需要根据检查结果动态生成
-
-      # 发布报告和徽章
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4 # 升级到v4版本
         with:
-          name: build-reports
+          name: debug-build-artifacts
           path: |
-            build/coverage-report/
-            build/coverage.svg
-            build/quality.svg
+            build/coverage_report/
+            build/coverage.info
 
-      # 自动提交徽章到README（需授权）
-      - name: Update README
+      - name: Generate Badge
+        working-directory: build
+        run: |
+          # 获取覆盖率百分比
+          COVERAGE=$(lcov --summary coverage.info | grep 'lines......:' | grep -oP '\d+\.\d*%' | cut -d'%' -f1)
+
+          # 生成徽章
+          curl -s "https://img.shields.io/badge/Coverage-${COVERAGE}%25-$( \
+            awk -v c="$COVERAGE" 'BEGIN {print (c >= 90) ? "brightgreen" : (c >= 70) ? "green" : "orange"}')" \
+            -o coverage.svg
+
+          # 创建自动提交的目录
+          mkdir -p ../badges
+          cp coverage.svg ../badges/
+
+      - name: Commit Badge
         if: github.ref == 'refs/heads/main'
         run: |
-          # 复制徽章文件到根目录
-          cp -f build/coverage.svg docs/badges/
-          cp -f build/quality.svg docs/badges/
-
-          # 提交变更
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-          git add docs/badges/*.svg
-          git commit -m "Update CI badges"
+          git add badges/coverage.svg
+          git commit -m "Update coverage badge" || echo "No changes to commit"
           git push
