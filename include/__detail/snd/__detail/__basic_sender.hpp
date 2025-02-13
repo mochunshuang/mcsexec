@@ -26,8 +26,8 @@ namespace mcs::execution::snd::__detail
             requires(std::is_rvalue_reference_v<Self &&> ||
                      (std::is_lvalue_reference_v<Self &&> &&
                       std::copy_constructible<Self>))
-        auto connect(this Self &&self, Rcvr rcvr) noexcept(noexcept(
-            std::is_nothrow_constructible_v<basic_operation<Self, Rcvr>, Self, Rcvr>))
+        auto connect(this Self &&self, Rcvr rcvr) noexcept(
+            std::is_nothrow_constructible_v<basic_operation<Self, Rcvr>, Self, Rcvr>)
             -> basic_operation<Self, Rcvr>
         {
             return {std::forward<Self>(self), std::move(rcvr)};

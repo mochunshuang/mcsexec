@@ -40,7 +40,11 @@ namespace mcs::execution::stoptoken
             auto &self = *static_cast<finite_inplace_stop_callback_base *>(base);
             self.callback();
         }
-
-        [[no_unique_address]] CB callback; // NOLINT
+#if defined(_MSC_VER)
+#define NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
+#else
+#define NO_UNIQUE_ADDRESS [[no_unique_address]]
+#endif
+        NO_UNIQUE_ADDRESS CB callback; // NOLINT
     };
 }; // namespace mcs::execution::stoptoken

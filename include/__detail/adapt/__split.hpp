@@ -5,6 +5,7 @@
 #include <type_traits>
 #include <utility>
 #include <optional>
+#include <variant>
 
 #include "./__as_tuple.hpp"
 

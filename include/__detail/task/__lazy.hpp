@@ -9,6 +9,7 @@
 #include "../awaitables/__as_awaitable.hpp"
 #include "../adapt/__continues_on.hpp"
 
+#include <optional>
 #include <variant>
 
 namespace mcs::execution::task
@@ -210,10 +211,14 @@ namespace mcs::execution::task
                 this->result.template emplace<E>(with.error);
                 return {this};
             }
-
-            [[no_unique_address]] allocator_type allocator; // NOLINT
-            std::optional<scheduler_type> scheduler{};      // NOLINT
-            state_base *state{};                            // NOLINT
+#if defined(_MSC_VER)
+#define NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
+#else
+#define NO_UNIQUE_ADDRESS [[no_unique_address]]
+#endif
+            NO_UNIQUE_ADDRESS allocator_type allocator; // NOLINT
+            std::optional<scheduler_type> scheduler{};  // NOLINT
+            state_base *state{};                        // NOLINT
 
             std::coroutine_handle<> unhandled_stopped() // NOLINT
             {

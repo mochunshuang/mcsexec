@@ -11,8 +11,6 @@
 
 #include "../general/__FWD_ENV.hpp"
 
-static_assert(__cpp_lib_forward_like == 202207L);
-
 namespace mcs::execution::snd::__detail
 {
     struct default_impls // exposition only

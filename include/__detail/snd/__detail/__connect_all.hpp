@@ -11,12 +11,27 @@ namespace mcs::execution::snd::__detail
 {
     constexpr auto connect_all = // NOLINT
         []<class Sndr, class Rcvr, std::size_t... Is>(
-            basic_state<Sndr, Rcvr> *op, Sndr &&sndr, // Note: noexcept can`t calculation
-            std::index_sequence<Is...>) noexcept(true) -> decltype(auto) {
+            basic_state<Sndr, Rcvr> *op, Sndr &&sndr,
+            std::index_sequence<Is...>) noexcept(noexcept( // 组合所有noexcept条件
+            sndr.apply([&]<typename... Child>(auto &, auto &, Child &...child) noexcept(
+                           // 检查每个conn::connect和构造是否noexcept
+                           (noexcept(conn::connect(
+                               std::forward_like<Sndr>(child),
+                               basic_receiver<Sndr, Rcvr,
+                                              std::integral_constant<std::size_t, Is>>{
+                                   op})) &&...)) -> decltype(auto) {
+                return product_type{conn::connect(
+                    std::forward_like<Sndr>(child),
+                    basic_receiver<Sndr, Rcvr, std::integral_constant<std::size_t, Is>>{
+                        op})...};
+            }))) -> decltype(auto) {
         // Note: sndr must be lvalue <=> auto&; std::forward_like<Sndr> => obj <=> obj.mb
         return sndr.apply(
-            [&]<typename... Child>(auto &, auto &,
-                                   Child &...child) noexcept -> decltype(auto) {
+            [&]<typename... Child>(auto &, auto &, Child &...child) noexcept(
+                (noexcept(conn::connect(
+                    std::forward_like<Sndr>(child),
+                    basic_receiver<Sndr, Rcvr, std::integral_constant<std::size_t, Is>>{
+                        op})) &&...)) -> decltype(auto) {
                 return product_type{conn::connect(
                     std::forward_like<Sndr>(child),
                     basic_receiver<Sndr, Rcvr, std::integral_constant<std::size_t, Is>>{

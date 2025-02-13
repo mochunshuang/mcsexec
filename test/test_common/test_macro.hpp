@@ -98,7 +98,7 @@ namespace mcstest
     {
         test_info info; // NOLINT
 
-        auto &operator=(auto &&test)
+        auto &operator=(auto &&test) noexcept
         {
             try
             {

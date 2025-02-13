@@ -181,7 +181,7 @@ int main()
         {
             std::string whatStr = ex.what();
             // Note: 字符串处理变成string 才行，离谱
-            EXPECT(ex.what() != "err");
+            EXPECT(std::strcmp(ex.what(), "err") != 0);
             EXPECT(whatStr == "err");
         }
     };

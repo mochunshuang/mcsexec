@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <utility>
 
 #include "./__AS_EXCEPT_PTR.hpp"
