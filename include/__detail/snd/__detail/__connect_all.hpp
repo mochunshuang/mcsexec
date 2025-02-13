@@ -12,23 +12,18 @@ namespace mcs::execution::snd::__detail
     constexpr auto connect_all = // NOLINT
         []<class Sndr, class Rcvr, std::size_t... Is>(
             basic_state<Sndr, Rcvr> *op, Sndr &&sndr,
-            std::index_sequence<Is...>) noexcept(noexcept( //
-            sndr.apply([&op]<typename... Child>(auto &, auto &, Child &...child) noexcept(
-                           noexcept(product_type{conn::connect(
-                               std::forward_like<Sndr>(child),
-                               basic_receiver<Sndr, Rcvr,
-                                              std::integral_constant<std::size_t, Is>>{
-                                   op})...})) {
-                return 0; // Note: 简化,因为这一行编译报错. 是否有异常由lambda签名决定了
-            }))) -> decltype(auto) {
+            std::index_sequence<Is...>) noexcept(true) -> decltype(auto) {
         // Note: sndr must be lvalue <=> auto&; std::forward_like<Sndr> => obj <=> obj.mb
         // Note: c++26 形参包： p1061r10 搞定，就不用那么麻烦了
         return sndr.apply(
-            [&op]<typename... Child>(auto &, auto &, Child &...child) noexcept(
-                noexcept(product_type{conn::connect(
+            // Note: 至少 g++ 目前是无法计算noexcept的
+            //  __connect_all.hpp:27:13: internal compiler error: Segmentation fault
+            [&]<typename... Child>(auto &, auto &, Child &...child) noexcept {
+                // product_type 0构造自定义，直接初始化是不会有异常的
+                static_assert(noexcept(product_type{conn::connect(
                     std::forward_like<Sndr>(child),
                     basic_receiver<Sndr, Rcvr, std::integral_constant<std::size_t, Is>>{
-                        op})...})) {
+                        op})...}));
                 return product_type{conn::connect(
                     std::forward_like<Sndr>(child),
                     basic_receiver<Sndr, Rcvr, std::integral_constant<std::size_t, Is>>{
