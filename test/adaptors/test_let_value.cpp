@@ -1,6 +1,7 @@
 
 #include "../test_base_head.hpp"
 #include <cassert>
+#include <cstring>
 
 int main()
 {

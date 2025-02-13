@@ -26,9 +26,11 @@ namespace mcs::execution::snd::__detail
 
         void start() & noexcept
         {
-            inner_ops.apply([&]<typename... Op>(Op &...ops) {
-                general::impls_for<tag_t>::start(this->state, this->rcvr, ops...);
-            });
+            inner_ops.apply(
+                [&]<typename... Op>(Op &...ops) noexcept(noexcept(
+                    general::impls_for<tag_t>::start(this->state, this->rcvr, ops...))) {
+                    general::impls_for<tag_t>::start(this->state, this->rcvr, ops...);
+                });
         }
 
         basic_operation(const basic_operation &) = delete;

@@ -30,7 +30,9 @@ namespace mcs::execution
             if constexpr (snd::sender_for<Sndr, adapt::continues_on_t>)
             {
                 return sndr.apply(
-                    []<typename Sch>(auto &, Sch &sch, auto &...) -> decltype(auto) {
+                    []<typename Sch>(auto &, Sch &sch, auto &...) noexcept(
+                        noexcept(query_or_default(get_domain, sch,
+                                                  default_domain()))) -> decltype(auto) {
                         return query_or_default(get_domain, sch, default_domain());
                     });
             }

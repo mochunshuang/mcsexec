@@ -49,8 +49,10 @@ namespace mcs::execution
     {
         static constexpr auto start = // NOLINT
             []<class State>(State &state, auto &rcvr) noexcept -> void {
-            return state.apply(
-                [&](auto &...ts) { Completion()(std::move(rcvr), std::move(ts)...); });
+            return state.apply([&](auto &...ts) noexcept(noexcept(
+                                   Completion()(std::move(rcvr), std::move(ts)...))) {
+                Completion()(std::move(rcvr), std::move(ts)...);
+            });
         };
     };
 

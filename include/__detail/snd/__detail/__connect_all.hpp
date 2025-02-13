@@ -12,26 +12,23 @@ namespace mcs::execution::snd::__detail
     constexpr auto connect_all = // NOLINT
         []<class Sndr, class Rcvr, std::size_t... Is>(
             basic_state<Sndr, Rcvr> *op, Sndr &&sndr,
-            std::index_sequence<Is...>) noexcept(noexcept( // 组合所有noexcept条件
-            sndr.apply([&]<typename... Child>(auto &, auto &, Child &...child) noexcept(
-                           // 检查每个conn::connect和构造是否noexcept
-                           (noexcept(conn::connect(
+            std::index_sequence<Is...>) noexcept(noexcept( //
+            sndr.apply([&op]<typename... Child>(auto &, auto &, Child &...child) noexcept(
+                           noexcept(product_type{conn::connect(
                                std::forward_like<Sndr>(child),
                                basic_receiver<Sndr, Rcvr,
                                               std::integral_constant<std::size_t, Is>>{
-                                   op})) &&...)) -> decltype(auto) {
-                return product_type{conn::connect(
-                    std::forward_like<Sndr>(child),
-                    basic_receiver<Sndr, Rcvr, std::integral_constant<std::size_t, Is>>{
-                        op})...};
+                                   op})...})) {
+                return 0; // Note: 简化,因为这一行编译报错. 是否有异常由lambda签名决定了
             }))) -> decltype(auto) {
         // Note: sndr must be lvalue <=> auto&; std::forward_like<Sndr> => obj <=> obj.mb
+        // Note: c++26 形参包： p1061r10 搞定，就不用那么麻烦了
         return sndr.apply(
-            [&]<typename... Child>(auto &, auto &, Child &...child) noexcept(
-                (noexcept(conn::connect(
+            [&op]<typename... Child>(auto &, auto &, Child &...child) noexcept(
+                noexcept(product_type{conn::connect(
                     std::forward_like<Sndr>(child),
                     basic_receiver<Sndr, Rcvr, std::integral_constant<std::size_t, Is>>{
-                        op})) &&...)) -> decltype(auto) {
+                        op})...})) {
                 return product_type{conn::connect(
                     std::forward_like<Sndr>(child),
                     basic_receiver<Sndr, Rcvr, std::integral_constant<std::size_t, Is>>{

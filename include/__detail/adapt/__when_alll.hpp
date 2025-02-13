@@ -362,9 +362,8 @@ namespace mcs::execution
 
         static constexpr auto get_state = // NOLINT
             []<class Sndr, class Rcvr>(Sndr &&sndr, Rcvr & /*rcvr*/) noexcept(
-                // std::forward<Sndr>(std::declval<Sndr>())
-                //     .apply(adapt::__when_all::make_state<Rcvr>())
-                true) -> auto {
+                noexcept(std::forward<Sndr>(std::declval<Sndr>())
+                             .apply(adapt::__when_all::make_state<Rcvr>()))) -> auto {
             return std::forward<Sndr>(sndr).apply(adapt::__when_all::make_state<Rcvr>());
         };
 

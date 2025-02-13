@@ -34,7 +34,8 @@ namespace mcs::execution::snd::__detail
         static constexpr auto get_state = // NOLINT
             []<class Sndr, class Rcvr>(Sndr &&sndr,
                                        Rcvr & /*rcvr*/) noexcept -> decltype(auto) {
-            return sndr.apply([](auto &, auto &data, auto &&...) -> decltype(auto) {
+            return sndr.apply([](auto &, auto &data, auto &&...) noexcept(noexcept(
+                                  std::forward_like<Sndr>(data))) -> decltype(auto) {
                 return std::forward_like<Sndr>(data);
             });
         };

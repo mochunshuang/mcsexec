@@ -19,7 +19,7 @@ namespace mcs::execution::snd::__detail
     struct product_type_base<::std::index_sequence<I...>, T...>
         : ::mcs::execution::snd::__detail::product_type_element<I, T>...
     {
-        static constexpr ::std::size_t size()
+        static constexpr ::std::size_t size() noexcept
         {
             return sizeof...(T);
         }
@@ -47,17 +47,17 @@ namespace mcs::execution::snd::__detail
         }
 
         template <::std::size_t J>
-        auto get() & -> decltype(auto)
+        auto get() & noexcept -> decltype(auto)
         {
             return this->element_get<J>(*this);
         }
         template <::std::size_t J>
-        auto get() && -> decltype(auto)
+        auto get() && noexcept -> decltype(auto)
         {
             return this->element_get<J>(::std::move(*this));
         }
         template <::std::size_t J>
-        [[nodiscard]] auto get() const & -> decltype(auto)
+        [[nodiscard]] auto get() const & noexcept -> decltype(auto)
         {
             return this->element_get<J>(*this);
         }
@@ -71,15 +71,22 @@ namespace mcs::execution::snd::__detail
     {
 
         template <typename Self, typename Fun, ::std::size_t... I> // NOLINTNEXTLINE
-        constexpr auto apply_elements(this Self &&self, ::std::index_sequence<I...>,
-                                      Fun &&fun) -> decltype(auto)
+        constexpr auto apply_elements(
+            this Self &&self, ::std::index_sequence<I...>,
+            Fun &&fun) noexcept(noexcept(::std::
+                                             forward<Fun>(fun)(::std::forward_like<Self>(
+                                                 self.template get<I>())...)))
+            -> decltype(auto)
         {
             return ::std::forward<Fun>(fun)(
                 ::std::forward_like<Self>(self.template get<I>())...);
         }
 
         template <typename Self, typename Fun>
-        constexpr auto apply(this Self &&self, Fun &&fun) -> decltype(auto)
+        constexpr auto apply(this Self &&self, Fun &&fun) noexcept(noexcept(
+            ::std::forward<Self>(self).apply_elements(::std::index_sequence_for<T...>{},
+                                                      ::std::forward<Fun>(fun))))
+            -> decltype(auto)
         {
             return ::std::forward<Self>(self).apply_elements(
                 ::std::index_sequence_for<T...>{}, ::std::forward<Fun>(fun));
