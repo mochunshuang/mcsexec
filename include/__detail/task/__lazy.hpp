@@ -242,6 +242,10 @@ namespace mcs::execution::task
                 {
                     return promise->state->get_stop_token();
                 }
+                snd::default_domain query(queries::get_domain_t /*unused*/) const noexcept
+                {
+                    return {};
+                }
                 template <typename Q, typename... A>
                     requires requires(const C &c, Q q, A &&...a) {
                         q(c, std::forward<A>(a)...);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <system_error>
 #include "../__stoptoken/__inplace_stop_token.hpp"
 #include "./__detail/__poly.hpp"
