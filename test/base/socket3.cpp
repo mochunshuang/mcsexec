@@ -1003,6 +1003,20 @@ int main()
 
 #else
 
+inline static std::atomic<bool> &get_exit_flag() noexcept // NOLINT
+{
+    static std::atomic<bool> exit_flag(false);
+    return exit_flag;
+}
+
+inline static void signal_handler(int signal) noexcept // NOLINT
+{
+    if (signal == SIGINT) // 捕获Ctrl+C信号
+    {
+        std::println("\nReceived SIGINT (Ctrl+C). Exiting...\n");
+        get_exit_flag().store(true, std::memory_order_release); // 设置标志位为true
+    }
+};
 int main()
 {
     (void)std::signal(SIGINT, signal_handler);
