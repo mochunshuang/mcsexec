@@ -29,6 +29,22 @@
                 "CMAKE_CXX_COMPILER": "D:/mysoftware/LLVM_clang_19.1/LLVM/bin/clang++.exe",
                 "CMAKE_BUILD_TYPE": "Release"
             }
+        },
+        {
+            "name": "impl_windows-mys32-g++",
+            "displayName": "local windows-mys32-g++ setting for your self",
+            "description": "implemente windows-mys32-g++ configure",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/msys2-toolchain.cmake",
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/install",
+                "CMAKE_MAKE_PROGRAM": "D:/mysoftware/Qt6.5/Tools/Ninja/ninja.exe"
+            },
+            "environment": {
+                "PATH": "D:/mysoftware/Qt6.5/Tools/Ninja;D:/mysoftware/msys64/ucrt64/bin;D:/mysoftware/msys64/usr/bin"
+            }
         }
     ],
     "buildPresets": [
@@ -41,6 +57,11 @@
             "name": "windows-clang++",
             "configurePreset": "windows-clang++",
             "description": "implemente windows-clang++ buildPresets"
+        },
+        {
+            "name": "windows-mys32-g++",
+            "configurePreset": "windows-mys32-g++",
+            "description": "implemente windows-mys32-g++ buildPresets"
         }
     ],
     "testPresets": [
@@ -67,6 +88,18 @@
                 "stopOnFailure": true
             },
             "description": "implemente windows-clang++ testPresets"
+        },
+        {
+            "name": "windows-mys32-g++",
+            "configurePreset": "windows-mys32-g++",
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error",
+                "stopOnFailure": true
+            },
+            "description": "implemente windows-mys32-g++ testPresets"
         }
     ],
     "packagePresets": [
@@ -85,6 +118,14 @@
                 "TGZ"
             ],
             "description": "implemente windows-g++ packagePresets"
+        },
+        {
+            "name": "windows-mys32-g++",
+            "configurePreset": "windows-mys32-g++",
+            "generators": [
+                "TGZ"
+            ],
+            "description": "implemente windows-mys32-g++ packagePresets"
         }
     ],
     "workflowPresets": [
@@ -121,6 +162,24 @@
                 {
                     "type": "test",
                     "name": "windows-clang++"
+                }
+            ]
+        },
+        {
+            "name": "windows-mys32-g++-workflow",
+            "description": "implemente windows-mys32-g++ workflowPresets",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "windows-mys32-g++"
+                },
+                {
+                    "type": "build",
+                    "name": "windows-mys32-g++"
+                },
+                {
+                    "type": "test",
+                    "name": "windows-mys32-g++"
                 }
             ]
         }

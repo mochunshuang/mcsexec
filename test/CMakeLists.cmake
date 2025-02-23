@@ -35,3 +35,4 @@ auto_add_test_by_dir("stop_token")
 # COMMENT "Running all tests"
 # DEPENDS all
 # )
+add_executable(thread_local3_6 ${CMAKE_SOURCE_DIR}/test/no_add_test/thread_local3_6.cpp)

@@ -26,7 +26,7 @@
     "terminal.integrated.defaultProfile.windows": "PowerShell -NoProfile",
     "clangd.arguments": [
         "--compile-commands-dir=${workspaceFolder}/build",
-        "--query-driver=D:/mysoftware/x86_64-14.2.0-release-posix-seh-ucrt-rt_v12/mingw64/bin/g++.exe",
+        "--query-driver=D:/mysoftware/LLVM_clang_19.1/LLVM/bin/clang++.exe",
         "--log=verbose",
         "--pretty",
         "--all-scopes-completion",

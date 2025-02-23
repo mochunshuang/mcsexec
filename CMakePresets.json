@@ -34,6 +34,19 @@
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             }
+        },
+        {
+            "name": "windows-mys32-g++",
+            "inherits": [
+                "impl_windows-mys32-g++"
+            ],
+            "displayName": "windows-mys32-g++",
+            "description": "This is available after impl_windows-mys32-g++ implemented",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
         }
     ]
 }
