@@ -34,9 +34,6 @@ struct MyClass
 template <typename T>
 struct Manager
 {
-    // static_assert(!std::has_virtual_destructor_v<T>,
-    //               "Managed type cannot have virtual functions");
-
     struct Chunk;
     struct BlockHeader
     {
@@ -90,13 +87,13 @@ struct Manager
             assert(status != 0);
             return std::countl_zero(status);
         }
-
-        T *allocate(index_type index) noexcept
+        template <typename... Ags>
+        T *allocate(index_type index, Ags &&...ags) noexcept
         {
             const status_type mask = status_type{1} << (BIT_COUNT - 1 - index);
             status ^= mask;
             size_t offset = index * (sizeof(T) + sizeof(BlockHeader));
-            new (&block[offset]) T();
+            new (&block[offset]) T(std::forward<Ags>(ags)...);
             new (&block[offset + sizeof(T)]) BlockHeader{this, index};
             return reinterpret_cast<T *>(&block[offset]);
         }
@@ -124,9 +121,8 @@ struct Manager
     {
         ListNode head; // 哨兵节点
         ListType list_type;
-        size_t size; // 添加size成员
 
-        explicit ChunkList(ListType type = NONE) : list_type(type), size(0)
+        explicit ChunkList(ListType type = NONE) : list_type(type)
         {
             head.prev = &head;
             head.next = &head;
@@ -134,8 +130,7 @@ struct Manager
 
         [[nodiscard]] bool empty() const noexcept
         {
-            // return head.next == &head;
-            return size == 0; // 使用size判断是否为空
+            return head.next == &head;
         }
 
         void push_front(Chunk *chunk) noexcept
@@ -147,7 +142,6 @@ struct Manager
             head.next->prev = node;
             head.next = node;
             chunk->current_list = list_type;
-            ++size;
         }
 
         void push_back(Chunk *chunk) noexcept
@@ -159,7 +153,6 @@ struct Manager
             head.prev->next = node;
             head.prev = node;
             chunk->current_list = list_type;
-            ++size;
         }
 
         [[nodiscard]] Chunk *header() const noexcept
@@ -179,7 +172,6 @@ struct Manager
             node->prev = node->next = nullptr;
             Chunk *chunk = Chunk::from_list_node(node);
             chunk->current_list = ListType::NONE; // 状态重置
-            --size;
             return chunk;
         }
 
@@ -199,7 +191,6 @@ struct Manager
             node->prev = node->next = nullptr;
 
             chunk->current_list = ListType::NONE;
-            --size;
             return chunk;
         }
     };
@@ -209,7 +200,8 @@ struct Manager
     ChunkList wait_delete_list{ListType::WAIT_DELETE};
     uint64_t chunk_count{0};
 
-    T *allocate()
+    template <typename... Ags>
+    T *allocate(Ags &&...ags)
     {
         // free_list 为空则 new / 保证一直有值
         if (free_list.header() == nullptr)
@@ -217,11 +209,11 @@ struct Manager
             auto *new_chunk = new Chunk();
             free_list.push_front(new_chunk);
             chunk_count++;
-            return new_chunk->allocate(0);
+            return new_chunk->allocate(0, std::forward<Ags>(ags)...);
         }
 
         auto *chunk = free_list.header();
-        T *obj = chunk->allocate(chunk->find_free_slot());
+        T *obj = chunk->allocate(chunk->find_free_slot(), std::forward<Ags>(ags)...);
         // 如果满了,提前移到tmp_list
         if (chunk->no_available())
         {
@@ -606,6 +598,16 @@ void run_tests()
     // 新增子类测试
     test_subclass_destructor();
     test_subclass_memory_layout();
+
+    {
+        using T = TestVirtual;
+        Manager<T> pool;
+        T *p1 = pool.allocate();
+        pool.deallocate(p1);
+        T *p2 = pool.allocate();       // 可能复用同一地址
+        assert(p1 == p2);              // 假设内存池复用
+        assert(p2->get_value() == 42); // 若无 launder，此处是否正常？
+    }
 
     std::cout << "All tests passed!\n";
 }
