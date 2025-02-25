@@ -1,5 +1,6 @@
 #pragma once
 
+#include <execution>
 #include <utility>
 
 #include "../snd/__transform_sender.hpp"
@@ -18,52 +19,84 @@ namespace mcs::execution
     namespace adapt
     {
         template <typename T>
-        concept shape = true; // std::integral<T>;
+        concept shape = std::integral<std::remove_cvref_t<T>>;
 
-        // bulk runs a task repeatedly for every index in an index space.
-        struct bulk_t
+        template <typename Policy>
+        concept policy = std::is_execution_policy_v<std::remove_cvref_t<Policy>>;
+
+        namespace __detail
         {
-            template <snd::sender Sndr, shape Shape, movable_value Fun>
-            auto operator()(Sndr &&sndr, Shape &&shape, Fun &&f) const // noexcept
+            // bulk runs a task repeatedly for every index in an index space.
+            template <typename Algo>
+            struct bulk_algo
             {
-                auto dom = snd::general::get_domain_early(std::as_const(sndr));
-                return snd::transform_sender(
-                    dom, snd::make_sender(
-                             *this,
-                             snd::__detail::product_type{std::forward<Shape>(shape),
-                                                         std::forward<Fun>(f)},
-                             std::forward<Sndr>(sndr)));
-            }
+              private:
+                bulk_algo() = default; // Note: for CRTP
 
-            template <shape Shape, movable_value Fun>
-            auto operator()(Shape &&shape, Fun &&fun) const
-                -> pipeable::sender_adaptor<bulk_t, Shape, Fun>
-            {
-                return {*this, std::forward<Shape>(shape), std::forward<Fun>(fun)};
-            }
+              public:
+                template <snd::sender Sndr, policy Policy, shape Shape, movable_value Fun>
+                auto operator()(Sndr &&sndr, Policy &&policy, Shape &&shape,
+                                Fun &&f) const // noexcept
+                {
+                    auto dom = snd::general::get_domain_early(std::as_const(sndr));
+                    return snd::transform_sender(
+                        dom, snd::make_sender(
+                                 Algo(),
+                                 snd::__detail::product_type{std::forward<Policy>(policy),
+                                                             std::forward<Shape>(shape),
+                                                             std::forward<Fun>(f)},
+                                 std::forward<Sndr>(sndr)));
+                }
+
+                template <policy Policy, shape Shape, movable_value Fun>
+                auto operator()(Policy &&policy, Shape &&shape, Fun &&fun) const
+                    -> pipeable::sender_adaptor<bulk_algo, Policy, Shape, Fun>
+                {
+                    return {*this, std::forward<Policy>(policy),
+                            std::forward<Shape>(shape), std::forward<Fun>(fun)};
+                }
+                friend Algo; // Note: for CRTP
+            };
+
+        }; // namespace __detail
+
+        struct bulk_t : public __detail::bulk_algo<bulk_t>
+        {
+            using __detail::bulk_algo<bulk_t>::bulk_algo;
         };
-        inline constexpr bulk_t bulk{}; // NOLINT
+
+        struct bulk_chunked_t : public __detail::bulk_algo<bulk_chunked_t>
+        {
+            using __detail::bulk_algo<bulk_chunked_t>::bulk_algo;
+        };
+        struct bulk_unchunked_t : public __detail::bulk_algo<bulk_unchunked_t>
+        {
+            using __detail::bulk_algo<bulk_unchunked_t>::bulk_algo;
+        };
+
+        inline constexpr bulk_t bulk{};                     // NOLINT
+        inline constexpr bulk_chunked_t bulk_chunked{};     // NOLINT
+        inline constexpr bulk_unchunked_t bulk_unchunked{}; // NOLINT
     }; // namespace adapt
 
     template <>
-    struct snd::general::impls_for<adapt::bulk_t> : snd::__detail::default_impls
+    struct snd::general::impls_for<adapt::bulk_unchunked_t> : snd::__detail::default_impls
     {
-        // Note: args is a pack of lvalue subexpressions referring to the value completion
-        // Note: result datums of the input sender,otherwise undefined behavior.
         static constexpr auto complete = // NOLINT
             []<class Index, class State, class Rcvr, class Tag, class... Args>(
                 Index, State &state, Rcvr &rcvr, Tag, Args &&...args) noexcept -> void
             requires(
                 not std::same_as<Tag, set_value_t> ||
-                std::is_invocable_v<decltype(state.template get<1>()),
-                                    decltype(auto(state.template get<0>())), Args &...>)
+                std::is_invocable_v<decltype(state.template get<2>()),
+                                    decltype(auto(state.template get<1>())), Args &...>)
         {
             if constexpr (std::same_as<Tag, set_value_t>)
             {
-                auto &[shape, f] = state;
+                auto &[policy, shape, f] = state;
+                constexpr bool nothrow = noexcept(f(auto(shape), args...)); // NOLINT
                 try
                 {
-                    [&]() noexcept(noexcept(f(auto(shape), args...))) {
+                    [&]() noexcept(nothrow) {
                         for (decltype(auto(shape)) i = 0; i < shape; ++i)
                         {
                             f(auto(i), args...);
@@ -83,10 +116,106 @@ namespace mcs::execution
         };
     };
 
-    template <typename Sndr, typename Shape, typename Fun, typename Env>
+    template <>
+    struct snd::general::impls_for<adapt::bulk_chunked_t> : snd::__detail::default_impls
+    {
+        static constexpr auto complete = // NOLINT
+            []<class Index, class State, class Rcvr, class Tag, class... Args>(
+                Index, State &state, Rcvr &rcvr, Tag, Args &&...args) noexcept -> void
+            requires(
+                not std::same_as<Tag, set_value_t> ||
+                std::is_invocable_v<decltype(state.template get<2>()),
+                                    decltype(auto(state.template get<1>())),
+                                    decltype(auto(state.template get<1>())), Args &...>)
+        {
+            if constexpr (std::same_as<Tag, set_value_t>)
+            {
+                auto &[policy, shape, f] = state; // NOLINTNEXTLINE
+                constexpr bool nothrow = noexcept(f(auto(shape), auto(shape), args...));
+                try
+                {
+                    using Shape = decltype(auto(shape));
+                    [&]() noexcept(nothrow) {
+                        f(Shape{0}, auto(shape), args...);
+                        Tag()(std::move(rcvr), std::forward<Args>(args)...);
+                    }();
+                }
+                catch (...)
+                {
+                    recv::set_error(std::move(rcvr), std::current_exception());
+                }
+            }
+            else
+            {
+                Tag()(std::move(rcvr), std::forward<Args>(args)...);
+            }
+        };
+    };
+
+    template <>
+    struct snd::general::impls_for<adapt::bulk_t> : snd::__detail::default_impls
+    {
+        // Note: args is a pack of lvalue subexpressions referring to the value completion
+        // Note: result datums of the input sender,otherwise undefined behavior.
+        static constexpr auto complete = // NOLINT
+            []<class Index, class State, class Rcvr, class Tag, class... Args>(
+                Index, State &state, Rcvr &rcvr, Tag, Args &&...args) noexcept -> void
+            requires(
+                not std::same_as<Tag, set_value_t> ||
+                std::is_invocable_v<decltype(state.template get<2>()),
+                                    decltype(auto(state.template get<1>())), Args &...>)
+        {
+            if constexpr (std::same_as<Tag, set_value_t>)
+            {
+                auto &[policy, shape, f] = state;
+                constexpr bool nothrow = noexcept(f(auto(shape), args...)); // NOLINT
+                auto new_f = [func = std::move(f)]<typename Size, typename... Vs>(
+                                 Size begin, Size end, Vs &...vs) noexcept(nothrow) {
+                    while (begin != end)
+                        func(begin++, std::forward<Vs &>(vs)...);
+                };
+                // bucause State &state , &state need lvalue
+                auto new_state =
+                    snd::__detail::product_type{policy, shape, std::move(new_f)};
+                impls_for<adapt::bulk_chunked_t>::complete(
+                    Index(), new_state, rcvr, Tag(), std::forward<Args>(args)...);
+            }
+            else
+            {
+                Tag()(std::move(rcvr), std::forward<Args>(args)...);
+            }
+        };
+    };
+
+    template <typename Sndr, typename Policy, typename Shape, typename Fun, typename Env>
     struct cmplsigs::completion_signatures_for_impl<
-        snd::__detail::basic_sender<adapt::bulk_t,
-                                    snd::__detail::product_type<Shape, Fun>, Sndr>,
+        snd::__detail::basic_sender<
+            adapt::bulk_t, snd::__detail::product_type<Policy, Shape, Fun>, Sndr>,
+        Env>
+    {
+        using Add_Sig =
+            cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr)>;
+
+        using type = tfxcmplsigs::transform_completion_signatures<
+            snd::completion_signatures_of_t<Sndr, Env>, Add_Sig>;
+    };
+    template <typename Sndr, typename Policy, typename Shape, typename Fun, typename Env>
+    struct cmplsigs::completion_signatures_for_impl<
+        snd::__detail::basic_sender<
+            adapt::bulk_chunked_t, snd::__detail::product_type<Policy, Shape, Fun>, Sndr>,
+        Env>
+    {
+        using Add_Sig =
+            cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr)>;
+
+        using type = tfxcmplsigs::transform_completion_signatures<
+            snd::completion_signatures_of_t<Sndr, Env>, Add_Sig>;
+    };
+    template <typename Sndr, typename Policy, typename Shape, typename Fun, typename Env>
+    struct cmplsigs::completion_signatures_for_impl<
+        snd::__detail::basic_sender<adapt::bulk_unchunked_t,
+                                    snd::__detail::product_type<Policy, Shape, Fun>,
+                                    Sndr>,
         Env>
     {
         using Add_Sig =

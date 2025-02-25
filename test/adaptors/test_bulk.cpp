@@ -1,4 +1,5 @@
 #include "../test_base_head.hpp"
+#include <iostream>
 #include <numeric>
 #include <string>
 #include <string_view>
@@ -17,7 +18,8 @@ struct function_object_t
 {
     int *Counter; // NOLINT
 
-    void operator()(Shape i)
+    // Note: const 必须添加。因为 bulk内部的 lambda, 没有 mutable
+    void operator()(Shape i) const
     {
         Counter[i]++;
     }
@@ -26,24 +28,25 @@ struct function_object_t
 int main()
 {
     TEST("bulk returns a sender") = [] {
-        auto snd = ex::bulk(ex::just(1), 2, [](int, int) {});
+        auto snd = ex::bulk(ex::just(1), std::execution::par, 2, [](int, int) {});
         static_assert(ex::sender<decltype(snd)>);
     };
 
     TEST("bulk with environment returns a sender") = [] {
-        auto snd = ex::bulk(ex::just(1), 2, [](int, int) {});
+        auto snd = ex::bulk(ex::just(1), std::execution::par, 2, [](int, int) {});
         static_assert(ex::sender_in<decltype(snd), ex::empty_env>);
     };
 
     TEST("bulk can be piped") = [] {
-        ex::sender auto snd [[maybe_unused]] = ex::just() | ex::bulk(2, [](int) {});
+        ex::sender auto snd [[maybe_unused]] =
+            ex::just() | ex::bulk(std::execution::par, 2, [](int) {});
     };
 
     TEST("bulk keeps values_type from input sender") = [] {
         constexpr int n = 4; // NOLINT
         {
             auto pre_sndr = ex::just();
-            auto snd = pre_sndr | ex::bulk(n, [](int) {});
+            auto snd = pre_sndr | ex::bulk(std::execution::par, n, [](int) {});
             using Pre_Sndr = decltype(pre_sndr);
             using Sndr = decltype(snd);
             static_assert(std::is_same_v<ex::cmplsigs::value_types_of_t<Pre_Sndr>,
@@ -51,7 +54,7 @@ int main()
         }
         {
             auto pre_sndr = ex::just(1.0);
-            auto snd = pre_sndr | ex::bulk(n, [](int, double) {});
+            auto snd = pre_sndr | ex::bulk(std::execution::par, n, [](int, double) {});
             using Pre_Sndr = decltype(pre_sndr);
             using Sndr = decltype(snd);
             static_assert(std::is_same_v<ex::cmplsigs::value_types_of_t<Pre_Sndr>,
@@ -59,7 +62,8 @@ int main()
         }
         {
             auto pre_sndr = ex::just(1.0, std::string{});
-            auto snd = pre_sndr | ex::bulk(n, [](int, double, const std::string &) {});
+            auto snd = pre_sndr | ex::bulk(std::execution::par, n,
+                                           [](int, double, const std::string &) {});
             using Pre_Sndr = decltype(pre_sndr);
             using Sndr = decltype(snd);
             static_assert(std::is_same_v<ex::cmplsigs::value_types_of_t<Pre_Sndr>,
@@ -71,7 +75,7 @@ int main()
         constexpr int n = 4; // NOLINT
 
         auto pre_sndr = ex::just_error(std::string{"error"});
-        auto snd = pre_sndr | ex::bulk(n, [](int) {});
+        auto snd = pre_sndr | ex::bulk(std::execution::par, n, [](int) {});
         using Pre_Sndr = decltype(pre_sndr);
         using Sndr = decltype(snd);
 
@@ -91,7 +95,8 @@ int main()
         test::channel c{test::channel::NO_CALL};
         std::fill_n(counter, n, 0);
 
-        ex::sender auto snd = ex::just() | ex::bulk(n, function<int, n, counter>);
+        ex::sender auto snd =
+            ex::just() | ex::bulk(std::execution::par, n, function<int, n, counter>);
         auto op = ex::connect(snd, test::void_receiver{.called = &called, .chanel = &c});
         start(op);
 
@@ -113,7 +118,7 @@ int main()
         std::fill_n(counter, n, 0);
 
         function_object_t<int> fn{counter};
-        ex::sender auto snd = ex::just() | ex::bulk(n, fn);
+        ex::sender auto snd = ex::just() | ex::bulk(std::execution::par, n, fn);
 
         auto op = ex::connect(snd, test::void_receiver{.called = &called, .chanel = &c});
         start(op);
@@ -133,7 +138,8 @@ int main()
 
         // int counter[n]{0};   // NOLINT
         std::array<int, n> counter{}; // NOLINTNEXTLINE
-        ex::sender auto snd = ex::just() | ex::bulk(n, [&](int i) { counter[i]++; });
+        ex::sender auto snd =
+            ex::just() | ex::bulk(std::execution::par, n, [&](int i) { counter[i]++; });
 
         auto op = ex::connect(snd, test::void_receiver{.called = &called, .chanel = &c});
         start(op);
@@ -152,7 +158,7 @@ int main()
         std::array<int, n> counter{};    // NOLINT
 
         auto snd = ex::just(magic_number) //
-                   | ex::bulk(n, [&](int i, int val) {
+                   | ex::bulk(std::execution::par, n, [&](int i, int val) {
                          if (val == magic_number)
                          {
                              counter.at(i)++;
@@ -185,9 +191,10 @@ int main()
         std::ranges::iota(vals_expected, 0);
 
         auto snd = ex::just(std::move(vals)) //
-                   | ex::bulk(n, [&](std::size_t i, std::vector<int> &vals) {
-                         vals[i] = static_cast<int>(i);
-                     });
+                   | ex::bulk(std::execution::par, n,
+                              [&](std::size_t i, std::vector<int> &vals) {
+                                  vals[i] = static_cast<int>(i);
+                              });
 
         bool called{false};
         test::channel c{test::channel::NO_CALL};
@@ -210,7 +217,8 @@ int main()
         constexpr int n = 2; // NOLINT
 
         auto snd = ex::just() //
-                   | ex::bulk(n, [](int) -> int { throw std::logic_error{"err"}; });
+                   | ex::bulk(std::execution::par, n,
+                              [](int) -> int { throw std::logic_error{"err"}; });
         bool called{false};
         test::channel c{test::channel::NO_CALL};
         std::any any;
@@ -236,8 +244,8 @@ int main()
         constexpr int n = 2; // NOLINT
         int count{};
 
-        auto snd =
-            ex::just_error(std::string{"err"}) | ex::bulk(n, [&count](int) { count++; });
+        auto snd = ex::just_error(std::string{"err"}) |
+                   ex::bulk(std::execution::par, n, [&count](int, auto &) { count++; });
 
         bool called{false};
         test::channel c{test::channel::NO_CALL};
@@ -258,7 +266,8 @@ int main()
         constexpr int n = 2; // NOLINT
         int count{};
 
-        auto snd = ex::just_stopped() | ex::bulk(n, [&count](int) { count++; });
+        auto snd = ex::just_stopped() |
+                   ex::bulk(std::execution::par, n, [&count](int) { count++; });
 
         bool called{false};
         test::channel c{test::channel::NO_CALL};
@@ -273,8 +282,8 @@ int main()
     };
 
     TEST("default bulk works with non-default constructible types") = [] {
-        ex::sender auto s =
-            ex::just(non_default_constructible{1}) | ex::bulk(1, [](int, auto &) {});
+        ex::sender auto s = ex::just(non_default_constructible{1}) |
+                            ex::bulk(std::execution::par, 1, [](int, auto &) {});
         auto [ret] = mcs::this_thread::sync_wait(s).value();
         EXPECT(ret == non_default_constructible{1});
     };
@@ -284,11 +293,59 @@ int main()
         ex::scheduler auto sch = pool.get_scheduler();
 
         auto m_id = std::this_thread::get_id();
+        ex::sender auto s = ex::just(non_default_constructible{1}) |
+                            ex::continues_on(sch) |
+                            ex::bulk(std::execution::par, 3, [&](int index, auto &) {
+                                std::cout << "ex::bulk: index: " << index << '\n';
+
+                                EXPECT(m_id != std::this_thread::get_id());
+                            });
+        {
+            // Note: 增加是因为 p3481r1 impls-for<bulk_t>::complete
+            // 原版设计有问题，改成bulk_chunked_t或bulk_unchunked_t 结构就行了
+            using Sig = ex::cmplsigs::completion_signatures_for<
+                decltype(ex::just(non_default_constructible{1}) | ex::continues_on(sch)),
+                ex::empty_env>;
+            static_assert(
+                std::is_same_v<ex::cmplsigs::completion_signatures<ex::recv::set_value_t(
+                                   non_default_constructible)>,
+                               Sig>);
+        }
+        auto [ret] = mcs::this_thread::sync_wait(s).value();
+        EXPECT(ret == non_default_constructible{1});
+    };
+
+    TEST("bulk_chunked") = [] {
+        ex::static_thread_pool<4> pool{};
+        ex::scheduler auto sch = pool.get_scheduler();
+
+        auto m_id = std::this_thread::get_id();
         ex::sender auto s =
             ex::just(non_default_constructible{1}) | ex::continues_on(sch) |
-            ex::bulk(1, [&](int, auto &) { EXPECT(m_id != std::this_thread::get_id()); });
-        mcs::this_thread::sync_wait(s);
+            ex::bulk_chunked(std::execution::par, 3, [&](int begin, int end, auto &) {
+                std::cout << "ex::bulk: begin,end: (" << begin << "," << end << ")\n";
+                EXPECT(m_id != std::this_thread::get_id());
+            });
+        auto [ret] = mcs::this_thread::sync_wait(s).value();
+        EXPECT(ret == non_default_constructible{1});
     };
+    TEST("bulk_unchunked") = [] {
+        ex::static_thread_pool<4> pool{};
+        ex::scheduler auto sch = pool.get_scheduler();
+
+        auto m_id = std::this_thread::get_id();
+        ex::sender auto s =
+            ex::just(non_default_constructible{1}) | ex::continues_on(sch) |
+            ex::bulk_unchunked(std::execution::par, 3, [&](int index, auto &) {
+                std::cout << "ex::bulk: index: " << index << '\n';
+                EXPECT(m_id != std::this_thread::get_id());
+            });
+
+        auto [ret] = mcs::this_thread::sync_wait(s).value();
+        EXPECT(ret == non_default_constructible{1});
+    };
+    // TODO(mcs) bulk_xxx 没有使用到std::execution::par。是给编译器厂商优化用的的吧
+    // for 循环 比 std::for_each + par 强没想到吧
 
     return 0;
 }

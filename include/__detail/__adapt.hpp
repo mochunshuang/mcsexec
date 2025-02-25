@@ -42,6 +42,8 @@ namespace mcs::execution
     using ::mcs::execution::adapt::starts_on;
     using ::mcs::execution::adapt::on;
     using ::mcs::execution::adapt::bulk;
+    using ::mcs::execution::adapt::bulk_chunked;
+    using ::mcs::execution::adapt::bulk_unchunked;
     using ::mcs::execution::adapt::split;
     using ::mcs::execution::adapt::when_all;
     using ::mcs::execution::adapt::into_variant;
