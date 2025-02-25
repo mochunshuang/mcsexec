@@ -20,18 +20,22 @@ jobs:
         run: |
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
           echo "$(/opt/homebrew/bin/brew shellenv)" >> $GITHUB_ENV
+          source $GITHUB_ENV
 
       - name: Install GCC 14
         run: |
           brew install gcc@14
-          # 确认实际安装路径 (关键修复)
-          echo "GCC_PATH=$(brew --prefix gcc@14)/bin/gcc-14" >> $GITHUB_ENV
-          echo "GXX_PATH=$(brew --prefix gcc@14)/bin/g++-14" >> $GITHUB_ENV
+          GNU_PATH=$(brew --prefix gcc@14)/bin
+          echo "GCC_PATH=$GNU_PATH/gcc-14" >> $GITHUB_ENV
+          echo "GXX_PATH=$GNU_PATH/g++-14" >> $GITHUB_ENV
+          echo "PATH=$GNU_PATH:$PATH" >> $GITHUB_ENV
 
-      - name: Verify GNU compiler
+      - name: Verify GNU toolchain
         run: |
-          ${{ env.GXX_PATH }} --version | grep "g++"
-          ${{ env.GCC_PATH }} --version | grep "gcc"
+          which gcc-14
+          which g++-14
+          g++-14 --version
+          gcc-14 --version
 
       - name: Install Build Tools
         run: brew install cmake ninja
