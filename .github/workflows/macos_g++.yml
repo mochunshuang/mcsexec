@@ -1,4 +1,4 @@
-name: macos_g++_14_2
+name: macos_g++_14
 
 on:
   push:
@@ -8,13 +8,16 @@ on:
 
 env:
   BUILD_TYPE: Release
+  # 设置 GNU 编译器路径变量
+  GXX_PATH: /usr/local/bin/g++-14
+  GCC_PATH: /usr/local/bin/gcc-14
 
 jobs:
   build:
-    runs-on: macos-latest # 切换到 macOS 系统
+    runs-on: macos-latest
 
     steps:
-      - uses: actions/checkout@v4 # 检出代码
+      - uses: actions/checkout@v4
 
       - name: Print working directory
         run: pwd
@@ -22,33 +25,52 @@ jobs:
       - name: List files (for debugging)
         run: ls -R
 
-      - name: Install g++-14
+      - name: Install Homebrew (if not exists)
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.zshrc
+
+      - name: Install GNU g++-14
         run: |
           brew update
           brew install gcc@14
-          echo "/usr/local/opt/gcc@14/bin" >> $GITHUB_PATH
-      - name: Set g++-14 as default
+          # 创建明确的版本化符号链接
+          ln -sf /usr/local/bin/gcc-14 $GCC_PATH
+          ln -sf /usr/local/bin/g++-14 $GXX_PATH
+
+      - name: Verify GNU compiler
         run: |
-          sudo ln -sf /usr/local/opt/gcc@14/bin/g++-14 /usr/local/bin/g++
-      - name: Install CMake 3.30 (from official binaries)
+          $GXX_PATH --version | grep "g++"
+          $GCC_PATH --version | grep "gcc"
+
+      - name: Install CMake and Ninja
         run: |
-          brew install cmake
-      - name: Install Ninja (Latest Version)
+          brew install cmake ninja
+
+      - name: Configure CMake with GNU toolchain
         run: |
-          brew install ninja
-      - name: Configure CMake (with Ninja)
-        run: cmake -B build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -G Ninja -S .
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+            -DCMAKE_C_COMPILER=${{env.GCC_PATH}} \
+            -DCMAKE_CXX_COMPILER=${{env.GXX_PATH}} \
+            -DCMAKE_CXX_FLAGS="-stdlib=libstdc++" \
+            -G Ninja
 
       - name: Get number of logical cores
         id: get_cores
         run: echo "CORES=$(sysctl -n hw.logicalcpu)" >> $GITHUB_ENV
 
-      - name: Build (with parallel)
+      - name: Build with parallel
         run: |
-          cmake --build ./build --config ${{env.BUILD_TYPE}} --parallel ${{env.CORES}}
-      - name: Test (with parallel)
+          cmake --build ./build \
+            --config ${{env.BUILD_TYPE}} \
+            --parallel ${{env.CORES}}
+
+      - name: Test with parallel
         working-directory: ./build
         env:
           CTEST_PARALLEL_LEVEL: ${{env.CORES}}
         run: |
-          ctest -C ${{env.BUILD_TYPE}} --output-on-failure --verbose
+          ctest -C ${{env.BUILD_TYPE}} \
+            --output-on-failure \
+            --verbose
