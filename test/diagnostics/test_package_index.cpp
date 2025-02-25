@@ -1,8 +1,8 @@
 #include <iostream>
 #include <version>
-
+#define CHECK FALSE
 // NOTE: GCC15 才支持
-#if (__cpp_pack_indexing == 202311LL)
+#if (CHECK && __cpp_pack_indexing == 202311LL)
 #if false
 // 定义一个模板函数，使用包索引访问参数包中的元素
 template <typename... Ts>
