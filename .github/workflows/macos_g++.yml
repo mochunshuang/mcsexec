@@ -8,6 +8,7 @@ on:
 
 env:
   BUILD_TYPE: Release
+  BREW_PREFIX: /opt/homebrew # 显式定义brew路径
 
 jobs:
   build:
@@ -16,45 +17,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Homebrew
+      - name: Setup Homebrew Path
         run: |
-          # 卸载系统预装旧版本brew（如有）
-          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)" || true
-
-          # 全新安装到标准路径
-          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-          # 强制刷新当前shell环境
-          eval "$(/opt/homebrew/bin/brew shellenv)"
-          echo "BREW_PREFIX=/opt/homebrew" >> $GITHUB_ENV
-          echo "$(/opt/homebrew/bin/brew shellenv)" >> $GITHUB_ENV
+          # 直接加载brew环境变量
+          [[ -f $BREW_PREFIX/bin/brew ]] && eval "$($BREW_PREFIX/bin/brew shellenv)"
+          echo "$BREW_PREFIX/bin" >> $GITHUB_PATH
 
       - name: Install GCC 14
         run: |
-          # 使用绝对路径调用brew
-          /opt/homebrew/bin/brew install gcc@14
+          # 使用绝对路径确保找到brew
+          if ! command -v $BREW_PREFIX/bin/brew &> /dev/null; then
+              /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+              eval "$($BREW_PREFIX/bin/brew shellenv)"
+          fi
 
-          # 获取gcc真实安装路径
-          GCC_PATH=$(/opt/homebrew/bin/brew --prefix gcc)/bin/gcc-14
-          GXX_PATH=$(/opt/homebrew/bin/brew --prefix gcc)/bin/g++-14
+          $BREW_PREFIX/bin/brew install gcc@14
 
-          # 写入环境变量
-          echo "CC=${GCC_PATH}" >> $GITHUB_ENV
-          echo "CXX=${GXX_PATH}" >> $GITHUB_ENV
-          echo "PATH=$(/opt/homebrew/bin/brew --prefix gcc)/bin:$PATH" >> $GITHUB_ENV
+          # 动态获取gcc安装路径
+          GCC_BIN_PATH="$BREW_PREFIX/opt/gcc/bin"
+          echo "CC=$GCC_BIN_PATH/gcc-14" >> $GITHUB_ENV
+          echo "CXX=$GCC_BIN_PATH/g++-14" >> $GITHUB_ENV
+          echo "$GCC_BIN_PATH" >> $GITHUB_PATH  # 关键路径前置
 
-      - name: Verify Toolchain
+      - name: Verify Environment
         run: |
-          ls -l $(which gcc-14)
-          ls -l $(which g++-14)
-          gcc-14 --version | grep 'gcc'
-          g++-14 --version | grep 'g++'
+          echo "Current PATH: $PATH"
+          which gcc-14
+          which g++-14
+          g++-14 --version
 
-      - name: Install Build Dependencies
+      - name: Install Build Tools
         run: |
-          /opt/homebrew/bin/brew install cmake ninja pkg-config
+          $BREW_PREFIX/bin/brew install cmake ninja
 
-      - name: CMake Configure
+      - name: CMake Configuration
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \

@@ -9,6 +9,7 @@
 #include <vector>
 #include <bit>
 #include <type_traits>
+#include <climits>
 
 static inline std::atomic<uint64_t> total_allocated{0};
 static inline std::atomic<uint64_t> total_deallocated{0};
