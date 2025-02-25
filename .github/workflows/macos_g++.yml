@@ -8,9 +8,6 @@ on:
 
 env:
   BUILD_TYPE: Release
-  # 设置 GNU 编译器路径变量
-  GXX_PATH: /usr/local/bin/g++-14
-  GCC_PATH: /usr/local/bin/gcc-14
 
 jobs:
   build:
@@ -19,58 +16,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Print working directory
-        run: pwd
-
-      - name: List files (for debugging)
-        run: ls -R
-
-      - name: Install Homebrew (if not exists)
+      - name: Install Homebrew
         run: |
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.zshrc
+          echo "$(/opt/homebrew/bin/brew shellenv)" >> $GITHUB_ENV
 
-      - name: Install GNU g++-14
+      - name: Install GCC 14
         run: |
-          brew update
           brew install gcc@14
-          # 创建明确的版本化符号链接
-          ln -sf /usr/local/bin/gcc-14 $GCC_PATH
-          ln -sf /usr/local/bin/g++-14 $GXX_PATH
+          # 确认实际安装路径 (关键修复)
+          echo "GCC_PATH=$(brew --prefix gcc@14)/bin/gcc-14" >> $GITHUB_ENV
+          echo "GXX_PATH=$(brew --prefix gcc@14)/bin/g++-14" >> $GITHUB_ENV
 
       - name: Verify GNU compiler
         run: |
-          $GXX_PATH --version | grep "g++"
-          $GCC_PATH --version | grep "gcc"
+          ${{ env.GXX_PATH }} --version | grep "g++"
+          ${{ env.GCC_PATH }} --version | grep "gcc"
 
-      - name: Install CMake and Ninja
-        run: |
-          brew install cmake ninja
+      - name: Install Build Tools
+        run: brew install cmake ninja
 
-      - name: Configure CMake with GNU toolchain
+      - name: Configure CMake
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
             -DCMAKE_C_COMPILER=${{env.GCC_PATH}} \
             -DCMAKE_CXX_COMPILER=${{env.GXX_PATH}} \
-            -DCMAKE_CXX_FLAGS="-stdlib=libstdc++" \
             -G Ninja
 
-      - name: Get number of logical cores
-        id: get_cores
-        run: echo "CORES=$(sysctl -n hw.logicalcpu)" >> $GITHUB_ENV
+      - name: Build
+        run: cmake --build build --parallel $(sysctl -n hw.logicalcpu)
 
-      - name: Build with parallel
-        run: |
-          cmake --build ./build \
-            --config ${{env.BUILD_TYPE}} \
-            --parallel ${{env.CORES}}
-
-      - name: Test with parallel
+      - name: Test
         working-directory: ./build
-        env:
-          CTEST_PARALLEL_LEVEL: ${{env.CORES}}
-        run: |
-          ctest -C ${{env.BUILD_TYPE}} \
-            --output-on-failure \
-            --verbose
+        run: ctest --output-on-failure --parallel $(sysctl -n hw.logicalcpu)
