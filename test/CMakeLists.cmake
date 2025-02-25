@@ -24,6 +24,7 @@ auto_add_test_by_dir("concept")
 auto_add_test_by_dir("queries")
 auto_add_test_by_dir("task")
 auto_add_test_by_dir("stop_token")
+auto_add_test_by_dir("diagnostics")
 
 # 定义自定义命令，用于构建所有目标：注意，要在build目录下
 # 等价于：E:\0_github_project\mcsexec\mcsexec\build> ctest --parallel 16 -C Debug
