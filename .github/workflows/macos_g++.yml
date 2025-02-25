@@ -1,4 +1,4 @@
-name: macos_g++_14
+name: macos_gcc14
 
 on:
   push:
@@ -16,41 +16,56 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Homebrew
+      - name: Setup Homebrew
         run: |
+          # 卸载系统预装旧版本brew（如有）
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)" || true
+
+          # 全新安装到标准路径
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+          # 强制刷新当前shell环境
+          eval "$(/opt/homebrew/bin/brew shellenv)"
+          echo "BREW_PREFIX=/opt/homebrew" >> $GITHUB_ENV
           echo "$(/opt/homebrew/bin/brew shellenv)" >> $GITHUB_ENV
-          source $GITHUB_ENV
 
       - name: Install GCC 14
         run: |
-          brew install gcc@14
-          GNU_PATH=$(brew --prefix gcc@14)/bin
-          echo "GCC_PATH=$GNU_PATH/gcc-14" >> $GITHUB_ENV
-          echo "GXX_PATH=$GNU_PATH/g++-14" >> $GITHUB_ENV
-          echo "PATH=$GNU_PATH:$PATH" >> $GITHUB_ENV
+          # 使用绝对路径调用brew
+          /opt/homebrew/bin/brew install gcc@14
 
-      - name: Verify GNU toolchain
+          # 获取gcc真实安装路径
+          GCC_PATH=$(/opt/homebrew/bin/brew --prefix gcc)/bin/gcc-14
+          GXX_PATH=$(/opt/homebrew/bin/brew --prefix gcc)/bin/g++-14
+
+          # 写入环境变量
+          echo "CC=${GCC_PATH}" >> $GITHUB_ENV
+          echo "CXX=${GXX_PATH}" >> $GITHUB_ENV
+          echo "PATH=$(/opt/homebrew/bin/brew --prefix gcc)/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Verify Toolchain
         run: |
-          which gcc-14
-          which g++-14
-          g++-14 --version
-          gcc-14 --version
+          ls -l $(which gcc-14)
+          ls -l $(which g++-14)
+          gcc-14 --version | grep 'gcc'
+          g++-14 --version | grep 'g++'
 
-      - name: Install Build Tools
-        run: brew install cmake ninja
+      - name: Install Build Dependencies
+        run: |
+          /opt/homebrew/bin/brew install cmake ninja pkg-config
 
-      - name: Configure CMake
+      - name: CMake Configure
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
-            -DCMAKE_C_COMPILER=${{env.GCC_PATH}} \
-            -DCMAKE_CXX_COMPILER=${{env.GXX_PATH}} \
+            -DCMAKE_C_COMPILER=${{env.CC}} \
+            -DCMAKE_CXX_COMPILER=${{env.CXX}} \
+            -DCMAKE_CXX_STANDARD=20 \
             -G Ninja
 
-      - name: Build
+      - name: Build Project
         run: cmake --build build --parallel $(sysctl -n hw.logicalcpu)
 
-      - name: Test
+      - name: Run Tests
         working-directory: ./build
         run: ctest --output-on-failure --parallel $(sysctl -n hw.logicalcpu)
