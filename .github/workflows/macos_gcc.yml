@@ -1,4 +1,4 @@
-name: macos_gcc14_2
+name: macos_gcc_14
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
           [[ -f $BREW_PREFIX/bin/brew ]] && eval "$($BREW_PREFIX/bin/brew shellenv)"
           echo "$BREW_PREFIX/bin" >> $GITHUB_PATH
 
-      - name: Install GCC 14.2
+      - name: Install GCC 14
         run: |
           # 使用绝对路径确保找到brew
           if ! command -v $BREW_PREFIX/bin/brew &> /dev/null; then
@@ -31,11 +31,10 @@ jobs:
               eval "$($BREW_PREFIX/bin/brew shellenv)"
           fi
 
-          # 安装指定版本的GCC
-          $BREW_PREFIX/bin/brew install gcc@14.2
+          $BREW_PREFIX/bin/brew install gcc@14
 
           # 动态获取gcc安装路径
-          GCC_BIN_PATH="$BREW_PREFIX/opt/gcc@14.2/bin"
+          GCC_BIN_PATH="$BREW_PREFIX/opt/gcc/bin"
           echo "CC=$GCC_BIN_PATH/gcc-14" >> $GITHUB_ENV
           echo "CXX=$GCC_BIN_PATH/g++-14" >> $GITHUB_ENV
           echo "$GCC_BIN_PATH" >> $GITHUB_PATH  # 关键路径前置
