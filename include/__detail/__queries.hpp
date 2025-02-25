@@ -4,6 +4,7 @@
 #include "./queries/__get_allocator.hpp"
 #include "./queries/__get_completion_scheduler.hpp"
 #include "./queries/__get_delegation_scheduler.hpp"
+#include "./queries/__get_forward_progress_guarantee.hpp"
 #include "./queries/__get_domain.hpp"
 #include "./queries/__get_env.hpp"
 #include "./queries/__get_scheduler.hpp"
@@ -25,6 +26,7 @@ namespace mcs::execution
     using ::mcs::execution::queries::get_scheduler_t;
     using ::mcs::execution::queries::get_delegation_scheduler_t;
     using ::mcs::execution::queries::get_completion_scheduler_t;
+    using ::mcs::execution::queries::get_forward_progress_guarantee_t;
 
     using ::mcs::execution::queries::prop;
     using ::mcs::execution::queries::env;
@@ -37,6 +39,7 @@ namespace mcs::execution
     using ::mcs::execution::queries::get_scheduler;
     using ::mcs::execution::queries::get_delegation_scheduler;
     using ::mcs::execution::queries::get_completion_scheduler;
+    using ::mcs::execution::queries::get_forward_progress_guarantee;
 
     using ::mcs::execution::queries::completion_tag;
     using ::mcs::execution::queries::env_of_t;

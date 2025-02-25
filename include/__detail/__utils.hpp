@@ -5,6 +5,7 @@
 #include "./cmplsigs/__valid_completion_signatures.hpp"
 #include "./cmplsigs/__error_types_of_t.hpp"
 #include "./cmplsigs/__value_types_of_t.hpp"
+#include "./cmplsigs/__sends_stopped.hpp"
 #include "./cmplsigs/__single_sender_value_type.hpp"
 
 #include "./tfxcmplsigs/__transform_completion_signatures.hpp"
@@ -21,6 +22,7 @@ namespace mcs::execution
     using cmplsigs::completion_signatures; // template
     using cmplsigs::value_types_of_t;
     using cmplsigs::error_types_of_t;
+    using cmplsigs::sends_stopped;
     using cmplsigs::single_sender_value_type;
 
     // [exec.utils.tfxcmplsigs]
