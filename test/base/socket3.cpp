@@ -89,7 +89,7 @@ namespace HEAP
             T *allocate(index_type index) noexcept
             {
                 const status_type mask = status_type{1} << (BIT_COUNT - 1 - index);
-                status ^= mask;
+                status &= ~mask;
                 size_t offset = index * (sizeof(T) + sizeof(BlockHeader));
                 new (&block[offset]) T();
                 new (&block[offset + sizeof(T)]) BlockHeader{this, index};
