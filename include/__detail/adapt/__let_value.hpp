@@ -25,9 +25,6 @@
 #include "../queries/__get_env.hpp"
 #include "../queries/__env_of_t.hpp"
 
-#include "../cmplsigs/__detail/__merge_type_lists.hpp"
-#include "../cmplsigs/__detail/__filter_sigs_by_completion.hpp"
-
 #include "../tfxcmplsigs/__unique_variadic_template.hpp"
 
 #include "../conn/__connect_result_t.hpp"
@@ -36,7 +33,8 @@
 
 #include "../pipeable/__sender_adaptor.hpp"
 
-#include "../tool/Make_Return_Sigs.hpp"
+#include "../cmplsigs/__eptr_completion_if.hpp"
+#include "../tfxcmplsigs/__invalid_completion_signature.hpp"
 
 namespace mcs::execution
 {
@@ -233,11 +231,11 @@ namespace mcs::execution
         ////////////////////////////////////////////////////////////////
         // let_bind
         // Note: set_complete call this function
-        template <class State, class Rcvr, class... Args>
-        void let_bind(State &state, Rcvr &rcvr, Args &&...args)
+        template <bool is_nothrow, class State, class Rcvr, class... Args>
+        void let_bind(State &state, Rcvr &rcvr, Args &&...args) noexcept(is_nothrow)
         {
             using args_t = decayed_tuple<Args...>; // std::tuple
-            auto mkop2 = [&] {
+            auto mkop2 = [&] noexcept(is_nothrow) {
                 // Note: sender returned by f and create a completion
                 return conn::connect(
                     std::apply(std::move(state.fn), state.args.template emplace<args_t>(
@@ -249,6 +247,16 @@ namespace mcs::execution
             opstate::start(state.ops2.template emplace<decltype(mkop2())>(
                 snd::general::emplace_from{mkop2}));
         }
+        template <bool is_nothrow, typename Fn, typename Env, typename args_variant_t,
+                  typename ops2_variant_t>
+        struct let_state_type
+        {
+            static constexpr bool nothrow = is_nothrow; // NOLINT
+            Fn fn;                                      // exposition only
+            Env env;                                    // exposition only
+            args_variant_t args;                        // exposition only
+            ops2_variant_t ops2;                        // exposition only
+        };
 
     }; // namespace adapt
 
@@ -278,21 +286,21 @@ namespace mcs::execution
                 // respectively
                 //  Let LetSigs be a pack of those types in [Sigs] with a return type of
                 //  decayed-typeof<set-cpo>.
-                using Origin_LetSigs =
-                    typename cmplsigs::__detail::filter_sigs_by_completion<Completion,
-                                                                           Sigs>::type;
-                // Note: set_error_t is unusual，sndr in front may not provided
-                using LetSigs = std::conditional_t<
-                    std::is_same_v<Completion, recv::set_error_t> &&
-                        std::is_same_v<Origin_LetSigs, cmplsigs::completion_signatures<>>,
-                    cmplsigs::completion_signatures<recv::set_error_t(
-                        std::exception_ptr)>,
-                    Origin_LetSigs>;
+                using Origin_LetSigs = decltype(Sigs::template filter_sigs<Completion>());
+                static constexpr auto is_nothrow = // NOLINT
+                    []<class... Sigs>(cmplsigs::completion_signatures<Sigs...>) {
+                        auto fun = []<class... As>(Completion (*)(As...)) noexcept {
+                            return noexcept(std::declval<Fn>()(std::declval<As>()...));
+                        };
+                        return (fun(static_cast<Sigs *>(nullptr)) && ...);
+                    };
+                using LetSigs = decltype(Origin_LetSigs{});
 
                 // Note: 3:
                 // Let as-tuple be an alias template such that as-tuple<Tag(Args...)>
-                // denotes the type decayed-tuple<Args...> Note: 4 : Then args_variant_t
-                // denotes the type variant<monostate,as-tuple<LetSigs>...>
+                // denotes the type decayed-tuple<Args...> Note: 4 : Then
+                // args_variant_t denotes the type
+                // variant<monostate,as-tuple<LetSigs>...>
                 using args_variant_t =
                     typename adapt::compute_args_variant_t<LetSigs>::type;
 
@@ -301,14 +309,9 @@ namespace mcs::execution
                 // and as_sndr2 is Sndr
                 using ops2_variant_t =
                     typename adapt::compute_ops2_variant_t<Fn, LetSigs, Rcvr, Env>::type;
-                struct state_type
-                {
-                    Fn fn;               // exposition only
-                    Env env;             // exposition only
-                    args_variant_t args; // exposition only
-                    ops2_variant_t ops2; // exposition only
-                };
-                return state_type{std::forward_like<Sndr>(fn), let_env(child), {}, {}};
+                return adapt::let_state_type<is_nothrow(LetSigs{}), Fn, Env,
+                                             args_variant_t, ops2_variant_t>{
+                    std::forward_like<Sndr>(fn), let_env(child), {}, {}};
             };
 
         // initialized with a callable object
@@ -330,19 +333,28 @@ namespace mcs::execution
                                                       Args &&...args) noexcept -> void {
             if constexpr (std::same_as<Tag, Completion>)
             {
-                // TRY_EVAL(rcvr, let_bind(state, rcvr, std::forward<Args>(args)...));
-                try
+                static constexpr auto nothrow = // NOLINT
+                    std::remove_cvref_t<decltype(state)>::nothrow;
+                if constexpr (nothrow)
                 {
-                    // Note: Requirement 1: Note: below f exist in parameter state
-                    //  invokes f when set-cpo is called with sndr's result datums
-                    // Note: Requirement 2: Note；sender returned by f
-                    //  makes its completion dependent on
-                    //  the completion of a sender returned by f
-                    adapt::let_bind(state, rcvr, std::forward<Args>(args)...);
+                    adapt::let_bind<nothrow>(state, rcvr, std::forward<Args>(args)...);
                 }
-                catch (...)
+                else
                 {
-                    recv::set_error(std::move(rcvr), std::current_exception());
+                    try
+                    {
+                        // Note: Requirement 1: Note: below f exist in parameter state
+                        //  invokes f when set-cpo is called with sndr's result datums
+                        // Note: Requirement 2: Note；sender returned by f
+                        //  makes its completion dependent on
+                        //  the completion of a sender returned by f
+                        adapt::let_bind<nothrow>(state, rcvr,
+                                                 std::forward<Args>(args)...);
+                    }
+                    catch (...)
+                    {
+                        recv::set_error(std::move(rcvr), std::current_exception());
+                    }
                 }
             }
             else
@@ -353,67 +365,6 @@ namespace mcs::execution
             }
         };
     };
-
-    namespace adapt
-    {
-
-        template <typename Completion, typename Fun, typename Return_Sig>
-        struct Ensure_Let_Return_IS_Sndr;
-
-        template <typename Completion, typename Fun>
-        struct Ensure_Let_Return_IS_Sndr<Completion, Fun,
-                                         cmplsigs::completion_signatures<>>
-        {
-            static constexpr bool value = false; // NOLINT
-        };
-
-        // Note: additional try for set_error_t
-        template <typename Fun>
-        struct Ensure_Let_Return_IS_Sndr<recv::set_error_t, Fun,
-                                         cmplsigs::completion_signatures<>>
-        {
-            using Arg = decltype(std::current_exception());
-            static constexpr bool value = // NOLINT
-                std::invocable<Fun, Arg> &&
-                snd::sender<functional::call_result_t<Fun, Arg>>;
-            static_assert(value, "note: for let_error(sndr,Fun),set Fun Arg to "
-                                 "std::exception_ptr to avoid error");
-            using type = std::tuple<functional::call_result_t<Fun, Arg>>;
-        };
-        // Note: additional try for set_stopped_t
-        template <typename Fun>
-        struct Ensure_Let_Return_IS_Sndr<recv::set_stopped_t, Fun,
-                                         cmplsigs::completion_signatures<>>
-        {
-
-            static constexpr bool value = // NOLINT
-                std::invocable<Fun> && snd::sender<functional::call_result_t<Fun>>;
-            using type = std::tuple<functional::call_result_t<Fun>>;
-        };
-
-        // Note: funcation return type only one type,and Ts not void
-        template <typename Completion, typename Fun, typename... Ts>
-        struct Ensure_Let_Return_IS_Sndr<
-            Completion, Fun, cmplsigs::completion_signatures<recv::set_value_t(Ts)...>>
-        {
-            static constexpr bool value = (snd::sender<Ts> && ...); // NOLINT
-            // for fun can return many type,fun is template
-            using type = std::tuple<Ts...>;
-        };
-
-        template <typename T>
-        struct Generate_Sig_From_Sndrs;
-
-        template <typename... Sndr>
-            requires((snd::sender<Sndr> && ...))
-        struct Generate_Sig_From_Sndrs<std::tuple<Sndr...>>
-        {
-            using type = typename cmplsigs::__detail::merge_type_lists<
-                cmplsigs::completion_signatures,
-                snd::completion_signatures_of_t<Sndr>...>::type;
-        };
-
-    }; // namespace adapt
 
     /**
      * Note: 调用 `set-cpo` 并传入 `sndr` 的结果数据时，调用 `f`
@@ -429,33 +380,48 @@ namespace mcs::execution
      * 3、andpropagates the [other completion] operations sent by sndr.
      *
      */
-    template <typename Completion, typename Fun, typename Sender, typename Env>
+    template <typename Completion, typename Fun, typename Sndr, typename... Env>
     struct cmplsigs::completion_signatures_for_impl<
-        snd::__detail::basic_sender<adapt::__let_t<Completion>, Fun, Sender>, Env>
+        snd::__detail::basic_sender<adapt::__let_t<Completion>, Fun, Sndr>, Env...>
     {
-        using Add_Sig =
-            cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr)>;
+        static constexpr auto transform = // NOLINT
+            []<class Tag, class... As>(Tag (*)(As...)) {
+                if constexpr (std::is_same_v<Tag, Completion>)
+                {
+                    if constexpr (not std::invocable<Fun, As...>)
+                    {
+                        return tfxcmplsigs::invalid_completion_signature<
+                            IN_TAG(adapt::__let_t<Completion>), WITH_SENDER(Sndr),
+                            WITH_FUNCTION(Fun), WITH_ARGUMENTS(As...), WITH_ENV(Env...),
+                            NOTE_INFO(
+                                The_previous_completion_signature_does_not_match_the_current_function)>();
+                    }
+                    else
+                    {
+                        using Ret = decltype(std::declval<Fun>()(std::declval<As>()...));
+                        constexpr bool nothrow = // NOLINT
+                            noexcept(std::declval<Fun>()(std::declval<As>()...));
 
-        using Must_Handle_Sigs = typename cmplsigs::__detail::filter_sigs_by_completion<
-            Completion, snd::completion_signatures_of_t<Sender, Env>>::type;
-
-        using Must_Forward_Sigs = typename cmplsigs::__detail::skip_sigs_by_completion<
-            Completion, snd::completion_signatures_of_t<Sender, Env>>::type;
-
-        using Next_V_Sig = tool::Generate_V_Sigs<Fun, Must_Handle_Sigs>::type;
-
-        static_assert(
-            adapt::Ensure_Let_Return_IS_Sndr<Completion, Fun, Next_V_Sig>::value,
-            "ensure let-cpo(sndr, f) return type satisfy snd::sender");
-
-        using Sig_From_Fun_Return =
-            adapt::Generate_Sig_From_Sndrs<typename adapt::Ensure_Let_Return_IS_Sndr<
-                Completion, Fun, Next_V_Sig>::type>::type;
-
-        using type = typename tfxcmplsigs::unique_variadic_template<
-            typename cmplsigs::__detail::merge_type_lists<
-                cmplsigs::completion_signatures, Sig_From_Fun_Return, Must_Forward_Sigs,
-                Add_Sig>::type>::type;
+                        if constexpr (not snd::sender<Ret>)
+                        {
+                            return tfxcmplsigs::invalid_completion_signature<
+                                IN_TAG(adapt::__let_t<Completion>),
+                                NOTE_INFO(
+                                    the_fun_return_type_is_not_a_sndr_in_let_xxx)>();
+                        }
+                        else
+                        {
+                            return snd::completion_signatures_of_t<Ret>{} +
+                                   eptr_completion_if<nothrow>;
+                        }
+                    }
+                }
+                else
+                    return cmplsigs::completion_signatures<Tag(As...)>{};
+            };
+        using type =
+            decltype(snd::completion_signatures_of_t<Sndr, Env...>::transform_sigs(
+                transform));
     };
 
 }; // namespace mcs::execution
