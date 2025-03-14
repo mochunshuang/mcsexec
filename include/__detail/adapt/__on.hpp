@@ -37,10 +37,15 @@ namespace mcs::execution
 
             auto get_completion_signatures(auto &&) const // NOLINT
             {
+            }
+            template <class Sndr>
+            static constexpr auto get_completion_signatures() // NOLINT
+                -> cmplsigs::completion_signatures<>
+            {
                 struct not_completion_signatures
                 {
                 };
-                return not_completion_signatures{};
+                throw not_completion_signatures{};
             }
         };
         struct not_a_scheduler
@@ -184,16 +189,16 @@ namespace mcs::execution
     }; // namespace adapt
 
     // TODO(mcs): 2 type completion_signatures_for_impl may be
-    template <typename Sched, typename Sndr, typename Env>
+    template <typename Sched, typename Sndr, typename... Env>
     struct cmplsigs::completion_signatures_for_impl<
-        snd::__detail::basic_sender<adapt::on_t, Sched, Sndr>, Env>
+        snd::__detail::basic_sender<adapt::on_t, Sched, Sndr>, Env...>
     {
         using type = cmplsigs::completion_signatures_for_impl<
-            snd::__detail::basic_sender<adapt::starts_on_t, Sched, Sndr>, Env>::type;
+            snd::__detail::basic_sender<adapt::starts_on_t, Sched, Sndr>, Env...>::type;
     };
-    template <typename Sndr, typename Sched, typename Adaptor, typename Env>
+    template <typename Sndr, typename Sched, typename Adaptor, typename... Env>
     struct cmplsigs::completion_signatures_for_impl<
-        snd::__detail::basic_sender<adapt::on_t, Sndr, Sched, Adaptor>, Env>
+        snd::__detail::basic_sender<adapt::on_t, Sndr, Sched, Adaptor>, Env...>
     {
         using orig_sch = decltype(queries::get_completion_scheduler<set_value_t>(
             queries::get_env(std::as_const(std::declval<Sndr>()))));
@@ -209,7 +214,7 @@ namespace mcs::execution
         static_assert(snd::sender<ClosureCallResultType>,
                       "closure(cotinues_sndr) must return a sndr");
 
-        using type = snd::completion_signatures_of_t<ClosureCallResultType, Env>;
+        using type = snd::completion_signatures_of_t<ClosureCallResultType, Env...>;
     };
 
 }; // namespace mcs::execution
