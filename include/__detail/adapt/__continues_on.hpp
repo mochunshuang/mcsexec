@@ -70,12 +70,13 @@ namespace mcs::execution
         };
     };
 
-    template <typename Sched, typename Sndr, typename Env>
+    template <typename Sched, typename Sndr, typename... Env>
     struct cmplsigs::completion_signatures_for_impl<
-        snd::__detail::basic_sender<adapt::continues_on_t, Sched, Sndr>, Env>
+        snd::__detail::basic_sender<adapt::continues_on_t, Sched, Sndr>, Env...>
     {
         using type = typename cmplsigs::completion_signatures_for_impl<
-            snd::__detail::basic_sender<adapt::schedule_from_t, Sched, Sndr>, Env>::type;
+            snd::__detail::basic_sender<adapt::schedule_from_t, Sched, Sndr>,
+            Env...>::type;
     };
 
 }; // namespace mcs::execution
