@@ -61,12 +61,12 @@ namespace mcs::execution
 
     }; // namespace adapt
 
-    template <typename Sched, typename Sndr, typename Env>
+    template <typename Sched, typename Sndr, typename... Env>
     struct cmplsigs::completion_signatures_for_impl<
-        snd::__detail::basic_sender<adapt::starts_on_t, Sched, Sndr>, Env>
+        snd::__detail::basic_sender<adapt::starts_on_t, Sched, Sndr>, Env...>
     {
 
-        using type = decltype(snd::completion_signatures_of_t<Sndr, Env>{} +
+        using type = decltype(snd::completion_signatures_of_t<Sndr, Env...>{} +
                               cmplsigs::eptr_completion_if<
                                   std::is_nothrow_move_constructible_v<Sndr>>);
     };

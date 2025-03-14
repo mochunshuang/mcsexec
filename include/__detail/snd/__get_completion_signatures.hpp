@@ -37,20 +37,21 @@ namespace mcs::execution::snd
         {
             using sndr_type = std::remove_reference_t<Sndr>;
 
-            if constexpr (has_constexpr_completions<Sndr, Env...>)
+            if constexpr (has_constexpr_get_completion_signatures<Sndr, Env...>)
             {
                 // In the happy case where Sndr's customization is well-formed, a constant
                 // expression, and has a completion_signatures<> type, just return the
                 // result of calling the customization.
                 return sndr_type::template get_completion_signatures<Sndr, Env...>();
             }
-            else if constexpr (sizeof...(Env) == 1 && has_constexpr_completions<Sndr>)
+            else if constexpr (sizeof...(Env) == 1 &&
+                               has_constexpr_get_completion_signatures<Sndr>)
             {
                 return sndr_type::template get_completion_signatures<Sndr>();
             }
             // Otherwise, remove_cvref_t<NewSndr>::completion_signatures if that type is
             // well-formed,
-            else if constexpr (requires { typename sndr_type::completion_signatures; })
+            else if constexpr (has_completion_signatures_type<Sndr>)
             {
                 using CS = typename sndr_type::completion_signatures;
                 return CS{};
