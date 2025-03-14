@@ -35,7 +35,8 @@ int main()
         start(op);
         EXPECT(fun_called && called && chanel == test::channel::VALUE_CHANNEL);
     };
-
+    // TODO(mcs): 实现split后测试
+#if 0
     TEST("let_error simple example reference") = [] {
         bool called{false};
         std::any any;
@@ -57,6 +58,7 @@ int main()
         auto [ret] = std::any_cast<std::tuple<int>>(any);
         EXPECT(ret == 404);
     };
+#endif
 
     TEST("let_error can be piped") = [] {
         ex::sender auto snd [[maybe_unused]] =
@@ -68,9 +70,9 @@ int main()
             ex::just() | ex::let_error([](std::exception_ptr &&) { return ex::just(); });
         using T = decltype(snd);
         using CS = ex::snd::completion_signatures_of_t<T>;
+        // NOTE: ex::let_error的 fun 不会被调用
         static_assert(std::is_same_v<CS, mcs::execution::cmplsigs::completion_signatures<
-                                             mcs::execution::recv::set_value_t(),
-                                             recv::set_error_t(std::exception_ptr)>>);
+                                             mcs::execution::recv::set_value_t()>>);
         {
             ex::sender auto snd [[maybe_unused]] =
                 ex::just() | ex::let_error([](std::exception_ptr &&) {
@@ -78,14 +80,56 @@ int main()
                 });
             using T = decltype(snd);
             using CS = ex::snd::completion_signatures_of_t<T>;
-            static_assert(tool::eq_set_sigs_v<
-                          CS, mcs::execution::cmplsigs::completion_signatures<
-                                  recv::set_value_t(),
-                                  mcs::execution::recv::set_value_t(int, double, float),
-                                  recv::set_error_t(std::exception_ptr)>>);
+            static_assert(
+                tool::eq_set_sigs_v<CS, mcs::execution::cmplsigs::completion_signatures<
+                                            recv::set_value_t()>>);
         }
     };
-
+    TEST("let_error CS 1") = [] {
+        ex::sender auto snd [[maybe_unused]] =
+            ex::just() | ex::then([]() {}) |
+            ex::let_error([](std::exception_ptr &&) { return ex::just(); });
+        using T = decltype(snd);
+        using CS = ex::snd::completion_signatures_of_t<T>;
+        static_assert(
+            tool::is_same_v<
+                CS, mcs::execution::cmplsigs::completion_signatures<
+                        recv::set_value_t(), recv::set_error_t(std::exception_ptr)>>);
+    };
+    TEST("let_error CS 2") = [] {
+        ex::sender auto snd [[maybe_unused]] =
+            ex::just() | ex::then([]() noexcept(true) {}) |
+            ex::let_error([](std::exception_ptr &&) { return ex::just(); });
+        using T = decltype(snd);
+        using CS = ex::snd::completion_signatures_of_t<T>;
+        static_assert(tool::is_same_v<CS, mcs::execution::cmplsigs::completion_signatures<
+                                              recv::set_value_t()>>);
+    };
+    TEST("let_error CS 3") = [] {
+        ex::sender auto snd [[maybe_unused]] =
+            ex::just() | ex::then([]() noexcept(false) {}) |
+            ex::let_error([](std::exception_ptr &&) { return ex::just(1.0); });
+        using T = decltype(snd);
+        using CS = ex::snd::completion_signatures_of_t<T>;
+        // NOTE: ex::then() may_throw or no_throw
+        static_assert(
+            tool::is_same_v<CS, mcs::execution::cmplsigs::completion_signatures<
+                                    recv::set_value_t(), recv::set_value_t(double),
+                                    recv::set_error_t(std::exception_ptr)>>);
+    };
+    TEST("let_error CS 4") = [] {
+        ex::sender auto snd [[maybe_unused]] =
+            ex::just() | ex::then([]() noexcept(false) {}) |
+            ex::let_error(
+                [](std::exception_ptr &&) noexcept(true) { return ex::just(1.0); });
+        using T = decltype(snd);
+        using CS = ex::snd::completion_signatures_of_t<T>;
+        // NOTE: ex::then() may_throw or no_throw
+        // NOTE: ex::let_error with fun no_throw
+        static_assert(
+            tool::is_same_v<CS, mcs::execution::cmplsigs::completion_signatures<
+                                    recv::set_value_t(), recv::set_value_t(double)>>);
+    };
     TEST("let_error simple example ") = [] {
         bool called{false};
         std::any any;
@@ -149,12 +193,14 @@ int main()
         {
             // Note: sync_wait mandates that the input sender has exactly one value
             // completion signature.
-            // Note: 只能是 一个 值完成签名，因此。肯定是解决不了的。 string 和 int 冲突
+            // Note: 只能是 一个 值完成签名，因此。肯定是解决不了的。 string 和 int
+            // 冲突
             {
                 // ex::sender auto snd =
                 //     ex::just()                                   //
                 //     | ex::then([] { return std::string("13"); }) //
-                //     | ex::let_error([&](std::exception_ptr) { return ex::just(0); });
+                //     | ex::let_error([&](std::exception_ptr) { return ex::just(0);
+                //     });
                 // auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
                 // EXPECT(ret == 13);
                 // static_assert(std::is_same_v<decltype(ret), int>);

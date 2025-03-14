@@ -42,11 +42,27 @@ using NORMALIZE_SIG = typename _NORMALIZE_SIG<T>::type;
 template <typename F1, typename F2>
 concept MATCHING_SIG = std::same_as<NORMALIZE_SIG<F1>, NORMALIZE_SIG<F2>>; // NOLINT
 
+template <typename Fn, typename Tag>
+constexpr inline int is_tag_sig = 0; // NOLINT
+template <typename Tag, typename... Args>
+constexpr inline int is_tag_sig<Tag(Args...), Tag> = 1; // NOLINT
+
 template <completion_signature... Sigs>
 struct completion_signatures
 {
     template <class Sig> // NOLINTNEXTLINE
     static constexpr bool contains = (MATCHING_SIG<Sig, Sigs> || ...);
+
+    template <class Tag> // NOLINTNEXTLINE
+    static constexpr int count = (0 + ... + is_tag_sig<Sigs, Tag>);
+
+    template <class Tag>
+    static consteval auto filter_sigs_by_Tag() // NOLINT
+    {
+        return (std::conditional_t<is_tag_sig<Sigs, Tag>, completion_signatures<Sigs>,
+                                   completion_signatures<>>{} +
+                ... + completion_signatures<>{});
+    }
 
     template <class Sig>
     consteval auto operator+(completion_signatures<Sig> /*unused*/) const noexcept

@@ -22,6 +22,31 @@ constexpr void testtypeset_deduplication_order() // NOLINT
                        completion_signatures<set_value_t(int), set_error_t(exception_ptr),
                                              set_stopped_t()>>);
     {
+        static_assert(decltype(cs3)::count<set_value_t> == 1);
+        static_assert(decltype(cs3)::count<set_error_t> == 1);
+        static_assert(decltype(cs3)::count<set_stopped_t> == 1);
+        static_assert(completion_signatures<>::count<set_value_t> == 0);
+        static_assert(completion_signatures<>::count<set_error_t> == 0);
+        static_assert(completion_signatures<>::count<set_stopped_t> == 0);
+
+        static_assert(
+            decltype(cs3 +
+                     completion_signatures<set_value_t(double)>{})::count<set_value_t> ==
+            2);
+        using CS = decltype(cs3 + completion_signatures<set_value_t(double)>{});
+        using CS2 = decltype(CS::filter_sigs_by_Tag<set_value_t>());
+        static_assert(
+            std::is_same_v<CS2,
+                           completion_signatures<set_value_t(int), set_value_t(double)>>);
+
+        {
+            using CS2 =
+                decltype(completion_signatures<>::filter_sigs_by_Tag<set_value_t>());
+            static_assert(std::is_same_v<CS2, completion_signatures<>>);
+        }
+    }
+
+    {
         completion_signatures<> empty;
         auto cs3 = cs1 + empty;
         static_assert(std::is_same_v<decltype(cs3), decltype(cs1)>);

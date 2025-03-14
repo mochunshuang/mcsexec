@@ -17,6 +17,24 @@ int main()
         static_assert(ex::sender_in<decltype(sndr), ex::empty_env>);
     };
 
+    TEST("then with fun throw") = [] {
+        auto snd = ex::let_value(ex::just(), [] { return ex::just(); });
+        using CS = snd::completion_signatures_of_t<decltype(snd)>;
+        static_assert(tool::is_same_v<CS, ex::cmplsigs::completion_signatures<
+                                              ex::recv::set_error_t(std::exception_ptr),
+                                              ex::recv::set_value_t()>>);
+    };
+    TEST("then with fun nothrow") = [] {
+        auto snd = ex::let_value(ex::just(), [] noexcept(true) { return ex::just(); });
+        using CS = snd::completion_signatures_of_t<decltype(snd)>;
+        static_assert(tool::is_same_v<
+                      CS, ex::cmplsigs::completion_signatures<ex::recv::set_value_t()>>);
+    };
+
+    TEST("compile time error") = [] {
+        // auto snd = ex::let_value(ex::just(), [] { return 1; });
+    };
+
     TEST("let_value simple example") = [] {
         bool called{false};
         auto snd = ex::let_value(ex::just(), [&] {
@@ -153,7 +171,7 @@ int main()
         std::any any;
         test::channel c{test::channel::NO_CALL};
         auto snd = ex::just(13) //
-                   | ex::let_value([](int &) -> decltype(ex::just(0)) {
+                   | ex::let_value([](int) -> decltype(ex::just(0)) {
                          throw std::logic_error{"err"};
                      });
 
@@ -289,13 +307,10 @@ int main()
         start(op);
         EXPECT(completed);
 
-        // receiver 需要额外的 std::exception_ptr 通道，因为还处理可能的异常
         using T = decltype(snd);
         using CO = ex::snd::completion_signatures_of_t<T>;
-        static_assert(std::is_same_v<
-                      ex::cmplsigs::completion_signatures<
-                          recv::set_value_t(), recv::set_error_t(std::exception_ptr)>,
-                      CO>);
+        static_assert(
+            std::is_same_v<ex::cmplsigs::completion_signatures<recv::set_value_t()>, CO>);
     };
     return 0;
 }

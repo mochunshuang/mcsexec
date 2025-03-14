@@ -43,6 +43,11 @@ struct MyClass
 };
 // NOLINTEND
 
+template <bool NoExcept>
+void myFunction() noexcept(NoExcept) // NOLINT
+{
+}
+
 int main()
 {
     // 普通函数
@@ -84,6 +89,10 @@ int main()
     };
     test<true, ArgTester, int>();
     test<false, ArgTester, double>();
+
+    // 待确定的模板函数
+    test<false, decltype(&myFunction<false>)>();
+    test<true, decltype(&myFunction<true>)>();
 
     // NOTE: 结论，知道函数的所有类型，就能算出 是否有异常。返回值更简单了
 

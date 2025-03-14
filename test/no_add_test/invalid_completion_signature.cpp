@@ -75,6 +75,10 @@ consteval bool is_dependent_sender_helper()
 
 int main()
 {
+    {
+        struct in_valid;
+        static_assert(not valid_completion_signatures<in_valid>);
+    }
     // Note: completion_signatures<> 是合法的，completion_signatures实例化的都是合法
     static_assert(valid_completion_signatures<completion_signatures<>>);
 
