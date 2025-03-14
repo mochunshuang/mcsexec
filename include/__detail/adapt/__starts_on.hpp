@@ -5,7 +5,7 @@
 
 #include "./__let_value.hpp"
 
-#include "../tfxcmplsigs/__transform_completion_signatures.hpp"
+#include "../cmplsigs/__eptr_completion_if.hpp"
 
 namespace mcs::execution
 {
@@ -65,11 +65,10 @@ namespace mcs::execution
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<adapt::starts_on_t, Sched, Sndr>, Env>
     {
-        using Add_Sig =
-            cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr)>;
 
-        using type = tfxcmplsigs::transform_completion_signatures<
-            snd::completion_signatures_of_t<Sndr, Env>, Add_Sig>;
+        using type = decltype(snd::completion_signatures_of_t<Sndr, Env>{} +
+                              cmplsigs::eptr_completion_if<
+                                  std::is_nothrow_move_constructible_v<Sndr>>);
     };
 
 }; // namespace mcs::execution

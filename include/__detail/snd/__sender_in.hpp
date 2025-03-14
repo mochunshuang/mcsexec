@@ -1,15 +1,14 @@
 #pragma once
 #include "./__get_completion_signatures.hpp"
-#include "../cmplsigs/__valid_completion_signatures.hpp"
+#include "./__is_constant.hpp"
+#include "__cs_compiler_err.hpp"
 
 namespace mcs::execution::snd
 {
-    template <class Sndr, class Env = ::mcs::execution::empty_env>
+    template <class Sndr, class... Env>
     concept sender_in =
-        sender<Sndr> && queryable<Env> && requires(Sndr &&sndr, Env &&env) {
-            {
-                get_completion_signatures(std::forward<Sndr>(sndr),
-                                          std::forward<Env>(env))
-            } -> cmplsigs::valid_completion_signatures;
-        };
+        sender<Sndr> && (queryable<Env> && ...) &&
+        is_constant<get_completion_signatures<Sndr, Env...>()> &&
+        not cs_compiler_err<decltype(get_completion_signatures<Sndr, Env...>())>;
+
 }; // namespace mcs::execution::snd

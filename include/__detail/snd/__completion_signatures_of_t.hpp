@@ -1,13 +1,14 @@
 #pragma once
 
 #include "./__get_completion_signatures.hpp"
-#include "../__functional/__call_result_t.hpp"
+#include "./__sender_in.hpp"
 
 namespace mcs::execution::snd
 {
 
-    template <typename S, typename E = ::mcs::execution::empty_env>
+    template <class Sndr, class... Env>
+        requires snd::sender_in<Sndr, Env...>
     using completion_signatures_of_t =
-        functional::call_result_t<get_completion_signatures_t, S, E>;
+        decltype(get_completion_signatures<Sndr, Env...>());
 
 }; // namespace mcs::execution::snd

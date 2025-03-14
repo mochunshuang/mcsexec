@@ -56,11 +56,11 @@ namespace mcs::execution
         };
     };
 
-    template <typename Completion, typename Env, typename... T>
+    template <typename Completion, typename... Env, typename... T>
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<factories::__just_t<Completion>,
                                     snd::__detail::product_type<T...>>,
-        Env>
+        Env...>
     {
         using type = cmplsigs::completion_signatures<Completion(T...)>;
     };

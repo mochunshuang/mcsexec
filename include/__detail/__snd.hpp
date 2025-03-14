@@ -20,7 +20,6 @@ namespace mcs::execution
     using ::mcs::execution::snd::transform_sender;
     using ::mcs::execution::snd::transform_env;
     using ::mcs::execution::snd::apply_sender;
-    using ::mcs::execution::snd::get_completion_signatures_t;
 
     using ::mcs::execution::snd::completion_signatures_of_t;
 

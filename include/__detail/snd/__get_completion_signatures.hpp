@@ -1,105 +1,113 @@
 #pragma once
 
-#include <exception>
 #include <type_traits>
 #include <utility>
-#include "./general/__SET_VALUE_SIG.hpp"
-#include "./general/__get_domain_late.hpp"
 
-#include "../awaitables/__env_promise.hpp"
-#include "../awaitables/__is_awaitable.hpp"
-#include "../awaitables/__await_result_type.hpp"
+#include "./general/__get_domain_late.hpp"
 
 #include "./__transform_sender.hpp"
 #include "../cmplsigs/__completion_signatures.hpp"
 
+#include "../cmplsigs/__valid_completion_signatures.hpp"
+#include "./__has_constexpr_completions.hpp"
+
 namespace mcs::execution::snd
 {
 
-    // Then the type of the expression get_completion_signatures(sndr, env) is a
-    // specialization of the class template completion_signatures
-    // ([exec.utils.cmplsigs]), the set of whose template arguments is Sigs
-    /**
-     * @brief   sender_in<Sndr, env_of_t<Rcvr>>:
-                检查 Sndr 是否可以在 Rcvr 的环境中作为 sender 使用。
-
-                completion_signatures_of_t<Sndr, env_of_t<Rcvr>>:
-                获取 Sndr 在 Rcvr 环境中的完成签名。
-
-                MATCHING-SIG(decayed-typeof<CSO>(decltype(args)...), Sig):
-                检查 CSO 的类型（经过 decay 处理）和 args... 的类型是否与 Sig 匹配
-
-        rcvr:
-        一个右值，其类型 Rcvr 符合 receiver 模型。
-
-        Sndr:
-        一个 sender 类型，满足 sender_in<Sndr, env_of_t<Rcvr>> 为 true。
-
-        Sigs...:
-        completion_signatures_of_t<Sndr, env_of_t<Rcvr>> 的模板参数，表示 sender
-     的完成签名。
-
-        CSO:
-        一个完成函数（completion function）。
-
-    表达式 CSO(rcvr, args...) 可能被求值：
-    如果 sender Sndr 或其操作状态导致表达式 CSO(rcvr, args...) 可能被求值（根据
-    [basic.def.odr] 规则）。
-
-    匹配签名：
-    必须存在一个签名 Sig 在 Sigs... 中，使得
-    MATCHING-SIG(decayed-typeof<CSO>(decltype(args)...), Sig) 为 true。
-     *
-     */
-    struct get_completion_signatures_t
+    namespace __detail
     {
+        template <class Sndr, class... Env>
+        using completion_signatures_result_t = // exposition only
+            decltype(std::remove_reference_t<Sndr>::template get_completion_signatures<
+                     Sndr, Env...>());
 
-        template <typename S, typename E>
-        constexpr auto operator()(S &&sndr, E &&env) const noexcept
+        template <class Sndr, class... Env>
+        concept dependent_sender_without_env = // exposition only
+            (sizeof...(Env) == 0) &&
+            not requires { typename completion_signatures_result_t<Sndr>; };
+
+        template <class Sndr, class... Env>
+        consteval auto get_completion_signatures_impl()
         {
+            using sndr_type = std::remove_reference_t<Sndr>;
 
-            // RTV
-            auto new_sndr = [&]() {
-                return transform_sender(
-                    decltype(general::get_domain_late(sndr, env)){}, //
-                    std::forward<S>(sndr), env);
-            };
-
-            using NewSndr = decltype((new_sndr()));
-            using Env = decltype((env));
-
-            if constexpr (requires {
-                              std::forward<decltype(new_sndr())>(new_sndr())
-                                  .get_completion_signatures(std::forward<E>(env));
-                          })
+            if constexpr (has_constexpr_completions<Sndr, Env...>)
             {
-                using CS = decltype(std::forward<decltype(new_sndr())>(new_sndr())
-                                        .get_completion_signatures(std::forward<E>(env)));
-                return (void(sndr), void(env), CS());
+                // In the happy case where Sndr's customization is well-formed, a constant
+                // expression, and has a completion_signatures<> type, just return the
+                // result of calling the customization.
+                return sndr_type::template get_completion_signatures<Sndr, Env...>();
+            }
+            else if constexpr (sizeof...(Env) == 1 && has_constexpr_completions<Sndr>)
+            {
+                return sndr_type::template get_completion_signatures<Sndr>();
+            }
+            // Otherwise, remove_cvref_t<NewSndr>::completion_signatures if that type is
+            // well-formed,
+            else if constexpr (requires { typename sndr_type::completion_signatures; })
+            {
+                using CS = typename sndr_type::completion_signatures;
+                return CS{};
+            }
+            // Otherwise, (throw dependent-sender-error(), completion_signatures()) if
+            // dependent-sender-without-env<Sndr, Env...> is true
+            else if constexpr (dependent_sender_without_env<Sndr, Env...>)
+            {
+                // throw dependent-sender-error()
+                return cmplsigs::completion_signatures<>{};
             }
             else if constexpr (requires {
-                                   typename std::remove_cvref_t<
-                                       NewSndr>::completion_signatures;
+                                   typename completion_signatures_result_t<Sndr, Env...>;
                                })
             {
-                using CS = std::remove_cvref_t<NewSndr>::completion_signatures;
-                return (void(sndr), void(env), CS());
+                struct unspecified
+                {
+                };
+                throw unspecified{};
+                return cmplsigs::completion_signatures<>{};
             }
-            else if constexpr (awaitables::is_awaitable<NewSndr,
-                                                        awaitables::env_promise<Env>>)
+            else
             {
-                using general::SET_VALUE_SIG;
-
-                using CS = cmplsigs::completion_signatures<
-                    SET_VALUE_SIG<awaitables::await_result_type<
-                        NewSndr,
-                        awaitables::env_promise<Env>>>, // see
-                                                        // [exec.snd.concepts]
-                    set_error_t(std::exception_ptr), set_stopped_t()>;
-                return (void(sndr), void(env), CS());
+                struct unspecified
+                {
+                };
+                // Otherwise, we reach here under the following conditions:
+                //_The call to Sndr's customization cannot be constant-evaluated
+                // (possibly
+                //   because it throws), or
+                //_Its return type is not a completion_signatures type.
+                //
+                // We want to call the call the Sndr's customization so that if it throws
+                // an exception, that exception's information will appear in the
+                // diagnostic. If it doesn't throw, _we_ should throw to let the developer
+                // know that their customization returned an invalid type. And again,
+                // ensure that the return type is a completion_signatures type.
+                return (sndr_type::template get_completion_signatures<Sndr, Env...>(),
+                        throw unspecified{}, cmplsigs::completion_signatures());
             }
         }
-    };
-    constexpr inline get_completion_signatures_t get_completion_signatures{}; // NOLINT
+
+    }; // namespace __detail
+
+    // [exec.getcomplsigs]
+    template <class Sndr, class... Env>
+        requires(sizeof...(Env) <= 1)
+    consteval auto get_completion_signatures() -> cmplsigs::valid_completion_signatures
+        auto
+    {
+        if constexpr (sizeof...(Env) == 0)
+        {
+            return __detail::get_completion_signatures_impl<Sndr>();
+        }
+        else
+        {
+            // Apply a late sender transform:
+            using NewSndr = decltype(transform_sender(
+                decltype(general::get_domain_late(std::declval<Sndr>(),
+                                                  std::declval<Env>()...)){},
+                std::declval<Sndr>(), std::declval<Env>()...));
+            return __detail::get_completion_signatures_impl<NewSndr, Env...>();
+        }
+    }
 
 }; // namespace mcs::execution::snd

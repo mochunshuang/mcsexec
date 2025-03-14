@@ -11,7 +11,7 @@ namespace mcs::execution::pipeable
                 requires(Sndr &&sndr, Adaptor &&adaptor) {
                     { adaptor(std::forward<Sndr>(sndr)) } -> snd::sender;
                 }
-    auto operator|(Sndr &&sndr, Adaptor &&adaptor)
+    static constexpr auto operator|(Sndr &&sndr, Adaptor &&adaptor)
     {
         return std::forward<Adaptor>(adaptor)(std::forward<Sndr>(sndr));
     }

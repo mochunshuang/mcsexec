@@ -23,7 +23,6 @@
 #include "../queries/__env_of_t.hpp"
 
 #include "../tfxcmplsigs/__unique_variadic_template.hpp"
-#include "../tfxcmplsigs/__transform_completion_signatures.hpp"
 
 #include "../conn/__connect_result_t.hpp"
 
@@ -32,6 +31,7 @@
 #include "../sched/__schedule_result_t.hpp"
 
 #include "../factories/__schedule.hpp"
+#include "../cmplsigs/__eptr_completion_if.hpp"
 
 namespace mcs::execution
 {
@@ -128,16 +128,37 @@ namespace mcs::execution
                 // async_result set value when children call complete
             }
         };
+
+        namespace __detail
+        {
+            template <typename T>
+            concept copy_no_except =
+                not std::is_copy_constructible_v<T> ||
+                (std::is_copy_constructible_v<T> && requires(const T &t) {
+                    { T(t) } noexcept;
+                });
+            template <typename T>
+            concept move_no_except = not std::is_move_constructible_v<T> ||
+                                     (std::is_move_constructible_v<T> && requires(T &&t) {
+                                         { T(std::move(t)) } noexcept;
+                                     });
+            template <typename T>
+            concept no_copy_move_throw =
+                (std::is_move_constructible_v<T> && move_no_except<T>) ||
+                (!std::is_move_constructible_v<T> && copy_no_except<T>) ||
+                (!std::is_move_constructible_v<T> && !std::is_copy_constructible_v<T>);
+        }; // namespace __detail
+
         template <typename Sigs>
         struct check_type_no_copy_move_throw;
+
         template <typename Tag, typename... T>
         struct check_type_no_copy_move_throw<Tag(T...)>
         {
             static constexpr bool value = // NOLINT
-                ((noexcept(T(std::declval<T &>())) &&
-                  noexcept(T(std::declval<T &&>()))) &&
-                 ...);
+                (__detail::no_copy_move_throw<T> && ...);
         };
+
         template <typename Tag>
         struct check_type_no_copy_move_throw<Tag()>
         {
@@ -165,7 +186,9 @@ namespace mcs::execution
 
         // Note: used by basic_state initialized when connect(out_sndr,out_recr)
         static constexpr auto get_state = // NOLINT
-            []<class OutSndr, class OutRcvr>(OutSndr &&sndr, OutRcvr &rcvr) noexcept(true)
+            []<class OutSndr, class OutRcvr>(OutSndr &&sndr, OutRcvr &rcvr) noexcept(
+                adapt::is_Sig_no_throw<snd::completion_signatures_of_t<
+                    OutSndr, queries::env_of_t<OutRcvr>>>::value)
             requires(snd::sender_in<snd::__detail::mate_type::child_type<OutSndr>,
                                     queries::env_of_t<OutRcvr>>)
         {
@@ -178,9 +201,10 @@ namespace mcs::execution
                     OutSndr, queries::env_of_t<OutRcvr>>>::value,
                 cmplsigs::completion_signatures<>,
                 cmplsigs::completion_signatures<set_error_t(std::exception_ptr)>>;
-            using Sigs = tfxcmplsigs::transform_completion_signatures<
-                snd::completion_signatures_of_t<OutSndr, queries::env_of_t<OutRcvr>>,
-                Add_E>;
+            using Sigs =
+                decltype(snd::completion_signatures_of_t<OutSndr,
+                                                         queries::env_of_t<OutRcvr>>{} +
+                         Add_E{});
             /**
              * @brief
              * 1、Objects of the local class state-type can be used to initialize a
@@ -205,36 +229,38 @@ namespace mcs::execution
             constexpr bool nothrow = // NOLINT
                 std::is_nothrow_constructible_v<result_t, Tag, Args...>;
 
-            try
+            if constexpr (nothrow)
             {
                 state.async_result.template emplace<result_t>(
                     Tag(), std::forward<Args>(args)...);
             }
-            catch (...)
+            else
             {
-                if constexpr (not nothrow)
+                try
+                {
+                    state.async_result.template emplace<result_t>(
+                        Tag(), std::forward<Args>(args)...);
+                }
+                catch (...)
                 {
                     recv::set_error(std::move(rcvr), std::current_exception());
                     return;
                 }
             }
+
             // As the call to set_error() can potentially end up destroying the
             // operation-state. may a dangling reference to state
             opstate::start(state.op_state);
         };
     };
 
-    template <typename Sched, typename Sndr, typename Env>
+    template <typename Sched, typename Sndr, typename... Env>
     struct cmplsigs::completion_signatures_for_impl<
-        snd::__detail::basic_sender<adapt::schedule_from_t, Sched, Sndr>, Env>
+        snd::__detail::basic_sender<adapt::schedule_from_t, Sched, Sndr>, Env...>
     {
-        using Add_Sig = std::conditional_t<
-            adapt::is_Sig_no_throw<snd::completion_signatures_of_t<Sndr, Env>>::value,
-            cmplsigs::completion_signatures<>,
-            cmplsigs::completion_signatures<set_error_t(std::exception_ptr)>>;
-
-        using type = tfxcmplsigs::transform_completion_signatures<
-            snd::completion_signatures_of_t<Sndr, Env>, Add_Sig>;
+        using type = decltype(snd::completion_signatures_of_t<Sndr, Env...>{} +
+                              eptr_completion_if<adapt::is_Sig_no_throw<
+                                  snd::completion_signatures_of_t<Sndr, Env...>>::value>);
     };
 
 }; // namespace mcs::execution

@@ -10,7 +10,7 @@ namespace mcs::execution::snd::general
         Env env; // NOLINT
 
       public:
-        explicit FWD_ENV(Env &&env) : env(std::forward<Env>(env)) {}
+        explicit FWD_ENV(Env &&env) : env(std::move(env)) {}
 
         template <queryable Q, typename... As>
             requires(queries::forwarding_query(std::remove_cvref_t<Q>())) &&

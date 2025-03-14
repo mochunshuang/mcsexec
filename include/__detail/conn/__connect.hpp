@@ -12,6 +12,8 @@
 
 #include "../awaitables/__await_result_type.hpp"
 
+#include "../snd/__has_constexpr_completions.hpp"
+
 namespace mcs::execution::conn
 {
     /**
@@ -27,6 +29,7 @@ namespace mcs::execution::conn
     struct connect_t
     {
         template <typename Sndr, typename Rcvr>
+            requires(snd::has_constexpr_completions<Sndr, queries::env_of_t<Rcvr>>)
         constexpr auto operator()(Sndr &&sndr, Rcvr rcvr) const noexcept
         {
             // Note: lambda: for lazy

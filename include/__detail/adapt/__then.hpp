@@ -18,13 +18,8 @@
 #include "../recv/__set_stopped.hpp"
 #include "../recv/__set_value.hpp"
 
-#include "../cmplsigs/__detail/__filter_sigs_by_completion.hpp"
-
-#include "../tfxcmplsigs/__unique_variadic_template.hpp"
-#include "../cmplsigs/__detail/__merge_type_lists.hpp"
-
-#include "../tool/Make_Return_Sigs.hpp"
-#include "../tool/Complile_Error_As_Error_Sig.hpp"
+#include "../cmplsigs/__eptr_completion_if.hpp"
+#include "../tfxcmplsigs/__invalid_completion_signature.hpp"
 
 namespace mcs::execution
 {
@@ -71,7 +66,10 @@ namespace mcs::execution
             // Note: using the result value of f as then-cpo(sndr, f) value completion
             if constexpr (std::same_as<Tag, Completion>)
             {
-                try
+                constexpr bool nothrow = // NOLINT
+                    noexcept(std::invoke(std::move(fn), std::forward<Args>(args)...));
+
+                if constexpr (nothrow)
                 {
                     if constexpr (std::is_void_v<std::invoke_result_t<Fn, Args...>>)
                     {
@@ -85,9 +83,26 @@ namespace mcs::execution
                             std::invoke(std::move(fn), std::forward<Args>(args)...));
                     }
                 }
-                catch (...)
+                else
                 {
-                    recv::set_error(std::move(rcvr), std::current_exception());
+                    try
+                    {
+                        if constexpr (std::is_void_v<std::invoke_result_t<Fn, Args...>>)
+                        {
+                            std::invoke(std::move(fn), std::forward<Args>(args)...);
+                            recv::set_value(std::move(rcvr));
+                        }
+                        else
+                        {
+                            recv::set_value(
+                                std::move(rcvr),
+                                std::invoke(std::move(fn), std::forward<Args>(args)...));
+                        }
+                    }
+                    catch (...)
+                    {
+                        recv::set_error(std::move(rcvr), std::current_exception());
+                    }
                 }
             }
             else
@@ -97,57 +112,41 @@ namespace mcs::execution
         };
     };
 
-    namespace adapt
-    {
-
-        /**
-         * Note: to value completion or Forward for all completion sigs
-         * @brief The expression then-cpo(sndr, f) has undefined behavior unless it
-         * returns a sender out_sndr that: 1、Invokes f or a copy of such with the value,
-         * error, or stopped result datums of sndr for then, upon_error, and upon_stopped
-         * [respectively], using the result value of f as out_sndr's value completion, and
-         *
-         * 2、Forwards all [other completion] operations unchanged.
-         *
-         * Note: must hande respectively completion anyway, and Forwards other completion
-         */
-        template <typename Fun, typename Completion, typename Sig>
-        struct compute_then_sigs;
-        template <typename Fun, typename Completion, typename... Sig>
-        struct compute_then_sigs<Fun, Completion, cmplsigs::completion_signatures<Sig...>>
-        {
-
-            using Add_Sig =
-                cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr)>;
-
-            using Must_Handle_Sigs =
-                typename cmplsigs::__detail::filter_sigs_by_completion<
-                    Completion, cmplsigs::completion_signatures<Sig...>>::type;
-            // Note: Must_Forward_Sigs include May_Forward_V_Sigs
-            using Must_Forward_Sigs =
-                typename cmplsigs::__detail::skip_sigs_by_completion<
-                    Completion, cmplsigs::completion_signatures<Sig...>>::type;
-
-            using Next_V_Sig = tool::Generate_V_Sigs<Fun, Must_Handle_Sigs>::type;
-
-            static_assert(
-                not tool::Complile_Error_As_Error_Sig<Fun, Completion, Next_V_Sig>::value,
-                "fun_parm and pre sndr sig not match");
-
-            using type = // Note: only handle match set_tag
-                typename tfxcmplsigs::unique_variadic_template<
-                    typename cmplsigs::__detail::merge_type_lists<
-                        cmplsigs::completion_signatures, Next_V_Sig, Must_Forward_Sigs,
-                        Add_Sig>::type>::type;
-        };
-    }; // namespace adapt
-
-    template <typename Completion, typename Fun, typename Sender, typename Env>
+    template <typename Completion, typename Fun, typename Sndr, typename... Env>
     struct cmplsigs::completion_signatures_for_impl<
-        snd::__detail::basic_sender<adapt::__then_t<Completion>, Fun, Sender>, Env>
+        snd::__detail::basic_sender<adapt::__then_t<Completion>, Fun, Sndr>, Env...>
     {
-        using type = typename adapt::compute_then_sigs<
-            Fun, Completion, snd::completion_signatures_of_t<Sender, Env>>::type;
+        static constexpr auto transform = // NOLINT
+            []<class Tag, class... As>(Tag (*)(As...)) {
+                if constexpr (std::is_same_v<Tag, Completion>)
+                {
+                    if constexpr (not std::invocable<Fun, As...>)
+                    {
+                        return tfxcmplsigs::invalid_completion_signature<
+                            IN_TAG(adapt::__then_t<Completion>), WITH_SENDER(Sndr),
+                            WITH_FUNCTION(Fun), WITH_ARGUMENTS(As...), WITH_ENV(Env...),
+                            NOTE_INFO(
+                                The_previous_completion_signature_does_not_match_the_current_function)>();
+                    }
+                    else
+                    {
+                        using T = decltype(std::declval<Fun>()(std::declval<As>()...));
+                        constexpr bool nothrow = // NOLINT
+                            noexcept(std::declval<Fun>()(std::declval<As>()...));
+                        if constexpr (std::is_same_v<T, void>)
+                            return cmplsigs::completion_signatures<set_value_t()>{} +
+                                   eptr_completion_if<nothrow>;
+                        else
+                            return cmplsigs::completion_signatures<set_value_t(T)>{} +
+                                   eptr_completion_if<nothrow>;
+                    }
+                }
+                else
+                    return cmplsigs::completion_signatures<Tag(As...)>{};
+            };
+        using type =
+            decltype(snd::completion_signatures_of_t<Sndr, Env...>::transform_sigs(
+                transform));
     };
 
 }; // namespace mcs::execution

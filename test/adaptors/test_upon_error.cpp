@@ -60,19 +60,18 @@ int main()
             using S = decltype(snd);
             static_assert(ex::sender<S>);
             // Note: OK; std::exception_ptr &e cat match pre_sndr sendr e
-            using CS = decltype(ex::get_completion_signatures(snd, ex::empty_env{}));
-            // TODO(mcs): just() 不空有异常因此，不可能 添加 double 的 SCS
+            using CS = ex::snd::completion_signatures_of_t<S>;
+            // NOTE: ex::just() 不会抛异常，因此 upon_error 的 fun
+            // 不会被调用，编译期就确定了
             static_assert(
-                std::is_same_v<
-                    CS, cmplsigs::completion_signatures<
-                            recv::set_value_t(), recv::set_error_t(std::exception_ptr)>>);
+                std::is_same_v<CS, cmplsigs::completion_signatures<recv::set_value_t()>>);
             mcs::this_thread::sync_wait(snd);
         }
         {
             auto snd =
                 ex::upon_error(ex::just() | ex::then([] {}),
                                [](const std::exception_ptr &e) -> double { return 0.0; });
-            using CS = decltype(ex::get_completion_signatures(snd, ex::empty_env{}));
+            using CS = ex::snd::completion_signatures_of_t<decltype(snd)>;
             static_assert(ex::tool::eq_set_sigs_v<
                           CS, cmplsigs::completion_signatures<
                                   recv::set_value_t(), recv::set_value_t(double),

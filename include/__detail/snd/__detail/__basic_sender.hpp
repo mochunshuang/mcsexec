@@ -33,10 +33,9 @@ namespace mcs::execution::snd::__detail
             return {std::forward<Self>(self), std::move(rcvr)};
         }
 
-        template <decays_to<basic_sender> Self, class Env>
-        auto get_completion_signatures(this Self && /*self*/, // NOLINT
-                                       Env && /*env*/) noexcept
-            -> cmplsigs::completion_signatures_for<std::remove_cvref_t<Self>, Env>
+        template <decays_to<basic_sender> Self, class... Env>
+        static consteval auto get_completion_signatures() // NOLINT
+            -> cmplsigs::completion_signatures_for<std::remove_cvref_t<Self>, Env...>
         {
             return {};
         }

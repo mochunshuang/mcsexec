@@ -1,12 +1,7 @@
 #pragma once
 
-#include "./__unique_variadic_template.hpp"
-#include "./__default_set_value.hpp"
-#include "./__default_set_error.hpp"
-
+#include "./__invalid_completion_signature.hpp"
 #include "../cmplsigs/__valid_completion_signatures.hpp"
-#include "../cmplsigs/__gather_signatures.hpp"
-#include <type_traits>
 
 namespace mcs::execution::tfxcmplsigs
 {
@@ -14,66 +9,78 @@ namespace mcs::execution::tfxcmplsigs
     ////////////////////////////////////
     // [exec.utils.tfxcmplsigs]
 
+    // NOLINTNEXTLINE
+    inline constexpr auto value_transform_default = []<class... As>() {
+        return cmplsigs::completion_signatures<set_value_t(As...)>();
+    };
+    // NOLINTNEXTLINE
+    inline constexpr auto error_transform_default = []<class Error>() {
+        return cmplsigs::completion_signatures<set_error_t(Error)>();
+    };
+
     namespace __detail
     {
-        template <template <class...> class SetError>
-        struct error_list
+        template <class... As, class Fn> // NOLINTNEXTLINE
+        consteval auto __apply_transform(const Fn &fn)
         {
-            template <typename... Ts>
-            using type = type_list<SetError<Ts>...>;
+            if constexpr (not requires {
+                              {
+                                  fn.template operator()<As...>()
+                              } -> cmplsigs::valid_completion_signatures;
+                          })
+                return invalid_completion_signature<NOTE_INFO(struct apply_transform),
+                                                    WITH_FUNCTION(Fn),
+                                                    WITH_ARGUMENTS(As...)>(
+                    "__apply_transform ill format"); // see below
+            else
+                return fn.template operator()<As...>();
+        }
+
+        template <class Fn, class... Ts>
+        concept callable_with = requires(Fn &&fn, Ts &&...ts) {
+            static_cast<Fn &&>(fn)(static_cast<Ts &&>(ts)...);
         };
 
-        // 1.
-        // SetValue shall name an alias template such that for any pack of types As, the
-        // type SetValue<As...> is either ill-formed or else
-        // valid-completion-signatures<SetValue<As...>> is satisfied.
-        //
-        // 2.
-        //  for any type Err, SetError<Err> is either ill-formed or else
-        //  valid-completion-signatures<SetError<Err>> is satisfied.
-        //
-        // Note:
-        // valid-completion-signatures<T> is true when T is completion_signatures<As...>
-        //
-        template <typename AdditionalSignatures, typename SetValue, typename SetError,
-                  typename Stop>
-        struct __completion_signatures_set;
-
-        template <typename... Ss, typename... As, typename... Vs, typename... Es>
-        struct __completion_signatures_set<
-            cmplsigs::completion_signatures<As...>,
-            type_list<cmplsigs::completion_signatures<Vs>...>,
-            type_list<cmplsigs::completion_signatures<Es>...>,
-            cmplsigs::completion_signatures<Ss...>>
-        {
-            // using type = cmplsigs::completion_signatures<As..., Vs..., Es..., Ss>;
-            using type = cmplsigs::completion_signatures<As..., Vs..., Es..., Ss...>;
+        template <class Fn, class... Ts>
+        concept nothrow_callable_with = requires(Fn &&fn, Ts &&...ts) {
+            { static_cast<Fn &&>(fn)(static_cast<Ts &&>(ts)...) } noexcept;
         };
-
+        template <class... Sigs, callable_with<Sigs *...> Fn>
+        constexpr decltype(auto) __apply(
+            Fn fn, cmplsigs::completion_signatures<
+                       Sigs...> /*unused*/) noexcept(nothrow_callable_with<Fn, Sigs *...>)
+        {
+            return fn(static_cast<Sigs *>(nullptr)...);
+        }
     }; // namespace __detail
 
-    // SetValue shall name an alias template such that for any pack of types As, the type
-    // SetValue<As...> is either ill-formed or else
-    // valid-completion-signatures<SetValue<As...>> is satisfied.
-    template <cmplsigs::valid_completion_signatures _InputSignatures,
-              cmplsigs::valid_completion_signatures _AdditionalSignatures =
+    template <cmplsigs::valid_completion_signatures Completions,
+              cmplsigs::valid_completion_signatures OtherCompletions =
                   cmplsigs::completion_signatures<>,
-              template <class...> class _SetValue = default_set_value,
-              template <class> class _SetError = default_set_error,
-              cmplsigs::valid_completion_signatures _SetStopped =
+              class ValueTransform = decltype(value_transform_default),
+              class ErrorTransform = decltype(error_transform_default),
+              cmplsigs::valid_completion_signatures StoppedCompletions =
                   cmplsigs::completion_signatures<set_stopped_t()>>
-    using transform_completion_signatures =
-        typename unique_variadic_template<typename __detail::__completion_signatures_set<
-            _AdditionalSignatures,
-            cmplsigs::gather_signatures<set_value_t, _InputSignatures, _SetValue,
-                                        type_list>,
-            cmplsigs::gather_signatures<set_error_t, _InputSignatures,
-                                        std::type_identity_t,
-                                        __detail::error_list<_SetError>::template type>,
-            std::conditional_t<
-                std::is_same_v<cmplsigs::gather_signatures<
-                                   set_stopped_t, _InputSignatures, type_list, type_list>,
-                               type_list<>>,
-                cmplsigs::completion_signatures<>, _SetStopped>>::type>::type;
+    consteval auto transform_completion_signatures( // NOLINT
+        Completions completions = {},
+        ValueTransform value_transform = {}, // NOLINT // NOLINTNEXTLINE
+        ErrorTransform error_transform = {}, StoppedCompletions stopped_completions = {},
+        OtherCompletions other_completions = {}) -> cmplsigs::valid_completion_signatures
+        auto
+    {
+        auto transform1 = [=]<class Tag, class... As>(Tag (*)(As...)) {
+            if constexpr (std::is_same_v<Tag, set_value_t>) // see "Completion tag
+                                                            // comparison" below
+                return __detail::__apply_transform<As...>(value_transform);
+            else if constexpr (std::is_same_v<Tag, set_error_t>)
+                return __detail::__apply_transform<As...>(error_transform);
+            else
+                return stopped_completions;
+        };
+        auto transform_all = [=](auto *...sigs) {
+            return (transform1(sigs) + ... + cmplsigs::completion_signatures<>{});
+        };
 
+        return __detail::__apply(transform_all, completions) + other_completions;
+    }
 }; // namespace mcs::execution::tfxcmplsigs

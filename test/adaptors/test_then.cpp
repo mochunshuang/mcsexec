@@ -12,6 +12,26 @@ int main()
         auto snd = ex::then(ex::just(), [] {});
         static_assert(ex::sender_in<decltype(snd), empty_env>);
     };
+
+    TEST("then with fun throw") = [] {
+        auto snd = ex::then(ex::just(), [] {});
+        using CS = snd::completion_signatures_of_t<decltype(snd)>;
+        static_assert(tool::is_same_v<CS, ex::cmplsigs::completion_signatures<
+                                              ex::recv::set_error_t(std::exception_ptr),
+                                              ex::recv::set_value_t()>>);
+    };
+    TEST("then with fun nothrow") = [] {
+        auto snd = ex::then(ex::just(), [] noexcept {});
+        using CS = snd::completion_signatures_of_t<decltype(snd)>;
+        static_assert(
+            std::is_same_v<CS,
+                           ex::cmplsigs::completion_signatures<ex::recv::set_value_t()>>);
+    };
+
+    TEST("compile time error") = [] {
+        // auto sndr = ex::just(42) | ex::then([](int *p) { return *p; });
+    };
+
     TEST("then simple example") = [] {
         bool called{false};
         bool fun_called{false};
@@ -65,7 +85,8 @@ int main()
     };
     TEST("then can be used with just_stopped") = [] {
         // because just_stopped -> set_stoped(recv,arg...) -> basic_receiver->
-        // set_stopped() -> general::impls_for<then_t>::complete -> then_fun not called
+        // set_stopped() -> general::impls_for<then_t>::complete -> then_fun not
+        // called
 
         bool called{false};
         // "then function is not called when cancelled"

@@ -45,4 +45,7 @@ namespace mcs::execution::tool
     template <typename T0, typename T1>
     constexpr bool eq_set_sigs_v = __detail::eq_set_sigs<T0, T1>::value; // NOLINT
 
+    template <typename T0, typename T1>
+    constexpr bool is_same_v = eq_set_sigs_v<T0, T1>; // NOLINT
+
 }; // namespace mcs::execution::tool

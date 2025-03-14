@@ -16,7 +16,7 @@ namespace mcs::execution::pipeable
     {
 
         template <snd::sender Sndr, typename Self>
-        static auto apply(Sndr &&sndr, Self &&self) noexcept
+        constexpr static auto apply(Sndr &&sndr, Self &&self) noexcept
         {
             auto &&fun = self.template get<0>(); // for safe life time
             return [&]<std::size_t... I>(std::index_sequence<I...>) {
@@ -26,19 +26,19 @@ namespace mcs::execution::pipeable
         }
 
         template <snd::sender Sndr>
-        auto operator()(Sndr &&sndr) & noexcept
+        constexpr auto operator()(Sndr &&sndr) & noexcept
         {
             return apply(std::forward<Sndr>(sndr), *this);
         }
 
         template <snd::sender Sndr>
-        auto operator()(Sndr &&sndr) const & noexcept
+        constexpr auto operator()(Sndr &&sndr) const & noexcept
         {
             return apply(std::forward<Sndr>(sndr), *this);
         }
 
         template <snd::sender Sndr>
-        auto operator()(Sndr &&sndr) && noexcept
+        constexpr auto operator()(Sndr &&sndr) && noexcept
         {
             return apply(std::forward<Sndr>(sndr), std::move(*this));
         }

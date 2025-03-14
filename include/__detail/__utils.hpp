@@ -9,9 +9,6 @@
 #include "./cmplsigs/__single_sender_value_type.hpp"
 
 #include "./tfxcmplsigs/__transform_completion_signatures.hpp"
-#include "./tfxcmplsigs/__transform_completion_signatures_of.hpp"
-#include "./tfxcmplsigs/__default_set_error.hpp"
-#include "./tfxcmplsigs/__default_set_value.hpp"
 
 namespace mcs::execution
 {
@@ -27,10 +24,5 @@ namespace mcs::execution
 
     // [exec.utils.tfxcmplsigs]
     using tfxcmplsigs::transform_completion_signatures;
-    using tfxcmplsigs::transform_completion_signatures_of;
-    using tfxcmplsigs::default_set_value;
-    using tfxcmplsigs::default_set_error;
-
-    using tfxcmplsigs::__detail::__completion_signatures_set;
 
 }; // namespace mcs::execution
