@@ -11,6 +11,8 @@
 #include "../cmplsigs/__valid_completion_signatures.hpp"
 #include "./__has_constexpr_completions.hpp"
 
+#include "./__dependent_sender_error.hpp"
+
 namespace mcs::execution::snd
 {
 
@@ -26,8 +28,12 @@ namespace mcs::execution::snd
             (sizeof...(Env) == 0) &&
             not requires { typename completion_signatures_result_t<Sndr>; };
 
+        template <typename Ret>
+        concept valid_cs = std::is_same_v<Ret, dependent_sender_error> ||
+                           cmplsigs::valid_completion_signatures<Ret>;
+
         template <class Sndr, class... Env>
-        consteval auto get_completion_signatures_impl()
+        consteval auto get_completion_signatures_impl() -> valid_cs auto
         {
             using sndr_type = std::remove_reference_t<Sndr>;
 
@@ -53,8 +59,9 @@ namespace mcs::execution::snd
             // dependent-sender-without-env<Sndr, Env...> is true
             else if constexpr (dependent_sender_without_env<Sndr, Env...>)
             {
-                // throw dependent-sender-error()
-                return cmplsigs::completion_signatures<>{};
+                // throw dependent_sender_error();
+                return dependent_sender_error();
+                // return cmplsigs::completion_signatures<>{};
             }
             else if constexpr (requires {
                                    typename completion_signatures_result_t<Sndr, Env...>;
@@ -82,8 +89,7 @@ namespace mcs::execution::snd
                 // diagnostic. If it doesn't throw, _we_ should throw to let the developer
                 // know that their customization returned an invalid type. And again,
                 // ensure that the return type is a completion_signatures type.
-                return (sndr_type::template get_completion_signatures<Sndr, Env...>(),
-                        throw unspecified{}, cmplsigs::completion_signatures());
+                return (throw unspecified{}, cmplsigs::completion_signatures());
             }
         }
 
@@ -92,8 +98,7 @@ namespace mcs::execution::snd
     // [exec.getcomplsigs]
     template <class Sndr, class... Env>
         requires(sizeof...(Env) <= 1)
-    consteval auto get_completion_signatures() -> cmplsigs::valid_completion_signatures
-        auto
+    consteval auto get_completion_signatures()
     {
         if constexpr (sizeof...(Env) == 0)
         {

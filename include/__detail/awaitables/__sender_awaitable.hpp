@@ -2,6 +2,7 @@
 #include "../conn/__connect_result_t.hpp"
 #include "./__awaitable_receiver.hpp"
 #include "../opstate/__start.hpp"
+#include <utility>
 
 namespace mcs::execution::awaitables
 {
@@ -23,17 +24,9 @@ namespace mcs::execution::awaitables
          * awaitable-receiver{addressof(result),
          * coroutine_handle<Promise>::from_promise(p)})
          */
-        sender_awaitable(Sndr &sndr, Promise &p)
-            : state{conn::connect(
-                  sndr,
-                  awaitable_receiver{
-                      .result_ptr = ::std::addressof(result),
-                      .continuation = ::std::coroutine_handle<Promise>::from_promise(p)})}
-        {
-        }
         sender_awaitable(Sndr &&sndr, Promise &p)
             : state{conn::connect(
-                  ::std::move(sndr),
+                  ::std::forward<Sndr>(sndr),
                   awaitable_receiver{
                       .result_ptr = ::std::addressof(result),
                       .continuation = ::std::coroutine_handle<Promise>::from_promise(p)})}

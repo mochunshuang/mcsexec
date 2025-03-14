@@ -1,6 +1,7 @@
 #pragma once
 #include "../../__core_concepts.hpp"
 #include "../../queries/__forwarding_query.hpp"
+#include <utility>
 
 namespace mcs::execution::snd::general
 {
@@ -10,7 +11,10 @@ namespace mcs::execution::snd::general
         Env env; // NOLINT
 
       public:
-        explicit FWD_ENV(Env &&env) : env(std::move(env)) {}
+        // NOTE: error: cannot bind non-const to an rvalue of type
+        // NOTE: std::forward<Env> 而不是 move 就很合理了
+        // NOTE: Rvalue reference parameter 'env' is never moved 提示是错误的
+        explicit FWD_ENV(Env &&env) : env(std::forward<Env>(env)) {}
 
         template <queryable Q, typename... As>
             requires(queries::forwarding_query(std::remove_cvref_t<Q>())) &&

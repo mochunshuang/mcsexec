@@ -1,3 +1,4 @@
+#include <iostream>
 #include <type_traits>
 
 // NOLINTBEGIN
@@ -95,6 +96,11 @@ int main()
     test<true, decltype(&myFunction<true>)>();
 
     // NOTE: 结论，知道函数的所有类型，就能算出 是否有异常。返回值更简单了
+    // NOTE: noexcept 不会调用其内部的函数或表达式，它只是静态分析表达式是否可能抛出异常。
+    auto fun = [] noexcept {
+        std::cout << "error............\n";
+    };
+    static_assert(noexcept(fun())); //  noexcept 是编译期关键字，不会真的调用
 
     return 0;
 }

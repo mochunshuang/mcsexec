@@ -1,8 +1,9 @@
 #pragma once
 
-// #include "./__dependent_sender_error.hpp"
+#include "./__dependent_sender_error.hpp"
 #include "./__get_completion_signatures.hpp"
-#include "__cs_compiler_err.hpp"
+
+#include <type_traits>
 
 namespace mcs::execution::snd
 {
@@ -23,7 +24,7 @@ namespace mcs::execution::snd
     {
         // cmplsigs::completion_signatures<> as error
         using CS = decltype(get_completion_signatures<Sndr>());
-        return not cs_compiler_err<CS>;
+        return std::is_same_v<CS, dependent_sender_error>;
     }
 
     template <class Sndr>
