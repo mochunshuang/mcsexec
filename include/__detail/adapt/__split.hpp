@@ -590,22 +590,22 @@ namespace mcs::execution
             };
     };
 
-    template <typename Sndr, typename Env>
+    template <typename Sndr, typename... Env>
     struct cmplsigs::completion_signatures_for_impl<
-        snd::__detail::basic_sender<adapt::split_t, snd::empty_data, Sndr>, Env>
+        snd::__detail::basic_sender<adapt::split_t, snd::empty_data, Sndr>, Env...>
     {
-        using type = snd::completion_signatures_of_t<Sndr, Env>;
+        using type = snd::completion_signatures_of_t<Sndr, Env...>;
     };
 
-    template <typename Sndr, typename Env>
+    template <typename Sndr, typename... Env>
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<
             adapt::split_impl_tag,
             adapt::__split::shared_wrapper<adapt::__split::shared_state<Sndr>,
                                            adapt::split_t>>,
-        Env>
+        Env...>
     {
-        using type = snd::completion_signatures_of_t<Sndr, Env>;
+        using type = snd::completion_signatures_of_t<Sndr, Env...>;
     };
 
 }; // namespace mcs::execution

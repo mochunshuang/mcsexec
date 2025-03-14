@@ -35,8 +35,7 @@ int main()
         start(op);
         EXPECT(fun_called && called && chanel == test::channel::VALUE_CHANNEL);
     };
-    // TODO(mcs): 实现split后测试
-#if 0
+
     TEST("let_error simple example reference") = [] {
         bool called{false};
         std::any any;
@@ -58,7 +57,6 @@ int main()
         auto [ret] = std::any_cast<std::tuple<int>>(any);
         EXPECT(ret == 404);
     };
-#endif
 
     TEST("let_error can be piped") = [] {
         ex::sender auto snd [[maybe_unused]] =

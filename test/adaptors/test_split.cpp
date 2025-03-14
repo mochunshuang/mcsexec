@@ -261,10 +261,10 @@ int main()
             static_assert(ex::snd::sender_of<decltype(multishot), copy_and_movable_type>);
             static_assert(
                 ex::sender_of<decltype(multishot), const copy_and_movable_type>);
-            // Note: 这就是原理
+            // Note: NORMALIZE 是原理
             static_assert(std::same_as<ex::set_value_t(Base),
                                        ex::set_value_t(const copy_and_movable_type)>);
-            // Note: but
+            // Note: NORMALIZE 是原理
             static_assert(not std::same_as<Base, const copy_and_movable_type>);
             static_assert(ex::sender_of<decltype(multishot), copy_and_movable_type &&>);
 
@@ -272,8 +272,12 @@ int main()
                 not ex::sender_of<decltype(multishot), copy_and_movable_type &>);
             static_assert(
                 not ex::sender_of<decltype(multishot), const copy_and_movable_type &>);
+            // NOTE: NORMALIZE 是原理。 && 当看不见即可
             static_assert(
-                not ex::sender_of<decltype(multishot), const copy_and_movable_type &&>);
+                ex::sender_of<decltype(multishot), const copy_and_movable_type &&>);
+            using T0 = const copy_and_movable_type &&;
+            using NORMALIZE_T = ex::snd::general::__detail::remove_rvalue_reference_t<T0>;
+            static_assert(std::is_same_v<NORMALIZE_T, const copy_and_movable_type>);
         };
     };
 
