@@ -12,7 +12,8 @@
 
 #include "../pipeable/__sender_adaptor.hpp"
 
-#include "../tfxcmplsigs/__transform_completion_signatures.hpp"
+#include "../cmplsigs/__eptr_completion_if.hpp"
+#include "../tfxcmplsigs/__invalid_completion_signature.hpp"
 
 namespace mcs::execution
 {
@@ -187,42 +188,116 @@ namespace mcs::execution
         };
     };
 
-    template <typename Sndr, typename Policy, typename Shape, typename Fun, typename Env>
+    template <typename Sndr, typename Policy, typename Shape, typename Fun,
+              typename... Env>
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<
             adapt::bulk_t, snd::__detail::product_type<Policy, Shape, Fun>, Sndr>,
-        Env>
+        Env...>
     {
-        using Add_Sig =
-            cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr)>;
+        static constexpr auto is_nothorw = [] consteval { // NOLINT
+            using CS = snd::completion_signatures_of_t<Sndr, Env...>;
+            auto nothorw = []<class Tag, class... As>(Tag (*)(As...)) {
+                if constexpr (std::same_as<Tag, set_value_t>)
+                {
+                    if constexpr (not std::invocable<Fun, Shape, As &...>)
+                    {
+                        return tfxcmplsigs::invalid_completion_signature<
+                            IN_TAG(adapt::bulk_t), WITH_SENDER(Sndr), WITH_FUNCTION(Fun),
+                            WITH_ARGUMENTS(Shape, As & ...), WITH_ENV(Env...),
+                            NOTE_INFO(
+                                The_previous_completion_signature_does_not_match_the_current_function)>();
+                    }
+                    else
+                        return std::is_nothrow_invocable_v<Fun, Shape, As &...>;
+                }
+                else
+                    return true;
+            };
+            auto no_throw_all =
+                [&]<class... Sig>(cmplsigs::completion_signatures<Sig...>) {
+                    return (nothorw(static_cast<Sig *>(nullptr)) && ...);
+                };
+            return no_throw_all(CS{});
+        };
 
-        using type = tfxcmplsigs::transform_completion_signatures<
-            snd::completion_signatures_of_t<Sndr, Env>, Add_Sig>;
+        using type = decltype(snd::completion_signatures_of_t<Sndr, Env...>{} +
+                              cmplsigs::eptr_completion_if<is_nothorw()>);
     };
-    template <typename Sndr, typename Policy, typename Shape, typename Fun, typename Env>
+    template <typename Sndr, typename Policy, typename Shape, typename Fun,
+              typename... Env>
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<
             adapt::bulk_chunked_t, snd::__detail::product_type<Policy, Shape, Fun>, Sndr>,
-        Env>
+        Env...>
     {
-        using Add_Sig =
-            cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr)>;
+        static constexpr auto is_nothorw = [] consteval { // NOLINT
+            using CS = snd::completion_signatures_of_t<Sndr, Env...>;
+            auto nothorw = []<class Tag, class... As>(Tag (*)(As...)) {
+                if constexpr (std::same_as<Tag, set_value_t>)
+                {
+                    if constexpr (not std::invocable<Fun, Shape, Shape, As &...>)
+                    {
+                        return tfxcmplsigs::invalid_completion_signature<
+                            IN_TAG(adapt::bulk_chunked_t), WITH_SENDER(Sndr),
+                            WITH_FUNCTION(Fun), WITH_ARGUMENTS(Shape, As & ...),
+                            WITH_ENV(Env...),
+                            NOTE_INFO(
+                                The_previous_completion_signature_does_not_match_the_current_function)>();
+                    }
+                    else
+                        return std::is_nothrow_invocable_v<Fun, Shape, Shape, As &...>;
+                }
+                else
+                    return true;
+            };
+            auto no_throw_all =
+                [&]<class... Sig>(cmplsigs::completion_signatures<Sig...>) {
+                    return (nothorw(static_cast<Sig *>(nullptr)) && ...);
+                };
+            return no_throw_all(CS{});
+        };
 
-        using type = tfxcmplsigs::transform_completion_signatures<
-            snd::completion_signatures_of_t<Sndr, Env>, Add_Sig>;
+        using type = decltype(snd::completion_signatures_of_t<Sndr, Env...>{} +
+                              cmplsigs::eptr_completion_if<is_nothorw()>);
     };
-    template <typename Sndr, typename Policy, typename Shape, typename Fun, typename Env>
+    template <typename Sndr, typename Policy, typename Shape, typename Fun,
+              typename... Env>
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<adapt::bulk_unchunked_t,
                                     snd::__detail::product_type<Policy, Shape, Fun>,
                                     Sndr>,
-        Env>
+        Env...>
     {
-        using Add_Sig =
-            cmplsigs::completion_signatures<recv::set_error_t(std::exception_ptr)>;
+        static constexpr auto is_nothorw = [] consteval { // NOLINT
+            using CS = snd::completion_signatures_of_t<Sndr, Env...>;
+            auto nothorw = []<class Tag, class... As>(Tag (*)(As...)) {
+                if constexpr (std::same_as<Tag, set_value_t>)
+                {
+                    if constexpr (not std::invocable<Fun, Shape, As &...>)
+                    {
+                        return tfxcmplsigs::invalid_completion_signature<
+                            IN_TAG(adapt::bulk_unchunked_t), WITH_SENDER(Sndr),
+                            WITH_FUNCTION(Fun), WITH_ARGUMENTS(Shape, As & ...),
+                            WITH_ENV(Env...),
+                            NOTE_INFO(
+                                The_previous_completion_signature_does_not_match_the_current_function)>();
+                    }
+                    else
+                        return std::is_nothrow_invocable_v<Fun, Shape, As &...>;
+                }
+                else
+                    return true;
+            };
+            auto no_throw_all =
+                [&]<class... Sig>(cmplsigs::completion_signatures<Sig...>) {
+                    return (nothorw(static_cast<Sig *>(nullptr)) && ...);
+                };
+            return no_throw_all(CS{});
+        };
 
-        using type = tfxcmplsigs::transform_completion_signatures<
-            snd::completion_signatures_of_t<Sndr, Env>, Add_Sig>;
+        using type = decltype(snd::completion_signatures_of_t<Sndr, Env...>{} +
+                              cmplsigs::eptr_completion_if<is_nothorw()>);
     };
 
 }; // namespace mcs::execution

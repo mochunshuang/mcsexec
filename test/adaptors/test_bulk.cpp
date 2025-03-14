@@ -80,11 +80,11 @@ int main()
         using Sndr = decltype(snd);
 
         using E_pS = ex::cmplsigs::error_types_of_t<Pre_Sndr, ex::empty_env, std::tuple>;
-        using Add_S = std::tuple<std::exception_ptr>;
-
         using E_S = ex::cmplsigs::error_types_of_t<Sndr, ex::empty_env, std::tuple>;
-        using T = decltype(std::tuple_cat(std::declval<Add_S>(), std::declval<E_pS>()));
+        using T = decltype(std::tuple_cat(std::declval<E_pS>()));
+        // NOTE: bulk fwd error_types
         static_assert(std::is_same_v<E_S, T>);
+        static_assert(std::is_same_v<E_S, E_pS>);
     };
 
     TEST("bulk can be used with a function") = [] {
