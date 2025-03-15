@@ -287,7 +287,7 @@ namespace mcs::execution
                 //  Let LetSigs be a pack of those types in [Sigs] with a return type of
                 //  decayed-typeof<set-cpo>.
                 using Origin_LetSigs = decltype(Sigs::template filter_sigs<Completion>());
-                static constexpr auto is_nothrow = // NOLINT
+                constexpr auto is_nothrow = // NOLINT
                     []<class... Sigs>(cmplsigs::completion_signatures<Sigs...>) {
                         auto fun = []<class... As>(Completion (*)(As...)) noexcept {
                             return noexcept(std::declval<Fn>()(std::declval<As>()...));
@@ -333,7 +333,7 @@ namespace mcs::execution
                                                       Args &&...args) noexcept -> void {
             if constexpr (std::same_as<Tag, Completion>)
             {
-                static constexpr auto nothrow = // NOLINT
+                constexpr auto nothrow = // NOLINT
                     std::remove_cvref_t<decltype(state)>::nothrow;
                 if constexpr (nothrow)
                 {

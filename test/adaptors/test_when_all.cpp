@@ -53,6 +53,14 @@ int main()
         );
         auto ret = mcs::this_thread::sync_wait(snd).value();
         EXPECT(ret == std::make_tuple(2, 3, 5, std::string{11}));
+        // NOTE: CS
+        using Sndr = decltype(snd);
+        using CS = ex::snd::completion_signatures_of_t<Sndr>;
+        static_assert(
+            std::is_same_v<CS, ex::cmplsigs::completion_signatures<ex::set_value_t(
+                                   int, int, int, std::basic_string<char>)>>);
+        static_assert(std::is_same_v<decltype(ret),
+                                     std::tuple<int, int, int, std::basic_string<char>>>);
     };
 
     TEST("when_all with just one sender") = [] {
@@ -148,6 +156,17 @@ int main()
                 EXPECT(v == 0.1415); // NOLINT
             },
             b);
+        // NOTE: CS
+        using Sndr = decltype(snd);
+        using CS = ex::snd::completion_signatures_of_t<Sndr>;
+        static_assert(
+            std::is_same_v<CS, ex::cmplsigs::completion_signatures<ex::set_value_t(
+                                   std::variant<std::tuple<int>>,
+                                   std::variant<std::tuple<double>>)>>);
+        auto ret = mcs::this_thread::sync_wait(snd).value();
+        static_assert(
+            std::is_same_v<decltype(ret), std::tuple<std::variant<std::tuple<int>>,
+                                                     std::variant<std::tuple<double>>>>);
     };
     return 0;
 }

@@ -10,8 +10,10 @@ int main()
     };
     TEST("into_variant with environment returns a sender") = [] {
         auto snd = ex::into_variant(ex::just(1));
+        static_assert(ex::sender_in<decltype(snd)>);
         static_assert(ex::sender_in<decltype(snd), mcs::execution::empty_env>);
     };
+
     TEST("into_variant simple example") = [] {
         bool called{false};
         bool fun_called{false};
@@ -37,6 +39,12 @@ int main()
 
     TEST("into_variant returning void can we waited on") = [] {
         ex::sender auto snd = ex::just(1) | ex::into_variant();
+        // NOTE: CS
+        using Sndr = decltype(snd);
+        using CS = ex::snd::completion_signatures_of_t<Sndr>;
+        static_assert(std::is_same_v<CS, ex::completion_signatures<ex::set_value_t(
+                                             std::variant<std::tuple<int>>)>>);
+
         auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
         static_assert(std::is_same_v<std::variant<std::tuple<int>>, decltype(ret)>);
         std::visit(

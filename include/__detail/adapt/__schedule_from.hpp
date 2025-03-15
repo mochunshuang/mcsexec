@@ -87,8 +87,8 @@ namespace mcs::execution
                             if constexpr (not std::same_as<std::monostate, Tuple>)
                             {
                                 std::apply(
-                                    [&]<class Tag, typename... Args>(Tag &tag,
-                                                                     Args &...args) {
+                                    [&]<class Tag, typename... Args>(
+                                        Tag &tag, Args &...args) noexcept {
                                         tag(std::move(state->rcvr), std::move(args)...);
                                     },
                                     result);
@@ -149,29 +149,14 @@ namespace mcs::execution
                 (!std::is_move_constructible_v<T> && !std::is_copy_constructible_v<T>);
         }; // namespace __detail
 
-        template <typename Sigs>
-        struct check_type_no_copy_move_throw;
-
         template <typename Tag, typename... T>
-        struct check_type_no_copy_move_throw<Tag(T...)>
-        {
-            static constexpr bool value = // NOLINT
-                (__detail::no_copy_move_throw<T> && ...);
-        };
-
+        inline constexpr bool check_type_no_copy_move_throw = // NOLINT
+            (__detail::no_copy_move_throw<T> && ...);
         template <typename Tag>
-        struct check_type_no_copy_move_throw<Tag()>
-        {
-            static constexpr bool value = true; // NOLINT
-        };
-        template <typename Sigs>
-        struct is_Sig_no_throw;
+        inline constexpr bool check_type_no_copy_move_throw<Tag()> = true; // NOLINT
         template <typename... Sig>
-        struct is_Sig_no_throw<cmplsigs::completion_signatures<Sig...>>
-        {
-            static constexpr bool value = // NOLINT
-                (check_type_no_copy_move_throw<Sig>::value && ...);
-        };
+        inline constexpr bool is_Sig_no_throw = // NOLINT
+            (check_type_no_copy_move_throw<Sig> && ...);
 
     }; // namespace adapt
 
@@ -187,8 +172,8 @@ namespace mcs::execution
         // Note: used by basic_state initialized when connect(out_sndr,out_recr)
         static constexpr auto get_state = // NOLINT
             []<class OutSndr, class OutRcvr>(OutSndr &&sndr, OutRcvr &rcvr) noexcept(
-                adapt::is_Sig_no_throw<snd::completion_signatures_of_t<
-                    OutSndr, queries::env_of_t<OutRcvr>>>::value)
+                adapt::is_Sig_no_throw<
+                    snd::completion_signatures_of_t<OutSndr, queries::env_of_t<OutRcvr>>>)
             requires(snd::sender_in<snd::__detail::mate_type::child_type<OutSndr>,
                                     queries::env_of_t<OutRcvr>>)
         {
@@ -197,8 +182,8 @@ namespace mcs::execution
 
             //  Note: add E_CS because as complete try-catch
             using Add_E = std::conditional_t<
-                adapt::is_Sig_no_throw<snd::completion_signatures_of_t<
-                    OutSndr, queries::env_of_t<OutRcvr>>>::value,
+                adapt::is_Sig_no_throw<
+                    snd::completion_signatures_of_t<OutSndr, queries::env_of_t<OutRcvr>>>,
                 cmplsigs::completion_signatures<>,
                 cmplsigs::completion_signatures<set_error_t(std::exception_ptr)>>;
             using Sigs =
@@ -260,7 +245,7 @@ namespace mcs::execution
     {
         using type = decltype(snd::completion_signatures_of_t<Sndr, Env...>{} +
                               eptr_completion_if<adapt::is_Sig_no_throw<
-                                  snd::completion_signatures_of_t<Sndr, Env...>>::value>);
+                                  snd::completion_signatures_of_t<Sndr, Env...>>>);
     };
 
 }; // namespace mcs::execution

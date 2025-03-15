@@ -16,10 +16,10 @@ namespace mcs::execution::snd::__detail
 
         decltype(auto) get_env() const noexcept // NOLINT
         {
-            return this->apply(
-                [](auto & /*tag*/, auto &data, auto &...child) -> decltype(auto) {
-                    return general::impls_for<Tag>::get_attrs(data, child...);
-                });
+            return this->apply([](auto & /*tag*/, auto &data,
+                                  auto &...child) noexcept -> decltype(auto) {
+                return general::impls_for<Tag>::get_attrs(data, child...);
+            });
         }
 
         template <decays_to<basic_sender> Self, receiver Rcvr>

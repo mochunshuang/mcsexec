@@ -11,7 +11,7 @@ namespace mcs::execution
         struct when_all_with_variant_t
         {
             template <snd::sender... Sndrs>
-            auto operator()(Sndrs &&...sndrs) const // noexcept
+            auto operator()(Sndrs &&...sndrs) const noexcept
                 requires(sizeof...(Sndrs) != 0 &&
                          static_cast<bool>((snd::sender<Sndrs> && ...)) && requires() {
                              typename std::common_type_t<
@@ -19,21 +19,33 @@ namespace mcs::execution
                                      std::as_const(sndrs)))...>;
                          })
             {
-                using CD = std::common_type_t<decltype(snd::general::get_domain_early(
-                    std::as_const(sndrs)))...>;
+                using CD2 = decltype([]() {
+                    if constexpr (requires() {
+                                      typename std::common_type_t<
+                                          decltype(snd::general::get_domain_early(
+                                              sndrs))...>;
+                                  })
+                    {
+                        using CD =
+                            std::common_type_t<decltype(snd::general::get_domain_early(
+                                sndrs))...>;
+                        return CD{};
+                    }
+                    else
+                        return snd::default_domain{};
+                });
                 return snd::transform_sender(
-                    CD(), snd::make_sender(*this, {}, std::forward<Sndrs>(sndrs)...));
+                    CD2(), snd::make_sender(*this, {}, std::forward<Sndrs>(sndrs)...));
             }
 
             template <snd::sender Sndr, typename Env> // NOLINTNEXTLINE
             auto transform_sender(Sndr &&sndr, const Env & /*env*/) noexcept
                 requires(snd::sender_for<decltype((sndr)), when_all_with_variant_t>)
             {
-                // auto &&[_, _, ...child] = sndr;
-                // return when_all(
-                //     into_variant(std::forward_like<decltype((sndr))>(child))...);
+                // NOTE: 算法直接都是编译期组合的，noexcept 是合理的
                 return std::forward<Sndr>(sndr).apply(
-                    []<typename... Child>(auto &&, auto &&, Child &&...child) {
+                    []<typename... Child>(auto &&, auto &&,
+                                          Child &&...child) noexcept(true) {
                         return when_all(into_variant(std::forward_like<Sndr>(child))...);
                     });
             }
@@ -41,18 +53,18 @@ namespace mcs::execution
         inline constexpr when_all_with_variant_t when_all_with_variant{}; // NOLINT
     }; // namespace adapt
 
-    template <typename Env, typename... Sndr>
+    template <typename... Sndr, typename... Env>
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<adapt::when_all_with_variant_t, snd::empty_data,
                                     Sndr...>,
-        Env>
+        Env...>
     {
         using type = cmplsigs::completion_signatures_for_impl<
             snd::__detail::basic_sender<
                 adapt::when_all_t, snd::empty_data,
                 decltype(std::declval<decltype(adapt::into_variant(
                              std::declval<Sndr>()))>())...>,
-            Env>::type;
+            Env...>::type;
     };
 
 }; // namespace mcs::execution

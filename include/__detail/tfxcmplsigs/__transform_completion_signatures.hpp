@@ -21,7 +21,7 @@ namespace mcs::execution::tfxcmplsigs
     namespace __detail
     {
         template <class... As, class Fn> // NOLINTNEXTLINE
-        consteval auto __apply_transform(const Fn &fn)
+        inline consteval auto __apply_transform(const Fn &fn)
         {
             if constexpr (not requires {
                               {
@@ -61,7 +61,7 @@ namespace mcs::execution::tfxcmplsigs
               class ErrorTransform = decltype(error_transform_default),
               cmplsigs::valid_completion_signatures StoppedCompletions =
                   cmplsigs::completion_signatures<set_stopped_t()>>
-    consteval auto transform_completion_signatures( // NOLINT
+    inline consteval auto transform_completion_signatures( // NOLINT
         Completions completions = {},
         ValueTransform value_transform = {}, // NOLINT // NOLINTNEXTLINE
         ErrorTransform error_transform = {}, StoppedCompletions stopped_completions = {},
