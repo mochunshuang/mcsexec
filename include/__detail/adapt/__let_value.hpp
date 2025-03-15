@@ -1,6 +1,7 @@
 #pragma once
 #include <concepts>
 #include <exception>
+#include <optional>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -187,46 +188,13 @@ namespace mcs::execution
             };
         }; // namespace __detail
 
-        template <typename Sigs>
-        struct compute_args_variant_t;
-        template <typename... Sig>
-        struct compute_args_variant_t<cmplsigs::completion_signatures<Sig...>>
-        {
-            using type = typename tfxcmplsigs::unique_variadic_template<std::variant<
-                std::monostate, typename __detail::as_tuple_no_tag<Sig>::type...>>::type;
-        };
-
         ////////////////////////////////////////////////////////////////
         // compute_ops2_variant_t
         namespace __detail
         {
             template <typename Fn, typename... Args>
             using as_sndr2 = functional::call_result_t<Fn, std::decay_t<Args> &...>;
-
-            template <typename Fn, typename Sig, typename Rcvr, typename Env>
-            struct compute_connect_result_t;
-
-            template <typename Fn, typename Rcvr, typename Env, typename Tag,
-                      typename... Args>
-                requires(requires() { typename as_sndr2<Fn, Args...>; })
-            struct compute_connect_result_t<Fn, Tag(Args...), Rcvr, Env>
-            {
-                using type = conn::connect_result_t<as_sndr2<Fn, Args...>,
-                                                    adapt::receiver2<Rcvr, Env>>;
-            };
         }; // namespace __detail
-
-        template <typename Fn, typename Completion, typename Rcvr, typename Env>
-        struct compute_ops2_variant_t;
-
-        template <typename Fn, typename Rcvr, typename Env, typename... Sig>
-        struct compute_ops2_variant_t<Fn, cmplsigs::completion_signatures<Sig...>, Rcvr,
-                                      Env>
-        {
-            using type = typename tfxcmplsigs::unique_variadic_template<
-                std::variant<std::monostate, typename __detail::compute_connect_result_t<
-                                                 Fn, Sig, Rcvr, Env>::type...>>::type;
-        };
 
         ////////////////////////////////////////////////////////////////
         // let_bind
@@ -257,7 +225,60 @@ namespace mcs::execution
             args_variant_t args;                        // exposition only
             ops2_variant_t ops2;                        // exposition only
         };
+        template <typename Sigs>
+        static consteval auto complete_let_args_variant()
+        {
+            auto fun = []<class... Sig>(cmplsigs::completion_signatures<Sig...>) {
+                if constexpr (requires {
+                                  typename tfxcmplsigs::unique_variadic_template<
+                                      std::variant<std::monostate,
+                                                   typename __detail::as_tuple_no_tag<
+                                                       Sig>::type...>>::type;
+                              })
+                    return typename tfxcmplsigs::unique_variadic_template<std::variant<
+                        std::monostate,
+                        typename __detail::as_tuple_no_tag<Sig>::type...>>::type{};
+                else
+                    return tfxcmplsigs::invalid_completion_signature<
+                        // IN_FUNCTION<complete_let_args_variant>,
+                        NOTE_INFO(Failed_to_complete_signature_calculation)>();
+            };
+            return fun(Sigs());
+        }
+        // NOTE: 指针不需要 可以默认初始化默认构造
+        template <typename Fn, typename Sigs, typename Rcvr, typename Env>
+        static consteval auto compute_ops2_variant()
+        {
+            // 计算单个 completion signature 的结果
+            auto compute_connect_result = []<typename Tag, typename... Args>(
+                                              Tag (*)(Args...)) {
+                if constexpr (requires { typename __detail::as_sndr2<Fn, Args...>; })
+                {
+                    using Sender = typename __detail::as_sndr2<Fn, Args...>;
+                    using Result =
+                        conn::connect_result_t<Sender, adapt::receiver2<Rcvr, Env>>;
+                    return static_cast<Result *>(nullptr);
+                }
+                else
+                {
+                    return tfxcmplsigs::invalid_completion_signature<
+                        IN_TAG(let_value_t), WITH_FUNCTION(Fn), WITH_SIG(Tag(Args...)),
+                        NOTE_INFO(Failed_to_complete_signature_calculation),
+                        not_satisfied_with_the_requirements()>();
+                }
+            };
 
+            // 计算所有 completion signatures 的结果
+            auto compute_all = []<typename... Sig>(
+                                   cmplsigs::completion_signatures<Sig...>) {
+                using VariantType = typename tfxcmplsigs::unique_variadic_template<
+                    std::variant<std::monostate,
+                                 std::remove_pointer_t<decltype(compute_connect_result(
+                                     static_cast<Sig *>(nullptr)))>...>>::type;
+                return static_cast<VariantType *>(nullptr);
+            };
+            return compute_all(Sigs{});
+        }
     }; // namespace adapt
 
     template <typename Completion>
@@ -294,6 +315,12 @@ namespace mcs::execution
                         };
                         return (fun(static_cast<Sigs *>(nullptr)) && ...);
                     };
+                constexpr bool nothrow = is_nothrow(Origin_LetSigs{}); // NOLINT
+                // using add_Sig_when_set_error_t =
+                //     std::conditional_t<std::is_same_v<Completion, set_error_t>,
+                //                        decltype(cmplsigs::eptr_completion_if<nothrow>),
+                //                        cmplsigs::completion_signatures<>>;
+
                 using LetSigs = decltype(Origin_LetSigs{});
 
                 // Note: 3:
@@ -302,15 +329,15 @@ namespace mcs::execution
                 // args_variant_t denotes the type
                 // variant<monostate,as-tuple<LetSigs>...>
                 using args_variant_t =
-                    typename adapt::compute_args_variant_t<LetSigs>::type;
+                    decltype(adapt::complete_let_args_variant<LetSigs>());
 
                 // Varint<monostate,connect_result_t<as_sndr2,Reciver2>...>,
                 // and as_sndr2 is result_t by call fun with ags...
                 // and as_sndr2 is Sndr
-                using ops2_variant_t =
-                    typename adapt::compute_ops2_variant_t<Fn, LetSigs, Rcvr, Env>::type;
-                return adapt::let_state_type<is_nothrow(LetSigs{}), Fn, Env,
-                                             args_variant_t, ops2_variant_t>{
+                using ops2_variant_t = std::remove_pointer_t<
+                    decltype(adapt::compute_ops2_variant<Fn, LetSigs, Rcvr, Env>())>;
+                return adapt::let_state_type<nothrow, Fn, Env, args_variant_t,
+                                             ops2_variant_t>{
                     std::forward_like<Sndr>(fn), let_env(child), {}, {}};
             };
 

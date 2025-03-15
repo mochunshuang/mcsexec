@@ -78,18 +78,50 @@ namespace mcs::execution
                 cmplsigs::completion_signatures<set_error_t(std::exception_ptr)>;
             using Ensure_No_stop = cmplsigs::completion_signatures<>;
 
-            using type = tfxcmplsigs::transform_completion_signatures<
-                Input_Sig, Add_Sig, Map_V_Sig, Map_E_Sig, Ensure_No_stop>;
+            using type =
+                decltype(tfxcmplsigs::transform_completion_signatures<
+                         Input_Sig, Add_Sig, Map_V_Sig, Map_E_Sig, Ensure_No_stop>());
         };
     }; // namespace adapt::__detail
 
-    template <typename Sndr, typename Env>
+    template <typename Sndr, typename... Env>
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<adapt::stopped_as_optional_t, snd::empty_data, Sndr>,
-        Env>
+        Env...>
     {
-        using type =
-            typename adapt::__detail::compute_stopped_as_optional_sigs<Sndr, Env>::type;
+        static consteval auto get_sigs() // NOLINT
+        {
+            using Sigs = snd::completion_signatures_of_t<Sndr, Env...>;
+            using V_Sigs = decltype(Sigs::template filter_sigs<set_value_t>());
+            []<class... Sig>(cmplsigs::completion_signatures<Sig...>) {
+                if constexpr (sizeof...(Sig) != 1)
+                    return tfxcmplsigs::invalid_completion_signature<
+                        IN_TAG(adapt::stopped_as_optional_t),
+                        WITH_SIG(cmplsigs::completion_signatures<Sig...>),
+                        WITH_ENV(Env...),
+                        NOTE_INFO(
+                            only_accepts_a_senders_with_one_sig_with_tag_of_set_value_t)>();
+            }(V_Sigs{});
+
+            // std::is_nothrow_move_constructible_v<V>;
+            constexpr auto value_transform = []<class... As>() { // NOLINT
+                if constexpr (sizeof...(As) == 0)
+                    return tfxcmplsigs::invalid_completion_signature<
+                        IN_TAG(adapt::stopped_as_optional_t),
+                        WITH_SIG(set_value_t(As...)),
+                        NOTE_INFO(parameter_packageis_of_tag_of_set_value_t_is_void)>();
+                else if constexpr (sizeof...(As) == 1)
+                    return cmplsigs::completion_signatures<set_value_t(
+                        std::optional<As...>)>();
+                else
+                    return cmplsigs::completion_signatures<set_value_t(
+                        std::optional<std::tuple<As...>>)>();
+            };
+            constexpr auto stop_transform = cmplsigs::completion_signatures<>(); // NOLINT
+            return tfxcmplsigs::transform_completion_signatures(
+                Sigs{}, {}, value_transform, {}, stop_transform);
+        }
+        using type = decltype(get_sigs());
     };
 
 }; // namespace mcs::execution

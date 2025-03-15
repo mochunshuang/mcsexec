@@ -2,6 +2,7 @@
 
 #include "./__let_value.hpp"
 #include "../factories/__just.hpp"
+#include "../cmplsigs/__eptr_completion_if.hpp"
 
 namespace mcs::execution
 {
@@ -44,18 +45,27 @@ namespace mcs::execution
         inline constexpr stopped_as_error_t stopped_as_error{}; // NOLINT
     }; // namespace adapt
 
-    template <typename Sndr, typename E, typename Env>
+    template <typename Sndr, typename E, typename... Env>
     struct cmplsigs::completion_signatures_for_impl<
-        snd::__detail::basic_sender<adapt::stopped_as_error_t, E, Sndr>, Env>
+        snd::__detail::basic_sender<adapt::stopped_as_error_t, E, Sndr>, Env...>
     {
-        using Add_E = cmplsigs::completion_signatures<set_error_t(E),
-                                                      set_error_t(std::exception_ptr)>;
-        using Filter_Sig = cmplsigs::__detail::filter_sigs_by_completion<
-            set_stopped_t, snd::completion_signatures_of_t<Sndr, Env>>;
-
-        using type = typename tfxcmplsigs::unique_variadic_template<
-            typename cmplsigs::__detail::merge_type_lists<cmplsigs::completion_signatures,
-                                                          Filter_Sig, Add_E>::type>::type;
+        static consteval auto get_sigs() // NOLINT
+        {
+            constexpr bool nothrow = std::is_nothrow_move_constructible_v<E>; // NOLINT
+            using Sigs = snd::completion_signatures_of_t<Sndr, Env...>;
+            auto remove_s = []<class... Sig>(cmplsigs::completion_signatures<Sig...>) {
+                auto remove = []<class Tag, class... As>(Tag (*)(As...)) {
+                    if constexpr (std::is_same_v<Tag, set_stopped_t>)
+                        return cmplsigs::completion_signatures<set_error_t(E)>();
+                    else
+                        return cmplsigs::completion_signatures<Tag(As...)>();
+                };
+                return (remove(static_cast<Sig *>(nullptr)) + ... +
+                        cmplsigs::completion_signatures<>());
+            };
+            return remove_s(Sigs()) + eptr_completion_if<nothrow>;
+        }
+        using type = decltype(get_sigs());
     };
 
 }; // namespace mcs::execution

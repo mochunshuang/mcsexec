@@ -62,11 +62,10 @@ namespace mcs::execution::tfxcmplsigs
               cmplsigs::valid_completion_signatures StoppedCompletions =
                   cmplsigs::completion_signatures<set_stopped_t()>>
     inline consteval auto transform_completion_signatures( // NOLINT
-        Completions completions = {},
+        Completions completions = {}, OtherCompletions other_completions = {},
         ValueTransform value_transform = {}, // NOLINT // NOLINTNEXTLINE
-        ErrorTransform error_transform = {}, StoppedCompletions stopped_completions = {},
-        OtherCompletions other_completions = {}) -> cmplsigs::valid_completion_signatures
-        auto
+        ErrorTransform error_transform = {}, StoppedCompletions stopped_completions = {})
+        -> cmplsigs::valid_completion_signatures auto
     {
         auto transform1 = [=]<class Tag, class... As>(Tag (*)(As...)) {
             if constexpr (std::is_same_v<Tag, set_value_t>) // see "Completion tag
