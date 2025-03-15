@@ -26,18 +26,14 @@ int main()
         auto sndr = ex::just() | ex::upon_stopped([]() { return 1; });
         using T = ex::snd::completion_signatures_of_t<decltype(sndr), ex::empty_env>;
         static_assert(
-            std::is_same_v<
-                T, cmplsigs::completion_signatures<
-                       recv::set_value_t(), recv::set_error_t(std::exception_ptr)>>);
+            std::is_same_v<T, cmplsigs::completion_signatures<recv::set_value_t()>>);
     };
 
     TEST("upon_stopped CS:  2") = [] {
         auto sndr = ex::just(1) | ex::upon_stopped([]() { return 1; });
         using T = ex::snd::completion_signatures_of_t<decltype(sndr), ex::empty_env>;
         static_assert(
-            std::is_same_v<
-                T, cmplsigs::completion_signatures<
-                       recv::set_value_t(int), recv::set_error_t(std::exception_ptr)>>);
+            std::is_same_v<T, cmplsigs::completion_signatures<recv::set_value_t(int)>>);
     };
 
     // Note: [](int){} 肯定是编译器错误了 stopped 不会传值

@@ -8,9 +8,14 @@ int main()
         auto snd = ex::stopped_as_error(ex::just(1), -1);
         using T = snd::completion_signatures_of_t<decltype(snd)>;
         static_assert(
-            tool::eq_set_sigs_v<T, cmplsigs::completion_signatures<
-                                       set_error_t(int), set_error_t(std::exception_ptr),
-                                       set_value_t(int)>>);
+            tool::is_same_v<T, cmplsigs::completion_signatures<set_value_t(int)>>);
+    };
+
+    TEST("CS2") = [] {
+        auto snd = ex::stopped_as_error(ex::just_stopped(), -1.0);
+        using T = snd::completion_signatures_of_t<decltype(snd)>;
+        static_assert(
+            tool::is_same_v<T, cmplsigs::completion_signatures<set_error_t(double)>>);
     };
 
     return 0;
