@@ -30,6 +30,7 @@ namespace mcs::execution
         {
             // make_sender provides tag_of_t will-format
             template <snd::sender Sndr, movable_value Fun>
+                requires(diagnostics::check_type<__then_t<Completion>, Sndr, Fun>)
             auto operator()(Sndr &&sndr, Fun &&f) const // noexcept
             {
                 auto dom = snd::general::get_domain_early(std::as_const(sndr));
@@ -39,6 +40,7 @@ namespace mcs::execution
             }
 
             template <movable_value Fun>
+                requires(diagnostics::check_type<__then_t<Completion>, Fun>)
             auto operator()(Fun &&fun) const -> pipeable::sender_adaptor<__then_t, Fun>
             {
                 return {*this, std::forward<Fun>(fun)};
@@ -148,5 +150,26 @@ namespace mcs::execution
             decltype(snd::completion_signatures_of_t<Sndr, Env...>::transform_sigs(
                 transform));
     };
+
+    namespace diagnostics
+    {
+        template <typename Completion, class Fun> // NOLINTNEXTLINE
+        inline constexpr bool check_type_impl<adapt::__then_t<Completion>, Fun> =
+            []() consteval {
+                if constexpr (std::is_same_v<Completion, set_error_t>)
+                {
+                    return check_set_error_arg<Fun>;
+                }
+                else if constexpr (std::is_same_v<Completion, set_stopped_t>)
+                    return check_set_stoped_arg<Fun>;
+                else
+                    return true;
+            }();
+
+        template <typename Completion, class Sndr, class Fun> // NOLINTNEXTLINE
+        inline constexpr bool check_type_impl<adapt::__then_t<Completion>, Sndr, Fun> =
+            check_type_impl<adapt::__then_t<Completion>, Fun>;
+
+    }; // namespace diagnostics
 
 }; // namespace mcs::execution

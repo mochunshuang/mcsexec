@@ -6,10 +6,25 @@ namespace mcs::execution
 {
     namespace diagnostics
     {
-        template <int v>
-        concept handle_error_completion_fun_param_count = (v == 1);
-        template <int v>
-        concept handle_stopped_completion_fun_param_count = (v == 0);
+
+        struct universal_arg
+        {
+            template <typename T>
+            consteval operator T() const noexcept; // NOLINT
+        };
+
+        template <typename F>
+        concept check_set_stoped_arg = requires(F &&f) { static_cast<F &&>(f)(); };
+        template <typename F>
+        concept check_set_error_arg = requires(F &&f, universal_arg &&e) {
+            static_cast<F &&>(f)(static_cast<universal_arg &&>(e));
+        };
+
+        template <class... T>
+        inline constexpr bool check_type_impl = false; // NOLINT
+
+        template <typename... Ts>
+        concept check_type = check_type_impl<Ts...>;
 
         // NOLINTBEGIN
         template <class... What>

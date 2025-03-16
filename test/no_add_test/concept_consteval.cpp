@@ -27,7 +27,7 @@ struct impls_for : default_impls
 template <>
 struct impls_for<A> : default_impls
 {
-    template <class Sndr, class... Env>
+    template <class Sndr>
     static constexpr bool checktype()
     {
         return true;
@@ -37,7 +37,7 @@ struct impls_for<A> : default_impls
 template <>
 struct impls_for<B> : default_impls
 {
-    template <class Sndr, class... Env>
+    template <class Sndr>
     static constexpr bool checktype()
     {
         return false;
@@ -154,6 +154,47 @@ struct impls_for<just_t2> : default_impls
     }
 };
 
+struct just_t3
+{
+    template <class Ts>
+        requires(is_check_pass<std::decay_t<just_t3>,
+                               BaseSndr<std::decay_t<just_t3>, std::decay_t<Ts>>>)
+    constexpr auto operator()(Ts &&ts) const noexcept
+    {
+        return make_sender(*this, std::forward<Ts>(ts));
+    }
+};
+
+constexpr inline just_t3 just3{};
+struct WITH_FUNCTION;
+struct WITH_SENDER;
+struct WITH_ARGUMENTS;
+struct WITH_ENV;
+struct WITH_SIG;
+template <class... What, class... Info>
+[[noreturn, nodiscard]] consteval bool check_fails(Info &&...info);
+
+template <>               // NOTE: 可以不用继承，只要你能确定你用到的，都都定义了
+struct impls_for<just_t3> // : default_impls
+{
+    template <class Sndr> // NOTE: 模板之间没有任何关系
+    static constexpr bool checktype()
+    {
+        if constexpr (std::is_same_v<Sndr, BaseSndr<just_t3, A>>)
+            return true;
+        else
+        {
+            // struct INVOID
+            // {
+            // };
+            // return (throw INVOID{}, false); // 比不上直接false，概念提示更有意思
+
+            check_fails<WITH_ARGUMENTS(A), WITH_SENDER(Sndr)>();
+            return false;
+        }
+    }
+};
+
 int main()
 {
     print_value(A{}); // 正确调用方式
@@ -170,7 +211,12 @@ int main()
     }
     {
         just2(A{});
-        // just_t2(B{});// 直接爆红，最好是这种信息
+        // just2(B{}); // 直接爆红，最好是这种信息
+    }
+    {
+        just3(A{});
+        // Note: 目前不够好。 但是配合 check_fails 还不错。 通过未定义实现编译期错误检查
+        // just3(B{}); // 直接爆红，最好是这种信息
     }
 }
 // NOLINTEND

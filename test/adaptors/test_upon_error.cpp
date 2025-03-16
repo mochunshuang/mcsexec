@@ -1,5 +1,7 @@
 #include "../test_base_head.hpp"
+#include <iostream>
 #include <stdexcept>
+#include <string_view>
 
 int main()
 {
@@ -41,7 +43,7 @@ int main()
     };
 
     TEST("upon_error with no-error input sender") = [] {
-        auto snd = ex::upon_error(ex::just(), []() -> double { return 0.0; });
+        auto snd = ex::upon_error(ex::just(), [](auto e) -> double { return 0.0; });
         static_assert(ex::sender<decltype(snd)>);
         using S = decltype(snd);
         static_assert(ex::sender<S>);
@@ -95,12 +97,13 @@ int main()
                         });
             mcs::this_thread::sync_wait(sndr);
         }
+
         {
             auto snd =
                 ex::just() | ex::then([] { throw std::logic_error{"error"}; }) //
                 | ex::upon_error(
 
-                      [](std::exception_ptr &&e) -> double {
+                      [](std::exception_ptr e) -> double {
                           std::cout << "pre call from exception....\n";
                           try
                           {
@@ -125,6 +128,8 @@ int main()
                             {
                                 std::cout << "then: call from exception....\n";
                                 EXPECT(std::tuple<double>{1.1} == std::tuple{v...});
+                                ((std::cout << v), ...);
+                                std::cout << '\n';
                             }
                             else
                             {
@@ -134,6 +139,26 @@ int main()
             // Note: 异常已经捕获，不需要 try-catch 了
             mcs::this_thread::sync_wait(sndr);
         }
+    };
+    TEST("upon_error returns a sender with logic_error") = [] {
+        auto snd = ex::upon_error(ex::just_error(std::logic_error{"my error"}),
+                                  [](const std::exception_ptr &e) {
+                                      try
+                                      {
+                                          std::rethrow_exception(e);
+                                      }
+                                      catch (const std::logic_error &ex)
+                                      {
+                                          std::cout << "catch  my logic_error....\n";
+                                          EXPECT(std::string_view("my error") ==
+                                                 std::string_view(ex.what()));
+                                      }
+                                      catch (...)
+                                      {
+                                          UNEXPECT("error");
+                                      }
+                                  });
+        static_assert(ex::sender<decltype(snd)>);
     };
     return 0;
 }

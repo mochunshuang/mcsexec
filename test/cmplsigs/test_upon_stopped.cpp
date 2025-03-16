@@ -42,9 +42,16 @@ int main()
         auto fun = [](int) {
             return 1;
         };
+        auto fun2 = []() {
+            return 1;
+        };
 
-        // auto sndr [[maybe_unused]] = ex::just(1) | ex::upon_stopped(fun);
-        // ex::upon_stopped(ex::just(1), fun);
+        // NOTE: 直接爆红，更好的编码体验
+        //  auto sndr [[maybe_unused]] = ex::just(1) | ex::upon_stopped(fun);
+        //  ex::upon_stopped(ex::just(1), fun);
+
+        // OK
+        auto sndr [[maybe_unused]] = ex::just(1) | ex::upon_stopped(fun2);
     };
     return 0;
 }
