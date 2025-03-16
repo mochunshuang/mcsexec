@@ -35,7 +35,7 @@
 #include "../pipeable/__sender_adaptor.hpp"
 
 #include "../cmplsigs/__eptr_completion_if.hpp"
-#include "../tfxcmplsigs/__invalid_completion_signature.hpp"
+#include "../diagnostics/__check.hpp"
 
 namespace mcs::execution
 {
@@ -239,7 +239,7 @@ namespace mcs::execution
                         std::monostate,
                         typename __detail::as_tuple_no_tag<Sig>::type...>>::type{};
                 else
-                    return tfxcmplsigs::invalid_completion_signature<
+                    return diagnostics::invalid_completion_signature<
                         // IN_FUNCTION<complete_let_args_variant>,
                         NOTE_INFO(Failed_to_complete_signature_calculation)>();
             };
@@ -261,7 +261,7 @@ namespace mcs::execution
                 }
                 else
                 {
-                    return tfxcmplsigs::invalid_completion_signature<
+                    return diagnostics::invalid_completion_signature<
                         IN_TAG(let_value_t), WITH_FUNCTION(Fn), WITH_SIG(Tag(Args...)),
                         NOTE_INFO(Failed_to_complete_signature_calculation),
                         not_satisfied_with_the_requirements()>();
@@ -417,7 +417,7 @@ namespace mcs::execution
                 {
                     if constexpr (not std::invocable<Fun, As...>)
                     {
-                        return tfxcmplsigs::invalid_completion_signature<
+                        return diagnostics::invalid_completion_signature<
                             IN_TAG(adapt::__let_t<Completion>), WITH_SENDER(Sndr),
                             WITH_FUNCTION(Fun), WITH_ARGUMENTS(As...), WITH_ENV(Env...),
                             NOTE_INFO(
@@ -431,7 +431,7 @@ namespace mcs::execution
 
                         if constexpr (not snd::sender<Ret>)
                         {
-                            return tfxcmplsigs::invalid_completion_signature<
+                            return diagnostics::invalid_completion_signature<
                                 IN_TAG(adapt::__let_t<Completion>),
                                 NOTE_INFO(
                                     the_fun_return_type_is_not_a_sndr_in_let_xxx)>();

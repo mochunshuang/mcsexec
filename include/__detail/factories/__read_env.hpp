@@ -9,7 +9,7 @@
 #include <utility>
 
 #include "../cmplsigs/__eptr_completion_if.hpp"
-#include "../tfxcmplsigs/__invalid_completion_signature.hpp"
+#include "../diagnostics/__check.hpp"
 
 namespace mcs::execution
 {
@@ -62,7 +62,7 @@ namespace mcs::execution
                 return true;
             else
             {
-                return tfxcmplsigs::invalid_completion_signature<
+                return diagnostics::invalid_completion_signature<
                     IN_TAG(factories::read_env_t), WITH_ENV(Env...), WITH_ARGUMENTS(Q),
                     NOTE_INFO(
                         the_query_funcation_of_the_env_need_nothrow_and_invokeable_with_the_given_query_type)>();

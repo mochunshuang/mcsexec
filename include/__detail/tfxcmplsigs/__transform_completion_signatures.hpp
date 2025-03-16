@@ -1,6 +1,6 @@
 #pragma once
 
-#include "./__invalid_completion_signature.hpp"
+#include "../diagnostics/__check.hpp"
 #include "../cmplsigs/__valid_completion_signatures.hpp"
 
 namespace mcs::execution::tfxcmplsigs
@@ -28,10 +28,9 @@ namespace mcs::execution::tfxcmplsigs
                                   fn.template operator()<As...>()
                               } -> cmplsigs::valid_completion_signatures;
                           })
-                return invalid_completion_signature<NOTE_INFO(struct apply_transform),
-                                                    WITH_FUNCTION(Fn),
-                                                    WITH_ARGUMENTS(As...)>(
-                    "__apply_transform ill format"); // see below
+                return diagnostics::invalid_completion_signature<
+                    NOTE_INFO(struct apply_transform), WITH_FUNCTION(Fn),
+                    WITH_ARGUMENTS(As...)>("__apply_transform ill format"); // see below
             else
                 return fn.template operator()<As...>();
         }

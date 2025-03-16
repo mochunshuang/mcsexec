@@ -95,7 +95,7 @@ namespace mcs::execution
             using V_Sigs = decltype(Sigs::template filter_sigs<set_value_t>());
             []<class... Sig>(cmplsigs::completion_signatures<Sig...>) {
                 if constexpr (sizeof...(Sig) != 1)
-                    return tfxcmplsigs::invalid_completion_signature<
+                    return diagnostics::invalid_completion_signature<
                         IN_TAG(adapt::stopped_as_optional_t),
                         WITH_SIG(cmplsigs::completion_signatures<Sig...>),
                         WITH_ENV(Env...),
@@ -106,7 +106,7 @@ namespace mcs::execution
             // std::is_nothrow_move_constructible_v<V>;
             constexpr auto value_transform = []<class... As>() { // NOLINT
                 if constexpr (sizeof...(As) == 0)
-                    return tfxcmplsigs::invalid_completion_signature<
+                    return diagnostics::invalid_completion_signature<
                         IN_TAG(adapt::stopped_as_optional_t),
                         WITH_SIG(set_value_t(As...)),
                         NOTE_INFO(parameter_packageis_of_tag_of_set_value_t_is_void)>();

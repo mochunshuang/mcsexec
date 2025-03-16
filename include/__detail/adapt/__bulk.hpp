@@ -13,7 +13,7 @@
 #include "../pipeable/__sender_adaptor.hpp"
 
 #include "../cmplsigs/__eptr_completion_if.hpp"
-#include "../tfxcmplsigs/__invalid_completion_signature.hpp"
+#include "../diagnostics/__check.hpp"
 
 namespace mcs::execution
 {
@@ -202,7 +202,7 @@ namespace mcs::execution
                 {
                     if constexpr (not std::invocable<Fun, Shape, As &...>)
                     {
-                        return tfxcmplsigs::invalid_completion_signature<
+                        return diagnostics::invalid_completion_signature<
                             IN_TAG(adapt::bulk_t), WITH_SENDER(Sndr), WITH_FUNCTION(Fun),
                             WITH_ARGUMENTS(Shape, As & ...), WITH_ENV(Env...),
                             NOTE_INFO(
@@ -238,7 +238,7 @@ namespace mcs::execution
                 {
                     if constexpr (not std::invocable<Fun, Shape, Shape, As &...>)
                     {
-                        return tfxcmplsigs::invalid_completion_signature<
+                        return diagnostics::invalid_completion_signature<
                             IN_TAG(adapt::bulk_chunked_t), WITH_SENDER(Sndr),
                             WITH_FUNCTION(Fun), WITH_ARGUMENTS(Shape, As & ...),
                             WITH_ENV(Env...),
@@ -276,7 +276,7 @@ namespace mcs::execution
                 {
                     if constexpr (not std::invocable<Fun, Shape, As &...>)
                     {
-                        return tfxcmplsigs::invalid_completion_signature<
+                        return diagnostics::invalid_completion_signature<
                             IN_TAG(adapt::bulk_unchunked_t), WITH_SENDER(Sndr),
                             WITH_FUNCTION(Fun), WITH_ARGUMENTS(Shape, As & ...),
                             WITH_ENV(Env...),

@@ -1,4 +1,5 @@
 #include "../test_base_head.hpp"
+#include <utility>
 
 int main()
 {
@@ -36,16 +37,14 @@ int main()
             std::is_same_v<T, cmplsigs::completion_signatures<recv::set_value_t(int)>>);
     };
 
-    // Note: [](int){} 肯定是编译器错误了 stopped 不会传值
+    // Note: [](int){} 肯定是编译器错误了 stopped 传来的是空，fun无法被调用
     TEST("upon_stopped CS:  3") = [] {
-        auto sndr [[maybe_unused]] =
-            ex::just(1) | ex::upon_stopped([](int) { return 1; });
-        // using T = ex::snd::completion_signatures_of_t<decltype(sndr),
-        // ex::empty_env>; static_assert(
-        //     std::is_same_v<
-        //         T, cmplsigs::completion_signatures<
-        //                recv::set_value_t(int),
-        //                recv::set_error_t(std::exception_ptr)>>);
+        auto fun = [](int) {
+            return 1;
+        };
+
+        // auto sndr [[maybe_unused]] = ex::just(1) | ex::upon_stopped(fun);
+        // ex::upon_stopped(ex::just(1), fun);
     };
     return 0;
 }

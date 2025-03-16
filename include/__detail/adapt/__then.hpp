@@ -19,7 +19,7 @@
 #include "../recv/__set_value.hpp"
 
 #include "../cmplsigs/__eptr_completion_if.hpp"
-#include "../tfxcmplsigs/__invalid_completion_signature.hpp"
+#include "../diagnostics/__check.hpp"
 
 namespace mcs::execution
 {
@@ -122,7 +122,7 @@ namespace mcs::execution
                 {
                     if constexpr (not std::invocable<Fun, As...>)
                     {
-                        return tfxcmplsigs::invalid_completion_signature<
+                        return diagnostics::invalid_completion_signature<
                             IN_TAG(adapt::__then_t<Completion>), WITH_SENDER(Sndr),
                             WITH_FUNCTION(Fun), WITH_ARGUMENTS(As...), WITH_ENV(Env...),
                             NOTE_INFO(

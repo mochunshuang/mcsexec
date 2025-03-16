@@ -21,7 +21,7 @@
 #include "../__stoptoken/__stop_callback_of_t.hpp"
 
 #include "../__stoptoken/__finite_inplace_stop_source.hpp"
-#include "../tfxcmplsigs/__invalid_completion_signature.hpp"
+#include "../diagnostics/__check.hpp"
 
 namespace mcs::execution
 {
@@ -458,7 +458,7 @@ namespace mcs::execution
                 if constexpr (std::is_same_v<Tag, set_value_t>)
                 {
                     if constexpr (sizeof...(Ts) >= 2)
-                        return tfxcmplsigs::invalid_completion_signature<
+                        return diagnostics::invalid_completion_signature<
                             IN_TAG(adapt::when_all_t), WITH_SIG(set_value_t(Ts...)),
                             WITH_ENV(Env...),
                             NOTE_INFO(
