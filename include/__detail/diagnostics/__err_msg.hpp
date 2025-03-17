@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../cmplsigs/__completion_signatures.hpp"
+
 namespace mcs::execution
 {
     struct WITH_FUNCTION;
@@ -30,7 +32,20 @@ namespace mcs::execution
 
     struct not_satisfied_with_the_requirements;
 
-    struct illegal_param_count
+    struct check_completion_signature_error;
+
+    // NOLINTBEGIN
+    template <class... What>
+    struct sender_type_check_failure
     {
+        template <class... Info>
+        consteval explicit sender_type_check_failure(Info &&.../*unused*/)
+        {
+        }
     };
+    // NO defined replace throw
+    template <class... What, class... Info>
+    [[noreturn, nodiscard]] consteval cmplsigs::completion_signatures<>
+    invalid_completion_signature(Info &&...info);
+
 } // namespace mcs::execution

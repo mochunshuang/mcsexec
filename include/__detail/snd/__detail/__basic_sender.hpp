@@ -4,6 +4,8 @@
 #include "../../cmplsigs/__completion_signatures_for.hpp"
 #include <type_traits>
 
+#include "../../diagnostics/__check_type.hpp"
+
 namespace mcs::execution::snd::__detail
 {
 
@@ -34,6 +36,7 @@ namespace mcs::execution::snd::__detail
         }
 
         template <decays_to<basic_sender> Self, class... Env>
+            requires diagnostics::check_type<std::remove_cvref_t<Self>, Env...>
         static consteval auto get_completion_signatures() // NOLINT
             -> cmplsigs::completion_signatures_for<std::remove_cvref_t<Self>, Env...>
         {

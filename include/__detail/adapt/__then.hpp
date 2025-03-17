@@ -30,7 +30,8 @@ namespace mcs::execution
         {
             // make_sender provides tag_of_t will-format
             template <snd::sender Sndr, movable_value Fun>
-                requires(diagnostics::check_type<__then_t<Completion>, Sndr, Fun>)
+                requires(diagnostics::check_type<__then_t<Completion>, std::decay_t<Sndr>,
+                                                 std::decay_t<Fun>>)
             auto operator()(Sndr &&sndr, Fun &&f) const // noexcept
             {
                 auto dom = snd::general::get_domain_early(std::as_const(sndr));
@@ -40,7 +41,7 @@ namespace mcs::execution
             }
 
             template <movable_value Fun>
-                requires(diagnostics::check_type<__then_t<Completion>, Fun>)
+                requires(diagnostics::check_type<__then_t<Completion>, std::decay_t<Fun>>)
             auto operator()(Fun &&fun) const -> pipeable::sender_adaptor<__then_t, Fun>
             {
                 return {*this, std::forward<Fun>(fun)};
@@ -166,9 +167,24 @@ namespace mcs::execution
                     return true;
             }();
 
-        template <typename Completion, class Sndr, class Fun> // NOLINTNEXTLINE
-        inline constexpr bool check_type_impl<adapt::__then_t<Completion>, Sndr, Fun> =
-            check_type_impl<adapt::__then_t<Completion>, Fun>;
+        template <typename Completion, class Sndr, class Fun,
+                  class... Env> // NOLINTNEXTLINE
+        inline constexpr bool check_type_impl<
+            adapt::__then_t<Completion>, Sndr, Fun,
+            Env...> = check_type_impl<adapt::__then_t<Completion>, Fun> && []() consteval {
+            using CS = snd::completion_signatures_of_t<Sndr, Env...>;
+            auto fn = []<class... Ts>(Completion (*)(Ts...)) {
+                if constexpr (!std::invocable<Fun, Ts...>)
+                    throw diagnostics::invalid_completion_signature<
+                        IN_TAG(check_completion_signature_error), WITH_SENDER(Sndr),
+                        WITH_FUNCTION(Fun), WITH_ARGUMENTS(Ts...),
+                        NOTE_INFO(
+                            The_previous_completion_signature_does_not_match_the_current_function)>();
+            };
+            CS::check_sigs(overload_set{fn, [](auto) {
+                                        }});
+            return true;
+        }();
 
     }; // namespace diagnostics
 

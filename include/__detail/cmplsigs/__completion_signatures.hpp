@@ -55,5 +55,11 @@ namespace mcs::execution::cmplsigs
                                        completion_signatures<>>{} +
                     ... + completion_signatures<>{});
         }
+
+        template <class Fn>
+        static consteval void check_sigs(Fn &&fn) // NOLINT
+        {
+            (std::forward<Fn>(fn)(static_cast<Sigs *>(nullptr)), ...);
+        }
     };
 }; // namespace mcs::execution::cmplsigs

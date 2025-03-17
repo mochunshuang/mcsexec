@@ -121,8 +121,13 @@ int main()
                           return 1.1; // NOLINT
                       });
 
-            // mcs::this_thread::sync_wait(snd); //不是单一返回值编译器错误
+            using CS = ex::snd::completion_signatures_of_t<decltype(snd)>;
+            static_assert(
+                std::is_same_v<CS, ex::completion_signatures<
+                                       ex::set_value_t(), ex::set_value_t(double),
+                                       ex::set_error_t(std::exception_ptr)>>);
 
+            // NOTE: auto 处理，多个  set_value_t
             auto sndr = snd | ex::then([](auto &&...v) {
                             if constexpr (sizeof...(v) == 1)
                             {
@@ -140,25 +145,30 @@ int main()
             mcs::this_thread::sync_wait(sndr);
         }
     };
+
     TEST("upon_error returns a sender with logic_error") = [] {
-        auto snd = ex::upon_error(ex::just_error(std::logic_error{"my error"}),
-                                  [](const std::exception_ptr &e) {
-                                      try
-                                      {
-                                          std::rethrow_exception(e);
-                                      }
-                                      catch (const std::logic_error &ex)
-                                      {
-                                          std::cout << "catch  my logic_error....\n";
-                                          EXPECT(std::string_view("my error") ==
-                                                 std::string_view(ex.what()));
-                                      }
-                                      catch (...)
-                                      {
-                                          UNEXPECT("error");
-                                      }
-                                  });
-        static_assert(ex::sender<decltype(snd)>);
+        auto snd0 = ex::just_error(std::logic_error{"my error"});
+        // NOTE: 以下编译期报错，因为  logic_error 和 exception_ptr 不匹配
+#if false
+        auto snd = ex::upon_error(snd0, [](const std::exception_ptr &e) {
+            try
+            {
+                std::rethrow_exception(e);
+            }
+            catch (const std::logic_error &ex)
+            {
+                std::cout << "catch  my logic_error....\n";
+                EXPECT(std::string_view("my error") == std::string_view(ex.what()));
+            }
+            catch (...)
+            {
+                UNEXPECT("error");
+            }
+        });
+#endif
+        // 编译期错误
+        // auto snd = snd0 | ex::upon_error([](const std::exception_ptr &e) {});
     };
+
     return 0;
 }
