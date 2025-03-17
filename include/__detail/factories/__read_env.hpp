@@ -24,6 +24,7 @@ namespace mcs::execution
         struct read_env_t
         {
             template <typename Q>
+                requires(diagnostics::check_type<read_env_t, std::decay_t<Q>>)
             snd::sender auto constexpr operator()(Q &&q) const noexcept
             {
                 return snd::make_sender(*this, std::forward<Q>(q));
@@ -37,17 +38,7 @@ namespace mcs::execution
     {
         static constexpr auto start = // NOLINT
             [](auto query, auto &rcvr) noexcept -> void {
-            // NOLINTNEXTLINE
-            // SET-VALUE(rcvr, expr)
-            if constexpr (std::is_void_v<decltype(query(queries::get_env(rcvr)))>)
-            {
-                query(get_env(rcvr));
-                recv::set_value(std::move(rcvr));
-            }
-            else
-            {
-                recv::set_value(std::move(rcvr), query(queries::get_env(rcvr)));
-            }
+            recv::set_value(std::move(rcvr), query(queries::get_env(rcvr)));
         };
     };
 
@@ -55,30 +46,34 @@ namespace mcs::execution
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<factories::read_env_t, Q>, Env>
     {
-        static constexpr auto check = [] consteval { // NOLINT
-            if constexpr (requires {
-                              { Q()(std::declval<Env>()) } noexcept;
-                          })
-                return true;
-            else
-            {
-                return diagnostics::invalid_completion_signature<
-                    IN_TAG(factories::read_env_t), WITH_ENV(Env...), WITH_ARGUMENTS(Q),
-                    NOTE_INFO(
-                        the_query_funcation_of_the_env_need_nothrow_and_invokeable_with_the_given_query_type)>();
-            }
-        }();
-        // NOLINTNEXTLINE
-        static constexpr auto getSig = [] consteval {
-            using Ret = decltype(Q()(std::declval<Env>()));
-            if constexpr (std::is_void_v<Ret>)
-            {
-                return cmplsigs::completion_signatures<recv::set_value_t()>{};
-            }
-            else
-                return cmplsigs::completion_signatures<recv::set_value_t(Ret)>{};
-        };
-        using type = decltype(getSig());
+        using type = cmplsigs::completion_signatures<recv::set_value_t(
+            decltype(Q()(std::declval<Env>())))>;
     };
+
+    namespace diagnostics
+    {
+        template <class Q, class... Env> // NOLINTNEXTLINE
+        inline constexpr bool check_type_impl<factories::read_env_t, Q,
+                                              Env...> = []() consteval {
+            if constexpr (sizeof...(Env) == 0)
+                return true;
+            else if constexpr (requires {
+                                   { Q()(std::declval<Env>()...) } noexcept;
+                               })
+            {
+                using T = decltype(Q()(std::declval<Env>()...));
+                if constexpr (std::is_void_v<T>)
+                    return diagnostics::invalid_completion_signature<
+                        IN_TAG(factories::read_env_t), WITH_ENV(Env...),
+                        WITH_ARGUMENTS(Q),
+                        NOTE_INFO(
+                            the_query_funcation_of_the_env_need_nothrow_and_invokeable_with_the_given_query_type)>();
+                else
+                    return true;
+            }
+            else
+                return false;
+        }();
+    }; // namespace diagnostics
 
 }; // namespace mcs::execution
