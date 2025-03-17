@@ -15,6 +15,6 @@ namespace mcs::execution::snd
         sender_in<Sndr, Env> &&
         general::MATCHING_SIG< // see [exec.general]
             set_value_t(Values...),
-            cmplsigs::value_types_of_t<Sndr, Env, value_signature, std::type_identity_t>>;
+            cmplsigs::value_types_of_t<Sndr, value_signature, std::type_identity_t, Env>>;
 
 }; // namespace mcs::execution::snd

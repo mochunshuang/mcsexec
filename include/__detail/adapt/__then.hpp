@@ -30,8 +30,9 @@ namespace mcs::execution
         {
             // make_sender provides tag_of_t will-format
             template <snd::sender Sndr, movable_value Fun>
-                requires(diagnostics::check_type<__then_t<Completion>, std::decay_t<Sndr>,
-                                                 std::decay_t<Fun>>)
+                requires(diagnostics::check_type<snd::__detail::basic_sender<
+                             adapt::__then_t<Completion>, std::decay_t<Fun>,
+                             std::decay_t<Sndr>>>)
             auto operator()(Sndr &&sndr, Fun &&f) const // noexcept
             {
                 auto dom = snd::general::get_domain_early(std::as_const(sndr));
@@ -123,26 +124,15 @@ namespace mcs::execution
             []<class Tag, class... As>(Tag (*)(As...)) {
                 if constexpr (std::is_same_v<Tag, Completion>)
                 {
-                    if constexpr (not std::invocable<Fun, As...>)
-                    {
-                        return diagnostics::invalid_completion_signature<
-                            IN_TAG(adapt::__then_t<Completion>), WITH_SENDER(Sndr),
-                            WITH_FUNCTION(Fun), WITH_ARGUMENTS(As...), WITH_ENV(Env...),
-                            NOTE_INFO(
-                                The_previous_completion_signature_does_not_match_the_current_function)>();
-                    }
+                    using T = decltype(std::declval<Fun>()(std::declval<As>()...));
+                    constexpr bool nothrow = // NOLINT
+                        noexcept(std::declval<Fun>()(std::declval<As>()...));
+                    if constexpr (std::is_same_v<T, void>)
+                        return cmplsigs::completion_signatures<set_value_t()>{} +
+                               eptr_completion_if<nothrow>;
                     else
-                    {
-                        using T = decltype(std::declval<Fun>()(std::declval<As>()...));
-                        constexpr bool nothrow = // NOLINT
-                            noexcept(std::declval<Fun>()(std::declval<As>()...));
-                        if constexpr (std::is_same_v<T, void>)
-                            return cmplsigs::completion_signatures<set_value_t()>{} +
-                                   eptr_completion_if<nothrow>;
-                        else
-                            return cmplsigs::completion_signatures<set_value_t(T)>{} +
-                                   eptr_completion_if<nothrow>;
-                    }
+                        return cmplsigs::completion_signatures<set_value_t(T)>{} +
+                               eptr_completion_if<nothrow>;
                 }
                 else
                     return cmplsigs::completion_signatures<Tag(As...)>{};
@@ -170,13 +160,13 @@ namespace mcs::execution
         template <typename Completion, class Sndr, class Fun,
                   class... Env> // NOLINTNEXTLINE
         inline constexpr bool check_type_impl<
-            adapt::__then_t<Completion>, Sndr, Fun,
+            snd::__detail::basic_sender<adapt::__then_t<Completion>, Fun, Sndr>,
             Env...> = check_type_impl<adapt::__then_t<Completion>, Fun> && []() consteval {
             using CS = snd::completion_signatures_of_t<Sndr, Env...>;
             auto fn = []<class... Ts>(Completion (*)(Ts...)) {
                 if constexpr (!std::invocable<Fun, Ts...>)
                     throw diagnostics::invalid_completion_signature<
-                        IN_TAG(check_completion_signature_error), WITH_SENDER(Sndr),
+                        IN_TAG(adapt::__then_t<Completion>), WITH_SENDER(Sndr),
                         WITH_FUNCTION(Fun), WITH_ARGUMENTS(Ts...),
                         NOTE_INFO(
                             The_previous_completion_signature_does_not_match_the_current_function)>();

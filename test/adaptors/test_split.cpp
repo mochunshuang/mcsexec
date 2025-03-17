@@ -254,9 +254,8 @@ int main()
 
             using Base = copy_and_movable_type;
             using CS [[maybe_unused]] =
-                ex::cmplsigs::value_types_of_t<Sndr, ex::empty_env,
-                                               mcs::execution::snd::value_signature,
-                                               std::type_identity_t>;
+                ex::cmplsigs::value_types_of_t<Sndr, mcs::execution::snd::value_signature,
+                                               std::type_identity_t, ex::empty_env>;
 
             static_assert(ex::snd::sender_of<decltype(multishot), copy_and_movable_type>);
             static_assert(

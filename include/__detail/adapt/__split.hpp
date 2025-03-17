@@ -16,8 +16,6 @@
 #include "../snd/general/__impls_for.hpp"
 #include "../snd/__completion_signatures_of_t.hpp"
 
-#include "../snd/__sender_in.hpp"
-
 #include "../queries/__env_of_t.hpp"
 #include "../queries/__stop_token_of_t.hpp"
 
@@ -30,6 +28,8 @@
 #include "../__stoptoken/__stop_callback_of_t.hpp"
 
 #include "../tool/SimpleAtomicOperation.hpp"
+
+#include "../diagnostics/__check_type.hpp"
 
 namespace mcs::execution
 {
@@ -170,7 +170,7 @@ namespace mcs::execution
             {
                 shared_state<Sndr> *sh_state; // exposition only // NOLINT
 
-                [[nodiscard]] inplace_stop_token query(
+                [[nodiscard]] single_inplace_stop_token query(
                     queries::get_stop_token_t /*unused*/) const noexcept
                 {
                     return sh_state->stop_src.get_token();
@@ -481,7 +481,8 @@ namespace mcs::execution
         struct split_t
         {
             template <snd::sender Sndr>
-                requires(snd::sender_in<Sndr, split_env>)
+                requires(diagnostics::check_type<snd::__detail::basic_sender<
+                             adapt::split_t, snd::empty_data, std::decay_t<Sndr>>>)
             auto operator()(Sndr &&sndr) const // noexcept
             {
                 auto dom = snd::general::get_domain_early(std::as_const(sndr));
@@ -607,5 +608,18 @@ namespace mcs::execution
     {
         using type = snd::completion_signatures_of_t<Sndr, Env...>;
     };
+
+    namespace diagnostics
+    {
+        template <typename Sndr> // NOLINTNEXTLINE
+        inline constexpr bool check_type_impl<
+            snd::__detail::basic_sender<adapt::split_t, snd::empty_data, Sndr>> =
+            []() consteval {
+                static_cast<void>(snd::get_completion_signatures<
+                                  Sndr, decltype(snd::general::FWD_ENV(
+                                            std::declval<adapt::split_env>()))>());
+                return true;
+            }();
+    }; // namespace diagnostics
 
 }; // namespace mcs::execution

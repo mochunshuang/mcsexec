@@ -30,9 +30,10 @@ namespace mcs::execution
         struct when_all_t
         {
             template <snd::sender... Sndrs>
-            auto operator()(Sndrs &&...sndrs) const noexcept
                 requires(sizeof...(Sndrs) != 0 &&
-                         static_cast<bool>((snd::sender<Sndrs> && ...)))
+                         diagnostics ::check_type<snd::__detail::basic_sender<
+                             adapt::when_all_t, snd::empty_data, std::decay_t<Sndrs>...>>)
+            auto operator()(Sndrs &&...sndrs) const noexcept
             {
 
                 using CD2 = decltype([]() {
@@ -88,24 +89,22 @@ namespace mcs::execution
 
             }; // namespace __detail
 
-            template <typename State, typename Rcvr, std::size_t Idx>
+            template <typename Source, typename Env, std::size_t Idx>
             struct when_all_env_t
             {
                 constexpr auto query(
                     const queries::get_stop_token_t & /*q*/) const noexcept
                 {
-                    return state.stop_src.template get_token<Idx>();
+                    return stop_src.template get_token<Idx>();
                 }
                 template <typename Q>
                 constexpr auto query(Q &&q) const noexcept
+                    requires(requires(Env env) { env.query(std::forward<Q>(q)); })
                 {
-                    if constexpr (requires {
-                                      queries::get_env(rcvr).query(std::forward<Q>(q));
-                                  })
-                        return queries::get_env(rcvr).query(std::forward<Q>(q));
+                    return env.query(std::forward<Q>(q));
                 }
-                State &state;     // NOLINT
-                const Rcvr &rcvr; // NOLINT
+                const Source &stop_src; // NOLINT
+                Env env;                // NOLINT
             };
 
         }; // namespace __detail
@@ -118,13 +117,13 @@ namespace mcs::execution
             {
                 if constexpr (requires {
                                   typename std::tuple<cmplsigs::value_types_of_t<
-                                      Sndrs, queries::env_of_t<Rcvr>, decayed_tuple,
-                                      std::optional>...>;
+                                      Sndrs, decayed_tuple, std::optional,
+                                      queries::env_of_t<Rcvr>>...>;
                               })
                 {
                     return std::tuple<
-                        cmplsigs::value_types_of_t<Sndrs, queries::env_of_t<Rcvr>,
-                                                   decayed_tuple, std::optional>...>{};
+                        cmplsigs::value_types_of_t<Sndrs, decayed_tuple, std::optional,
+                                                   queries::env_of_t<Rcvr>>...>{};
                 }
                 else
                     return std::tuple<>{};
@@ -310,16 +309,18 @@ namespace mcs::execution
                 }
             };
 
+        template <std::size_t Idx, class Source, class Env>
+        static constexpr auto make_when_all_env(const Source &stop_src, // NOLINT
+                                                Env &&env) noexcept
+        {
+            return adapt::__when_all::__detail::when_all_env_t<Source, Env, Idx>{
+                stop_src, std::forward<Env>(env)};
+        }
         static constexpr auto get_env = // NOLINT
             []<class State, class Rcvr, std::size_t Idx>(
                 std::integral_constant<size_t, Idx>, State &state,
                 const Rcvr &rcvr) noexcept {
-                return adapt::__when_all::__detail::when_all_env_t<State, Rcvr, Idx>{
-                    state, rcvr};
-                // return snd::general::JOIN_ENV(
-                //     snd::general::MAKE_ENV(queries::get_stop_token,
-                //                            state.stop_src.get_token()),
-                //     queries::get_env(rcvr));
+                return make_when_all_env<Idx>(state.stop_src, queries::get_env(rcvr));
             };
 
         static constexpr auto get_state = // NOLINT
@@ -457,14 +458,7 @@ namespace mcs::execution
             auto fun = []<typename Tag, typename... Ts>(Tag (*)(Ts...)) {
                 if constexpr (std::is_same_v<Tag, set_value_t>)
                 {
-                    if constexpr (sizeof...(Ts) >= 2)
-                        return diagnostics::invalid_completion_signature<
-                            IN_TAG(adapt::when_all_t), WITH_SIG(set_value_t(Ts...)),
-                            WITH_ENV(Env...),
-                            NOTE_INFO(
-                                when_all_only_accepts_senders_with_a_single_value_completion_signature)>();
-                    else
-                        return std::tuple<Ts...>{};
+                    return std::tuple<Ts...>{};
                 }
                 else
                     return std::tuple<>{};
@@ -484,4 +478,34 @@ namespace mcs::execution
         };
         using type = decltype(get_all_v() + All_E{} + All_S{});
     };
+
+    namespace diagnostics
+    {
+        template <typename... Sndrs, typename... Env>
+        inline constexpr bool check_type_impl< // NOLINT
+            snd::__detail::basic_sender<adapt::when_all_t, snd::empty_data, Sndrs...>,
+            Env...> = []() consteval {
+            using stop_source = stoptoken::finite_inplace_stop_source<sizeof...(Sndrs)>;
+            using index = std::index_sequence_for<Sndrs...>;
+            auto fn = []<typename Sndr, std::size_t I>() consteval {
+                using CS =
+                    decltype(snd::get_completion_signatures<
+                             Sndr, decltype(snd::general::impls_for<adapt::when_all_t>::
+                                                make_when_all_env<I>(
+                                                    std::declval<stop_source>(),
+                                                    std::declval<Env>()))...>());
+                constexpr auto size = CS::template count<set_value_t>; // NOLINT
+                if constexpr (size >= 2)
+                    throw diagnostics::invalid_completion_signature<
+                        IN_TAG(adapt::when_all_t), WITH_ENV(Env...),
+                        NOTE_INFO(
+                            cannot_accepts_a_sender_that_set_value_completion_signature_more_than_two)>();
+            };
+            [&fn]<std::size_t... Is>(std::index_sequence<Is...>) {
+                (fn.template operator()<Sndrs, Is>(), ...);
+            }(index{});
+            return true;
+        }();
+    }; // namespace diagnostics
+
 }; // namespace mcs::execution

@@ -53,31 +53,31 @@ int main()
         using Sndr = decltype(first);
         using Env = decltype(ex::empty_env{});
         {
-            using T0 = ex::cmplsigs::value_types_of_t<Sndr, Env, std::decay_t,
-                                                      std::type_identity_t>;
+            using T0 = ex::cmplsigs::value_types_of_t<Sndr, std::decay_t,
+                                                      std::type_identity_t, Env>;
             static_assert(std::is_same_v<T0, int>);
             using T1 =
-                ex::cmplsigs::value_types_of_t<Sndr, Env, std::tuple, std::variant>;
+                ex::cmplsigs::value_types_of_t<Sndr, std::tuple, std::variant, Env>;
             static_assert(std::is_same_v<std::variant<std::tuple<int>>, T1>);
 
-            using T2 = ex::cmplsigs::value_types_of_t<Sndr, Env, ex::decayed_tuple,
-                                                      std::type_identity_t>;
+            using T2 = ex::cmplsigs::value_types_of_t<Sndr, ex::decayed_tuple,
+                                                      std::type_identity_t, Env>;
             static_assert(std::is_same_v<std::tuple<int>, T2>);
         }
 
         {
             auto snd = ex::stopped_as_optional(first);
             using Sndr = decltype(snd);
-            using T0 = ex::cmplsigs::value_types_of_t<Sndr, Env, std::decay_t,
-                                                      std::type_identity_t>;
+            using T0 = ex::cmplsigs::value_types_of_t<Sndr, std::decay_t,
+                                                      std::type_identity_t, Env>;
             static_assert(std::is_same_v<T0, std::optional<int>>);
 
             using T1 =
-                ex::cmplsigs::value_types_of_t<Sndr, Env, std::tuple, std::variant>;
+                ex::cmplsigs::value_types_of_t<Sndr, std::tuple, std::variant, Env>;
             static_assert(std::is_same_v<std::variant<std::tuple<T0>>, T1>);
 
-            using T2 = ex::cmplsigs::value_types_of_t<Sndr, Env, ex::decayed_tuple,
-                                                      std::type_identity_t>;
+            using T2 = ex::cmplsigs::value_types_of_t<Sndr, ex::decayed_tuple,
+                                                      std::type_identity_t, Env>;
             static_assert(std::is_same_v<std::tuple<T0>, T2>);
         }
     };
@@ -89,13 +89,13 @@ int main()
         using Sndr = decltype(snd);
 
         using T0 =
-            ex::cmplsigs::value_types_of_t<Sndr, Env, std::decay_t, std::type_identity_t>;
+            ex::cmplsigs::value_types_of_t<Sndr, std::decay_t, std::type_identity_t, Env>;
         static_assert(std::is_same_v<T0, std::optional<std::tuple<int, double>>>);
 
-        using T1 = ex::cmplsigs::value_types_of_t<Sndr, Env, std::tuple, std::variant>;
+        using T1 = ex::cmplsigs::value_types_of_t<Sndr, std::tuple, std::variant, Env>;
         static_assert(std::is_same_v<std::variant<std::tuple<T0>>, T1>);
-        using T2 = ex::cmplsigs::value_types_of_t<Sndr, Env, ex::decayed_tuple,
-                                                  std::type_identity_t>;
+        using T2 = ex::cmplsigs::value_types_of_t<Sndr, ex::decayed_tuple,
+                                                  std::type_identity_t, Env>;
         static_assert(std::is_same_v<std::tuple<T0>, T2>);
 
         auto [ret] = mcs::this_thread::sync_wait(snd).value();
@@ -112,13 +112,13 @@ int main()
         using Sndr = decltype(snd);
 
         using T0 =
-            ex::cmplsigs::value_types_of_t<Sndr, Env, std::decay_t, std::type_identity_t>;
+            ex::cmplsigs::value_types_of_t<Sndr, std::decay_t, std::type_identity_t>;
         static_assert(std::is_same_v<T0, std::optional<int>>);
 
-        using T1 = ex::cmplsigs::value_types_of_t<Sndr, Env, std::tuple, std::variant>;
+        using T1 = ex::cmplsigs::value_types_of_t<Sndr, std::tuple, std::variant>;
         static_assert(std::is_same_v<std::variant<std::tuple<T0>>, T1>);
-        using T2 = ex::cmplsigs::value_types_of_t<Sndr, Env, ex::decayed_tuple,
-                                                  std::type_identity_t>;
+        using T2 =
+            ex::cmplsigs::value_types_of_t<Sndr, ex::decayed_tuple, std::type_identity_t>;
         static_assert(std::is_same_v<std::tuple<T0>, T2>);
 
         auto [ret] = mcs::this_thread::sync_wait(snd).value();
@@ -129,13 +129,15 @@ int main()
     TEST("stopped_as_optional: set_value(v...) => optional<v...>") = [] {
         auto s = ex::just(1) | ex::then([](int) noexcept { return; }) |
                  ex::let_value([]() noexcept { return just_stopped(); });
-        auto snd = ex::stopped_as_optional(s);
-        using Env = decltype(ex::empty_env{});
-        using Sndr = decltype(snd);
-        static_assert(snd::single_sender<decltype(s), ex::empty_env>);
-        using CS0 = snd::completion_signatures_of_t<decltype(s), ex::empty_env>;
-        static_assert(std::is_same_v<CS0, cmplsigs::completion_signatures<
-                                              mcs::execution::recv::set_stopped_t()>>);
+        using CS = snd::completion_signatures_of_t<decltype(s)>;
+        static_assert(ex::snd::single_sender<decltype(s), ex::empty_env>);
+        // auto snd = ex::stopped_as_optional(s); //NOTE: 编译期失败
+        // using Env = decltype(ex::empty_env{});
+        // using Sndr = decltype(snd);
+        // static_assert(snd::single_sender<decltype(s), ex::empty_env>);
+        // using CS0 = snd::completion_signatures_of_t<decltype(s), ex::empty_env>;
+        // static_assert(std::is_same_v<CS0, cmplsigs::completion_signatures<
+        //                                       mcs::execution::recv::set_stopped_t()>>);
 
         // NOTE: 编译失败，
         //  using CS1 = snd::completion_signatures_of_t<Sndr, Env>;

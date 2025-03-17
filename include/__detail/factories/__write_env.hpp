@@ -25,8 +25,9 @@ namespace mcs::execution
              * the result of joining the queryable object to the result of get_env(rcvr).
              */
             template <snd::sender Sndr, queryable Env>
-                requires(diagnostics::check_type<write_env_t, std::decay_t<Sndr>,
-                                                 std::decay_t<Env>>)
+                requires(
+                    diagnostics::check_type<snd::__detail::basic_sender<
+                        factories::write_env_t, std::decay_t<Env>, std::decay_t<Sndr>>>)
             constexpr auto operator()(Sndr &&sndr, Env &&env) const noexcept
             {
                 return snd::make_sender(*this, std::forward<Env>(env),
@@ -83,8 +84,9 @@ namespace mcs::execution
     namespace diagnostics
     {
         template <class Sndr, class Data, class... Env> // NOLINTNEXTLINE
-        inline constexpr bool check_type_impl<factories::write_env_t, Sndr, Data,
-                                              Env...> = []() consteval {
+        inline constexpr bool check_type_impl<
+            snd::__detail::basic_sender<factories::write_env_t, Data, Sndr>,
+            Env...> = []() consteval {
             static_cast<void>(
                 snd::get_completion_signatures<
                     Sndr,

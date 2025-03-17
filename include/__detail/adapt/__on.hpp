@@ -11,6 +11,8 @@
 
 #include "../factories/__write_env.hpp"
 
+#include "../snd/__not_a_sender.hpp"
+
 namespace mcs::execution
 {
     namespace adapt
@@ -31,23 +33,6 @@ namespace mcs::execution
             not std::derived_from<std::decay_t<Adaptor>, pipeable::sender_adaptor_closure<
                                                              std::decay_t<Adaptor>>>;
 
-        struct not_a_sender
-        {
-            using sender_concept = sender_t;
-
-            auto get_completion_signatures(auto &&) const // NOLINT
-            {
-            }
-            template <class Sndr>
-            static constexpr auto get_completion_signatures() // NOLINT
-                -> cmplsigs::completion_signatures<>
-            {
-                struct not_completion_signatures
-                {
-                };
-                throw not_completion_signatures{};
-            }
-        };
         struct not_a_scheduler
         {
         };

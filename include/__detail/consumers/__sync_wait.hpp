@@ -51,11 +51,12 @@ namespace mcs::execution::consumers
 
         template <snd::sender_in<sync_wait_env> Sndr>
         using sync_wait_result_type = std::optional<cmplsigs::value_types_of_t<
-            Sndr, sync_wait_env, execution::decayed_tuple, std::type_identity_t>>;
+            Sndr, execution::decayed_tuple, std::type_identity_t, sync_wait_env>>;
 
         template <snd::sender_in<sync_wait_env> Sndr>
-        using sync_wait_with_variant_result_type =
-            std::optional<cmplsigs::value_types_of_t<Sndr, sync_wait_env>>;
+        using sync_wait_with_variant_result_type = std::optional<
+            cmplsigs::value_types_of_t<Sndr, execution::decayed_tuple,
+                                       cmplsigs::variant_or_empty, sync_wait_env>>;
 
         template <class Sndr>
         struct sync_wait_state // exposition only

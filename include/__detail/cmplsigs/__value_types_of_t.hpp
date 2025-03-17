@@ -10,12 +10,11 @@
 namespace mcs::execution::cmplsigs
 {
 
-    template <class Sndr, class Env = ::mcs::execution::empty_env,
-              template <class...> class Tuple = decayed_tuple,
-              template <class...> class Variant = variant_or_empty>
-        requires snd::sender_in<Sndr, Env>
+    template <class Sndr, template <class...> class Tuple = decayed_tuple,
+              template <class...> class Variant = variant_or_empty, typename... Env>
+        requires snd::sender_in<Sndr, Env...>
     using value_types_of_t =
-        gather_signatures<set_value_t, snd::completion_signatures_of_t<Sndr, Env>, Tuple,
-                          Variant>;
+        gather_signatures<set_value_t, snd::completion_signatures_of_t<Sndr, Env...>,
+                          Tuple, Variant>;
 
 }; // namespace mcs::execution::cmplsigs

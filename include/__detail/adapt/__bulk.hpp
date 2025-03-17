@@ -36,6 +36,12 @@ namespace mcs::execution
 
               public:
                 template <snd::sender Sndr, policy Policy, shape Shape, movable_value Fun>
+                    requires(diagnostics::check_type<snd::__detail::basic_sender<
+                                 Algo,
+                                 snd::__detail::product_type<std::decay_t<Policy>,
+                                                             std::decay_t<Shape>,
+                                                             std::decay_t<Fun>>,
+                                 std::decay_t<Sndr>>>)
                 auto operator()(Sndr &&sndr, Policy &&policy, Shape &&shape,
                                 Fun &&f) const // noexcept
                 {
@@ -199,18 +205,7 @@ namespace mcs::execution
             using CS = snd::completion_signatures_of_t<Sndr, Env...>;
             auto nothorw = []<class Tag, class... As>(Tag (*)(As...)) {
                 if constexpr (std::same_as<Tag, set_value_t>)
-                {
-                    if constexpr (not std::invocable<Fun, Shape, As &...>)
-                    {
-                        return diagnostics::invalid_completion_signature<
-                            IN_TAG(adapt::bulk_t), WITH_SENDER(Sndr), WITH_FUNCTION(Fun),
-                            WITH_ARGUMENTS(Shape, As & ...), WITH_ENV(Env...),
-                            NOTE_INFO(
-                                The_previous_completion_signature_does_not_match_the_current_function)>();
-                    }
-                    else
-                        return std::is_nothrow_invocable_v<Fun, Shape, As &...>;
-                }
+                    return std::is_nothrow_invocable_v<Fun, Shape, As &...>;
                 else
                     return true;
             };
@@ -235,19 +230,7 @@ namespace mcs::execution
             using CS = snd::completion_signatures_of_t<Sndr, Env...>;
             auto nothorw = []<class Tag, class... As>(Tag (*)(As...)) {
                 if constexpr (std::same_as<Tag, set_value_t>)
-                {
-                    if constexpr (not std::invocable<Fun, Shape, Shape, As &...>)
-                    {
-                        return diagnostics::invalid_completion_signature<
-                            IN_TAG(adapt::bulk_chunked_t), WITH_SENDER(Sndr),
-                            WITH_FUNCTION(Fun), WITH_ARGUMENTS(Shape, As & ...),
-                            WITH_ENV(Env...),
-                            NOTE_INFO(
-                                The_previous_completion_signature_does_not_match_the_current_function)>();
-                    }
-                    else
-                        return std::is_nothrow_invocable_v<Fun, Shape, Shape, As &...>;
-                }
+                    return std::is_nothrow_invocable_v<Fun, Shape, Shape, As &...>;
                 else
                     return true;
             };
@@ -273,19 +256,7 @@ namespace mcs::execution
             using CS = snd::completion_signatures_of_t<Sndr, Env...>;
             auto nothorw = []<class Tag, class... As>(Tag (*)(As...)) {
                 if constexpr (std::same_as<Tag, set_value_t>)
-                {
-                    if constexpr (not std::invocable<Fun, Shape, As &...>)
-                    {
-                        return diagnostics::invalid_completion_signature<
-                            IN_TAG(adapt::bulk_unchunked_t), WITH_SENDER(Sndr),
-                            WITH_FUNCTION(Fun), WITH_ARGUMENTS(Shape, As & ...),
-                            WITH_ENV(Env...),
-                            NOTE_INFO(
-                                The_previous_completion_signature_does_not_match_the_current_function)>();
-                    }
-                    else
-                        return std::is_nothrow_invocable_v<Fun, Shape, As &...>;
-                }
+                    return std::is_nothrow_invocable_v<Fun, Shape, As &...>;
                 else
                     return true;
             };
@@ -299,5 +270,73 @@ namespace mcs::execution
         using type = decltype(snd::completion_signatures_of_t<Sndr, Env...>{} +
                               cmplsigs::eptr_completion_if<is_nothorw()>);
     };
+
+    namespace diagnostics
+    {
+        template <typename Sndr, typename Policy, typename Shape, typename Fun,
+                  typename... Env> // NOLINTNEXTLINE
+        inline constexpr bool check_type_impl<
+            snd::__detail::basic_sender<
+                adapt::bulk_t, snd::__detail::product_type<Policy, Shape, Fun>, Sndr>,
+            Env...> = []() consteval {
+            using CS = snd::completion_signatures_of_t<Sndr, Env...>;
+            auto fn = []<class... As>(set_value_t (*)(As...)) {
+                if constexpr (!std::invocable<Fun, Shape, As &...>)
+                    throw diagnostics::invalid_completion_signature<
+                        IN_TAG(adapt::bulk_t), WITH_SENDER(Sndr), WITH_FUNCTION(Fun),
+                        WITH_ARGUMENTS(Shape, As & ...), WITH_ENV(Env...),
+                        NOTE_INFO(
+                            The_previous_completion_signature_does_not_match_the_current_function)>();
+            };
+            CS::check_sigs(overload_set{fn, [](auto) {
+                                        }});
+            return true;
+        }();
+
+        template <typename Sndr, typename Policy, typename Shape, typename Fun,
+                  typename... Env> // NOLINTNEXTLINE
+        inline constexpr bool check_type_impl<
+            snd::__detail::basic_sender<adapt::bulk_chunked_t,
+                                        snd::__detail::product_type<Policy, Shape, Fun>,
+                                        Sndr>,
+            Env...> = []() consteval {
+            using CS = snd::completion_signatures_of_t<Sndr, Env...>;
+            auto fn = []<class... As>(set_value_t (*)(As...)) {
+                if constexpr (!std::invocable<Fun, Shape, Shape, As &...>)
+                    throw diagnostics::invalid_completion_signature<
+                        IN_TAG(adapt::bulk_chunked_t), WITH_SENDER(Sndr),
+                        WITH_FUNCTION(Fun), WITH_ARGUMENTS(Shape, Shape, As & ...),
+                        WITH_ENV(Env...),
+                        NOTE_INFO(
+                            The_previous_completion_signature_does_not_match_the_current_function)>();
+            };
+            CS::check_sigs(overload_set{fn, [](auto) {
+                                        }});
+            return true;
+        }();
+
+        template <typename Sndr, typename Policy, typename Shape, typename Fun,
+                  typename... Env> // NOLINTNEXTLINE
+        inline constexpr bool check_type_impl<
+            snd::__detail::basic_sender<adapt::bulk_unchunked_t,
+                                        snd::__detail::product_type<Policy, Shape, Fun>,
+                                        Sndr>,
+            Env...> = []() consteval {
+            using CS = snd::completion_signatures_of_t<Sndr, Env...>;
+            auto fn = []<class... As>(set_value_t (*)(As...)) {
+                if constexpr (!std::invocable<Fun, Shape, As &...>)
+                    throw diagnostics::invalid_completion_signature<
+                        IN_TAG(adapt::bulk_unchunked_t), WITH_SENDER(Sndr),
+                        WITH_FUNCTION(Fun), WITH_ARGUMENTS(Shape, As & ...),
+                        WITH_ENV(Env...),
+                        NOTE_INFO(
+                            The_previous_completion_signature_does_not_match_the_current_function)>();
+            };
+            CS::check_sigs(overload_set{fn, [](auto) {
+                                        }});
+            return true;
+        }();
+
+    }; // namespace diagnostics
 
 }; // namespace mcs::execution

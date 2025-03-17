@@ -86,6 +86,9 @@ namespace mcs::execution
         {
 
             template <snd::sender Sndr, movable_value Fun>
+                requires(diagnostics::check_type<snd::__detail::basic_sender<
+                             adapt::__let_t<Completion>, std::decay_t<Fun>,
+                             std::decay_t<Sndr>>>)
             auto operator()(Sndr &&sndr, Fun &&f) const
             {
                 auto dom = snd::general::get_domain_early(std::as_const(sndr));
@@ -310,10 +313,16 @@ namespace mcs::execution
                 using Origin_LetSigs = decltype(Sigs::template filter_sigs<Completion>());
                 constexpr auto is_nothrow = // NOLINT
                     []<class... Sigs>(cmplsigs::completion_signatures<Sigs...>) {
-                        auto fun = []<class... As>(Completion (*)(As...)) noexcept {
-                            return noexcept(std::declval<Fn>()(std::declval<As>()...));
-                        };
-                        return (fun(static_cast<Sigs *>(nullptr)) && ...);
+                        if constexpr (sizeof...(Sigs) > 0)
+                        {
+                            auto fun = []<class... As>(Completion (*)(As...)) noexcept {
+                                return noexcept(
+                                    std::declval<Fn>()(std::declval<As>()...));
+                            };
+                            return (fun(static_cast<Sigs *>(nullptr)) && ...);
+                        }
+                        else
+                            return true;
                     };
                 constexpr bool nothrow = is_nothrow(Origin_LetSigs{}); // NOLINT
                 // using add_Sig_when_set_error_t =
@@ -415,33 +424,11 @@ namespace mcs::execution
             []<class Tag, class... As>(Tag (*)(As...)) {
                 if constexpr (std::is_same_v<Tag, Completion>)
                 {
-                    if constexpr (not std::invocable<Fun, As...>)
-                    {
-                        return diagnostics::invalid_completion_signature<
-                            IN_TAG(adapt::__let_t<Completion>), WITH_SENDER(Sndr),
-                            WITH_FUNCTION(Fun), WITH_ARGUMENTS(As...), WITH_ENV(Env...),
-                            NOTE_INFO(
-                                The_previous_completion_signature_does_not_match_the_current_function)>();
-                    }
-                    else
-                    {
-                        using Ret = decltype(std::declval<Fun>()(std::declval<As>()...));
-                        constexpr bool nothrow = // NOLINT
-                            noexcept(std::declval<Fun>()(std::declval<As>()...));
-
-                        if constexpr (not snd::sender<Ret>)
-                        {
-                            return diagnostics::invalid_completion_signature<
-                                IN_TAG(adapt::__let_t<Completion>),
-                                NOTE_INFO(
-                                    the_fun_return_type_is_not_a_sndr_in_let_xxx)>();
-                        }
-                        else
-                        {
-                            return snd::completion_signatures_of_t<Ret>{} +
-                                   eptr_completion_if<nothrow>;
-                        }
-                    }
+                    using Ret = decltype(std::declval<Fun>()(std::declval<As>()...));
+                    constexpr bool nothrow = // NOLINT
+                        noexcept(std::declval<Fun>()(std::declval<As>()...));
+                    return snd::completion_signatures_of_t<Ret>{} +
+                           eptr_completion_if<nothrow>;
                 }
                 else
                     return cmplsigs::completion_signatures<Tag(As...)>{};
@@ -450,5 +437,33 @@ namespace mcs::execution
             decltype(snd::completion_signatures_of_t<Sndr, Env...>::transform_sigs(
                 transform));
     };
+
+    namespace diagnostics
+    {
+        template <typename Completion, typename Fun, typename Sndr,
+                  typename... Env> // NOLINTNEXTLINE
+        inline constexpr bool check_type_impl<
+            snd::__detail::basic_sender<adapt::__let_t<Completion>, Fun, Sndr>,
+            Env...> = []() consteval {
+            using CS = snd::completion_signatures_of_t<Sndr, Env...>;
+            auto fn = []<class... Ts>(Completion (*)(Ts...)) {
+                if constexpr (!std::invocable<Fun, Ts...>)
+                    throw diagnostics::invalid_completion_signature<
+                        IN_TAG(adapt::__let_t<Completion>), WITH_SENDER(Sndr),
+                        WITH_FUNCTION(Fun), WITH_ARGUMENTS(Ts...),
+                        NOTE_INFO(
+                            The_previous_completion_signature_does_not_match_the_current_function)>();
+                else if constexpr (!snd::sender<std::invoke_result_t<Fun, Ts...>>)
+                    throw diagnostics::invalid_completion_signature<
+                        IN_TAG(adapt::__let_t<Completion>), WITH_FUNCTION(Fun),
+                        WITH_ARGUMENTS(Ts...),
+                        NOTE_INFO(the_fun_return_type_is_not_a_sndr_in_let_xxx)>();
+            };
+            CS::check_sigs(overload_set{fn, [](auto) {
+                                        }});
+            return true;
+        }();
+
+    }; // namespace diagnostics
 
 }; // namespace mcs::execution

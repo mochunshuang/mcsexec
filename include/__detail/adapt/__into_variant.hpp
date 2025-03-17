@@ -54,9 +54,9 @@ namespace mcs::execution
             []<class Sndr, class Rcvr>(Sndr && /*sndr*/, Rcvr & /*rcvr*/) noexcept {
                 using Sigs =
                     snd::completion_signatures_of_t<Sndr, queries::env_of_t<Rcvr>>;
-                using type =
-                    cmplsigs::value_types_of_t<snd::__detail::mate_type::child_type<Sndr>,
-                                               queries::env_of_t<Rcvr>>;
+                using type = cmplsigs::value_types_of_t<
+                    snd::__detail::mate_type::child_type<Sndr>, execution::decayed_tuple,
+                    cmplsigs::variant_or_empty, queries::env_of_t<Rcvr>>;
                 constexpr bool nothrow = Sigs::template count<set_error_t> == 0; // NOLINT
                 return adapt::__detail::into_variant_state<type, nothrow>{};
             };

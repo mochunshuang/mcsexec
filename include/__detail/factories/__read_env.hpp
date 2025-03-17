@@ -24,7 +24,8 @@ namespace mcs::execution
         struct read_env_t
         {
             template <typename Q>
-                requires(diagnostics::check_type<read_env_t, std::decay_t<Q>>)
+                requires(diagnostics::check_type<snd::__detail::basic_sender<
+                             factories::read_env_t, std::decay_t<Q>>>)
             snd::sender auto constexpr operator()(Q &&q) const noexcept
             {
                 return snd::make_sender(*this, std::forward<Q>(q));
@@ -53,8 +54,9 @@ namespace mcs::execution
     namespace diagnostics
     {
         template <class Q, class... Env> // NOLINTNEXTLINE
-        inline constexpr bool check_type_impl<factories::read_env_t, Q,
-                                              Env...> = []() consteval {
+        inline constexpr bool check_type_impl<
+            snd::__detail::basic_sender<factories::read_env_t, Q>,
+            Env...> = []() consteval {
             if constexpr (sizeof...(Env) == 0)
                 return true;
             else if constexpr (requires {
@@ -63,7 +65,7 @@ namespace mcs::execution
             {
                 using T = decltype(Q()(std::declval<Env>()...));
                 if constexpr (std::is_void_v<T>)
-                    return diagnostics::invalid_completion_signature<
+                    throw diagnostics::invalid_completion_signature<
                         IN_TAG(factories::read_env_t), WITH_ENV(Env...),
                         WITH_ARGUMENTS(Q),
                         NOTE_INFO(

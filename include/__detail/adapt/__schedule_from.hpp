@@ -33,6 +33,8 @@
 #include "../factories/__schedule.hpp"
 #include "../cmplsigs/__eptr_completion_if.hpp"
 
+#include "../diagnostics/__check_type.hpp"
+
 namespace mcs::execution
 {
     namespace adapt
@@ -46,6 +48,9 @@ namespace mcs::execution
         struct schedule_from_t
         {
             template <sched::scheduler Sched, snd::sender Sndr>
+                requires(
+                    diagnostics::check_type<snd::__detail::basic_sender<
+                        adapt::schedule_from_t, std::decay_t<Sched>, std::decay_t<Sndr>>>)
             auto operator()(Sched &&sch, Sndr &&sndr) const
             {
                 auto dom = snd::general::query_or_default(
@@ -149,8 +154,10 @@ namespace mcs::execution
                 (!std::is_move_constructible_v<T> && !std::is_copy_constructible_v<T>);
         }; // namespace __detail
 
+        template <typename T>
+        inline constexpr bool check_type_no_copy_move_throw = false; // NOLINT
         template <typename Tag, typename... T>
-        inline constexpr bool check_type_no_copy_move_throw = // NOLINT
+        inline constexpr bool check_type_no_copy_move_throw<Tag(T...)> = // NOLINT
             (__detail::no_copy_move_throw<T> && ...);
         template <typename Tag>
         inline constexpr bool check_type_no_copy_move_throw<Tag()> = true; // NOLINT
@@ -243,9 +250,36 @@ namespace mcs::execution
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<adapt::schedule_from_t, Sched, Sndr>, Env...>
     {
-        using type = decltype(snd::completion_signatures_of_t<Sndr, Env...>{} +
-                              eptr_completion_if<adapt::is_Sig_no_throw<
-                                  snd::completion_signatures_of_t<Sndr, Env...>>>);
+        using CS = snd::completion_signatures_of_t<Sndr, Env...>;
+        static constexpr bool is_nothorw = [] consteval { // NOLINT
+            return []<class... Sig>(cmplsigs::completion_signatures<Sig...>) {
+                return adapt::is_Sig_no_throw<Sig...>;
+            }(CS{});
+        };
+        using type = decltype(CS{} + eptr_completion_if<is_nothorw>);
     };
+
+    namespace diagnostics
+    {
+        template <typename Sched, typename Sndr, typename... Env>
+        inline constexpr bool // NOLINTNEXTLINE
+            check_type_impl<
+                snd::__detail::basic_sender<adapt::schedule_from_t, Sched, Sndr>,
+                Env...> = []() consteval {
+                static_cast<void>(
+                    snd::get_completion_signatures<sched::schedule_result_t<Sched>,
+                                                   decltype(snd::general::FWD_ENV(
+                                                       std::declval<Env>()))...>());
+                using index = Sndr::indices_for;
+                []<std::size_t... Is>(std::index_sequence<Is...>) {
+                    (static_cast<void>(
+                         snd::get_completion_signatures<
+                             snd::__detail::mate_type::child_type<Sndr, Is>,
+                             decltype(snd::general::FWD_ENV(std::declval<Env>()))...>()),
+                     ...);
+                }(index{});
+                return true;
+            }();
+    }; // namespace diagnostics
 
 }; // namespace mcs::execution

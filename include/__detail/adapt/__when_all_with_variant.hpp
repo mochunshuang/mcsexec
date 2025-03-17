@@ -12,18 +12,13 @@ namespace mcs::execution
         {
             template <snd::sender... Sndrs>
             auto operator()(Sndrs &&...sndrs) const noexcept
-                requires(sizeof...(Sndrs) != 0 &&
-                         static_cast<bool>((snd::sender<Sndrs> && ...)) && requires() {
-                             typename std::common_type_t<
-                                 decltype(snd::general::get_domain_early(
-                                     std::as_const(sndrs)))...>;
-                         })
+                requires(sizeof...(Sndrs) != 0)
             {
                 using CD2 = decltype([]() {
                     if constexpr (requires() {
                                       typename std::common_type_t<
                                           decltype(snd::general::get_domain_early(
-                                              sndrs))...>;
+                                              std::as_const(sndrs)))...>;
                                   })
                     {
                         using CD =
@@ -42,7 +37,6 @@ namespace mcs::execution
             auto transform_sender(Sndr &&sndr, const Env & /*env*/) noexcept
                 requires(snd::sender_for<decltype((sndr)), when_all_with_variant_t>)
             {
-                // NOTE: 算法直接都是编译期组合的，noexcept 是合理的
                 return std::forward<Sndr>(sndr).apply(
                     []<typename... Child>(auto &&, auto &&,
                                           Child &&...child) noexcept(true) {

@@ -17,6 +17,20 @@ int main()
         static_assert(ex::sender_in<decltype(snd), ex::empty_env>);
     };
 
+    TEST("when_all with no_value return ") = [] {
+        auto snd = ex::when_all(ex::just(), ex::just()); // NOLINT
+        auto ret = mcs::this_thread::sync_wait(snd).value();
+        static_assert(std::is_same_v<decltype(ret), std::tuple<>>);
+    };
+
+    TEST("just(3, 4) just one set_value_completion") = [] {
+        auto snd = ex::when_all(ex::just(3, 4), ex::just(0.1415)); // NOLINT
+        auto ret = mcs::this_thread::sync_wait(snd).value();
+        auto [a, b, c] = ret;
+        EXPECT((a == 3 && b == 4 && c == 0.1415));
+        static_assert(std::is_same_v<decltype(ret), std::tuple<int, int, double>>);
+    };
+
     TEST("when_all simple example") = [] {
         bool called{false};
         std::any any;

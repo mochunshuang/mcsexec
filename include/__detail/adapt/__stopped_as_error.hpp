@@ -29,7 +29,7 @@ namespace mcs::execution
             }
 
             template <snd::sender Sndr, typename Env> // NOLINTNEXTLINE
-            auto transform_sender(Sndr &&sndr, const Env &env) noexcept
+            auto transform_sender(Sndr &&sndr, const Env & /*env*/) noexcept
                 requires(snd::sender_for<decltype((sndr)), stopped_as_error_t>)
             {
                 auto &&[_, err, child] = sndr;
