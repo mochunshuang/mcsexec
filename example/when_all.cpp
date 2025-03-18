@@ -24,8 +24,9 @@ void test_base()
     sender auto sends_1 = just(1);                    // NOLINT
     sender auto sends_abc = just(std::string("abc")); // NOLINT
     {
-        using T = decltype(sends_1.get_completion_signatures(empty_env{}));
-        using T2 = decltype(sends_abc.get_completion_signatures(empty_env{}));
+        using T = snd::completion_signatures_of_t<decltype(sends_1)>;
+        using T2 = snd::completion_signatures_of_t<decltype(sends_abc)>;
+
         static_assert(std::is_same_v<completion_signatures<set_value_t(int)>, T>);
         static_assert(
             std::is_same_v<completion_signatures<set_value_t(std::string)>, T2>);
@@ -42,7 +43,7 @@ void test_base()
 
     sender auto both = when_all(sends_1, sends_abc);
     {
-        using T [[maybe_unused]] = decltype(both.get_completion_signatures(empty_env{}));
+        using T [[maybe_unused]] = snd::completion_signatures_of_t<decltype(both)>;
         using T2 = cmplsigs::value_types_of_t<decltype(both)>;
         // Note: 默认外部模板：variant，内部模板tuple
         // Note: tuple<Ts...> => set_value_t<Ts...> 即可 算出一路的完成签名
@@ -50,8 +51,8 @@ void test_base()
             std::is_same_v<std::variant<std::tuple<int, std::basic_string<char>>>, T2>);
 
         using T3 = cmplsigs::error_types_of_t<decltype(both)>;
-        static_assert(
-            std::is_same_v<std::variant<std::__exception_ptr::exception_ptr>, T3>);
+
+        static_assert(std::is_same_v<cmplsigs::empty_variant, T3>);
     }
     sender auto final = then(both, [](auto... args) {
         std::cout << std::format("the two args: {}, {}\n", args...);

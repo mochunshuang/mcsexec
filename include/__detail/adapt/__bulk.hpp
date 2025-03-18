@@ -101,7 +101,7 @@ namespace mcs::execution
             {
                 auto &[policy, shape, f] = state;
                 constexpr bool nothrow = noexcept(f(auto(shape), args...)); // NOLINT
-                try
+                if constexpr (nothrow)
                 {
                     [&]() noexcept(nothrow) {
                         for (decltype(auto(shape)) i = 0; i < shape; ++i)
@@ -111,9 +111,22 @@ namespace mcs::execution
                         Tag()(std::move(rcvr), std::forward<Args>(args)...);
                     }();
                 }
-                catch (...)
+                else
                 {
-                    recv::set_error(std::move(rcvr), std::current_exception());
+                    try
+                    {
+                        [&]() noexcept(nothrow) {
+                            for (decltype(auto(shape)) i = 0; i < shape; ++i)
+                            {
+                                f(auto(i), args...);
+                            }
+                            Tag()(std::move(rcvr), std::forward<Args>(args)...);
+                        }();
+                    }
+                    catch (...)
+                    {
+                        recv::set_error(std::move(rcvr), std::current_exception());
+                    }
                 }
             }
             else
@@ -139,7 +152,7 @@ namespace mcs::execution
             {
                 auto &[policy, shape, f] = state; // NOLINTNEXTLINE
                 constexpr bool nothrow = noexcept(f(auto(shape), auto(shape), args...));
-                try
+                if constexpr (nothrow)
                 {
                     using Shape = decltype(auto(shape));
                     [&]() noexcept(nothrow) {
@@ -147,9 +160,20 @@ namespace mcs::execution
                         Tag()(std::move(rcvr), std::forward<Args>(args)...);
                     }();
                 }
-                catch (...)
+                else
                 {
-                    recv::set_error(std::move(rcvr), std::current_exception());
+                    try
+                    {
+                        using Shape = decltype(auto(shape));
+                        [&]() noexcept(nothrow) {
+                            f(Shape{0}, auto(shape), args...);
+                            Tag()(std::move(rcvr), std::forward<Args>(args)...);
+                        }();
+                    }
+                    catch (...)
+                    {
+                        recv::set_error(std::move(rcvr), std::current_exception());
+                    }
                 }
             }
             else

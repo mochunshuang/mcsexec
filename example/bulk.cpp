@@ -93,6 +93,7 @@ void base()
     int n = static_cast<int>(partials.size());
     assert(n == 5);
 
+    std::cout << "\n start\n";
     auto task = just(std::move(partials)) | then([](std::vector<MyClass> &&p) {
                     std::cout << "tid: " << std::this_thread::get_id()
                               << " , I am running on cpu_ctx\n";
@@ -108,16 +109,16 @@ void base()
             p[i].data = i;
             return p;
         };
-        auto snd =
-            bulk(std::move(start), n, std::move(f)) | then([](std::vector<MyClass> p) {
-                for (auto &i : p)
-                {
-                    i.data += 1; // change one time
-                }
-                std::cout << "tid: " << std::this_thread::get_id()
-                          << " , bulk-then : only once\n";
-                return p;
-            });
+        auto snd = bulk(std::move(start), std::execution::par, n, std::move(f)) |
+                   then([](std::vector<MyClass> p) {
+                       for (auto &i : p)
+                       {
+                           i.data += 1; // change one time
+                       }
+                       std::cout << "tid: " << std::this_thread::get_id()
+                                 << " , bulk-then : only once\n";
+                       return p;
+                   });
         std::cout << "sync_wait: \n";
         auto [p] = mcs::this_thread::sync_wait(std::move(snd)).value();
         for (std::size_t i = 0; i < p.size(); ++i)
