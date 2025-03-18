@@ -2,6 +2,7 @@
 #include "../test_base_head.hpp"
 #include <cassert>
 #include <cstring>
+#include <string_view>
 
 int main()
 {
@@ -200,7 +201,7 @@ int main()
         {
             std::string whatStr = ex.what();
             // Note: 字符串处理变成string 才行，离谱
-            EXPECT(std::strcmp(ex.what(), "err") != 0);
+            EXPECT(std::string_view(ex.what()) == std::string_view{"err"});
             EXPECT(whatStr == "err");
         }
     };
