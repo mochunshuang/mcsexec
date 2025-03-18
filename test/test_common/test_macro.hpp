@@ -107,6 +107,7 @@ namespace mcstest
             catch (const ExpectError &e)
             {
                 std::cout << "testname: " << info.name << " fault: " << e.what();
+                throw;
             }
             return *this;
         }
