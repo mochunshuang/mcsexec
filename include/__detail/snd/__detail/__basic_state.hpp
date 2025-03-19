@@ -8,6 +8,8 @@ namespace mcs::execution::snd::__detail
     template <class Sndr, class Rcvr>
     struct basic_state // exposition only
     {
+        // NOTE: 异常计算 基于 p3388r1 回退 到 p2300r10 原始版本。sndr.conect(rcvr)
+        // NOTE: 还是留着，这一大坨是判断 mate_type::state_type<Sndr, Rcvr> 是否无异常构造
         basic_state(Sndr &&sndr, Rcvr &&rcvr) noexcept(
             std::is_nothrow_move_constructible_v<Rcvr> &&
             functional::nothrow_callable<

@@ -292,7 +292,7 @@ namespace mcs::execution
         // Note: used by general::impls_for<tag_of_t<Sndr>>::get_state
         // Note: used by basic_state, by connect(sndr,recr)
         static constexpr auto get_state = // NOLINT
-            []<class Sndr, class Rcvr>(Sndr &&sndr, Rcvr & /*rcvr*/) {
+            []<class Sndr, class Rcvr>(Sndr &&sndr, Rcvr & /*rcvr*/) noexcept {
                 auto &[_, fn, child] = sndr;
                 constexpr auto let_env = adapt::let_env_t<Completion>(); // NOLINT
 

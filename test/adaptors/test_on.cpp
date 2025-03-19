@@ -10,12 +10,38 @@ int main()
     io.printInfo();
     cpu.printInfo();
     std::cout << "main id: " << std::this_thread::get_id() << "\n";
-
-    TEST("base") = [&] {
-        auto snd = cpu.get_scheduler().schedule() | ex::then([] {
+    TEST("base 0") = [] {
+        auto snd = ex::just() | ex::then([] {
                        std::cout << "cpu schedule id: " << std::this_thread::get_id()
                                  << "\n";
                    });
+        using CS = ex::snd::completion_signatures_of_t<decltype(snd)>;
+        static_assert(
+            std::is_same_v<CS,
+                           mcs::execution::cmplsigs::completion_signatures<
+                               mcs::execution::recv::set_value_t(),
+                               mcs::execution::recv::set_error_t(std::exception_ptr)>>);
+        mcs::this_thread::sync_wait(snd);
+    };
+
+    TEST("base") = [&] {
+        auto snd = cpu.get_scheduler().schedule() | ex::then([] noexcept {
+                       std::cout << "cpu schedule id: " << std::this_thread::get_id()
+                                 << "\n";
+                   });
+        // NOTE: cpu.get_scheduler().schedule() 自带 exception_ptr，当
+        // runloop.push_pack失败时
+        // NOTE: start&() 用于是 noexcept，内部算法基于 complete算法传递 V,E,S
+        // NOTE: schedule 的 start 不会传递 E
+        // NOTE: start() is nest 从最内层的 start 开始，没有E通道，然后  complete
+        // NOTE: complete 可能抛异常，产生 E通道
+        // NOTE: std::exception_ptr 是有必要的，因为运行时 connect -> start 有可能的
+        using CS = ex::snd::completion_signatures_of_t<decltype(snd)>;
+        static_assert(
+            std::is_same_v<CS, mcs::execution::cmplsigs::completion_signatures<
+                                   mcs::execution::recv::set_value_t(),
+                                   mcs::execution::recv::set_error_t(std::exception_ptr),
+                                   mcs::execution::recv::set_stopped_t()>>);
         mcs::this_thread::sync_wait(snd);
         auto task = ex::on(io.get_scheduler(), std::move(snd)) | // NOLINT
                     ex::then([] {
@@ -65,5 +91,6 @@ int main()
         mcs::this_thread::sync_wait(std::move(task)); // NOLINT
         std::cout << "test done\n\n";
     };
+
     return 0;
 }

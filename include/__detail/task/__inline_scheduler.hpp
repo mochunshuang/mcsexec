@@ -54,7 +54,7 @@ namespace mcs::execution::task
                 return {};
             }
             template <recv::receiver Receiver>
-            state<Receiver> connect(Receiver &&receiver)
+            state<Receiver> connect(Receiver &&receiver) noexcept
             {
                 return {std::forward<Receiver>(receiver)};
             }

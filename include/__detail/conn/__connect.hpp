@@ -35,12 +35,14 @@ namespace mcs::execution::conn
             // Note: lambda: for lazy
             // warning: possibly dangling reference to a temporary [-Wdangling-reference]
             // avoid warning by delete decltype(auto)
-            auto new_sndr = [&]() {
+            const auto new_sndr = [&]() noexcept { // NOLINT
                 return snd::transform_sender(
                     decltype(snd::general::get_domain_late(
                         std::as_const(sndr), queries::get_env(std::as_const(rcvr)))){},
                     std::forward<Sndr>(sndr), queries::get_env(std::as_const(rcvr)));
             };
+            static_assert(noexcept(new_sndr().connect(std::move(rcvr))),
+                          "need connect() nothrow");
 
             if constexpr (requires {
                               {

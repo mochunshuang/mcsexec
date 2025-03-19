@@ -51,7 +51,7 @@ struct MyScheduler
         }
 
         template <ex::receiver Receiver>
-        constexpr auto connect(Receiver &&receiver) -> state<Receiver>
+        constexpr auto connect(Receiver &&receiver) noexcept -> state<Receiver>
         {
             return {std::forward<Receiver>(receiver)};
         }

@@ -424,7 +424,7 @@ namespace mcs::execution::task
         lazy &operator=(lazy &&) = delete;
 
         template <recv::receiver Receiver>
-        state<Receiver> connect(Receiver receiver)
+        state<Receiver> connect(Receiver receiver) noexcept
         {
             return state<Receiver>(std::forward<Receiver>(receiver),
                                    std::exchange(this->handle, {}));

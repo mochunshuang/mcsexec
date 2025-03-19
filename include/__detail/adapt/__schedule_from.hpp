@@ -65,15 +65,6 @@ namespace mcs::execution
 
     namespace adapt
     {
-        template <typename Sigs>
-        struct schedule_from_state_variant_t;
-        template <typename... Sig>
-        struct schedule_from_state_variant_t<cmplsigs::completion_signatures<Sig...>>
-        {
-            using type = typename tfxcmplsigs::unique_variadic_template<std::variant<
-                std::monostate, typename __detail::as_tuple<Sig>::type...>>::type;
-        };
-
         template <typename Sigs, typename Rcvr, typename sched_t, typename variant_t>
         struct state_type
         {
@@ -125,45 +116,16 @@ namespace mcs::execution
             operation_t op_state;   // exposition only // NOLINT
             variant_t async_result; // exposition only // NOLINT
 
-            explicit state_type(sched_t sch, Rcvr &rcvr) noexcept(
-                noexcept(conn::connect(factories::schedule(sch), receiver_t{this})))
+            explicit state_type(sched_t sch, Rcvr &rcvr) noexcept(true)
                 : rcvr(rcvr),
                   op_state(conn::connect(factories::schedule(sch), receiver_t{this}))
             {
                 // async_result set value when children call complete
+                static_assert(
+                    noexcept(conn::connect(factories::schedule(sch), receiver_t{this})),
+                    "connect must noexcept");
             }
         };
-
-        namespace __detail
-        {
-            template <typename T>
-            concept copy_no_except =
-                not std::is_copy_constructible_v<T> ||
-                (std::is_copy_constructible_v<T> && requires(const T &t) {
-                    { T(t) } noexcept;
-                });
-            template <typename T>
-            concept move_no_except = not std::is_move_constructible_v<T> ||
-                                     (std::is_move_constructible_v<T> && requires(T &&t) {
-                                         { T(std::move(t)) } noexcept;
-                                     });
-            template <typename T>
-            concept no_copy_move_throw =
-                (std::is_move_constructible_v<T> && move_no_except<T>) ||
-                (!std::is_move_constructible_v<T> && copy_no_except<T>) ||
-                (!std::is_move_constructible_v<T> && !std::is_copy_constructible_v<T>);
-        }; // namespace __detail
-
-        template <typename T>
-        inline constexpr bool check_type_no_copy_move_throw = false; // NOLINT
-        template <typename Tag, typename... T>
-        inline constexpr bool check_type_no_copy_move_throw<Tag(T...)> = // NOLINT
-            (__detail::no_copy_move_throw<T> && ...);
-        template <typename Tag>
-        inline constexpr bool check_type_no_copy_move_throw<Tag()> = true; // NOLINT
-        template <typename... Sig>
-        inline constexpr bool is_Sig_no_throw = // NOLINT
-            (check_type_no_copy_move_throw<Sig> && ...);
 
     }; // namespace adapt
 
@@ -178,9 +140,7 @@ namespace mcs::execution
 
         // Note: used by basic_state initialized when connect(out_sndr,out_recr)
         static constexpr auto get_state = // NOLINT
-            []<class OutSndr, class OutRcvr>(OutSndr &&sndr, OutRcvr &rcvr) noexcept(
-                adapt::is_Sig_no_throw<
-                    snd::completion_signatures_of_t<OutSndr, queries::env_of_t<OutRcvr>>>)
+            []<class OutSndr, class OutRcvr>(OutSndr &&sndr, OutRcvr &rcvr) noexcept(true)
             requires(snd::sender_in<snd::__detail::mate_type::child_type<OutSndr>,
                                     queries::env_of_t<OutRcvr>>)
         {
@@ -188,15 +148,17 @@ namespace mcs::execution
             using sched_t = decltype(auto(sch));
 
             //  Note: add E_CS because as complete try-catch
-            using Add_E = std::conditional_t<
-                adapt::is_Sig_no_throw<
-                    snd::completion_signatures_of_t<OutSndr, queries::env_of_t<OutRcvr>>>,
-                cmplsigs::completion_signatures<>,
-                cmplsigs::completion_signatures<set_error_t(std::exception_ptr)>>;
+
             using Sigs =
-                decltype(snd::completion_signatures_of_t<OutSndr,
-                                                         queries::env_of_t<OutRcvr>>{} +
-                         Add_E{});
+                snd::completion_signatures_of_t<OutSndr, queries::env_of_t<OutRcvr>>;
+
+            constexpr auto get_variant = // NOLINT
+                []<typename... Sig>(cmplsigs::completion_signatures<Sig...>) consteval {
+                    using T = tfxcmplsigs::unique_variadic_template<std::variant<
+                        std::monostate,
+                        typename adapt::__detail::as_tuple<Sig>::type...>>::type;
+                    return static_cast<T *>(nullptr);
+                };
             /**
              * @brief
              * 1、Objects of the local class state-type can be used to initialize a
@@ -207,7 +169,7 @@ namespace mcs::execution
              * 3、variant_t denotes the type variant<monostate, as-tuple<Sigs>...>
              */
             // Note: variant_t denotes the type variant<monostate, as-tuple<Sigs>...>
-            using variant_t = typename adapt::schedule_from_state_variant_t<Sigs>::type;
+            using variant_t = std::remove_pointer_t<decltype(get_variant(Sigs{}))>;
             using state_type = adapt::state_type<Sigs, OutRcvr, sched_t, variant_t>;
 
             return state_type{sch, rcvr};
@@ -250,13 +212,7 @@ namespace mcs::execution
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<adapt::schedule_from_t, Sched, Sndr>, Env...>
     {
-        using CS = snd::completion_signatures_of_t<Sndr, Env...>;
-        static constexpr bool is_nothorw = [] consteval { // NOLINT
-            return []<class... Sig>(cmplsigs::completion_signatures<Sig...>) {
-                return adapt::is_Sig_no_throw<Sig...>;
-            }(CS{});
-        };
-        using type = decltype(CS{} + eptr_completion_if<is_nothorw>);
+        using type = snd::completion_signatures_of_t<Sndr, Env...>;
     };
 
     namespace diagnostics

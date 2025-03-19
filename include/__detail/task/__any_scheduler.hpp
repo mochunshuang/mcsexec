@@ -219,7 +219,7 @@ namespace mcs::execution::task
                 virtual ~base() = default;
                 virtual base *move(void *) = 0;
                 virtual base *clone(void *) const = 0;
-                virtual inner_state connect(state_base *) = 0; // NOLINTNEXTLINE
+                virtual inner_state connect(state_base *) noexcept = 0; // NOLINTNEXTLINE
                 [[nodiscard]] virtual any_scheduler get_completion_scheduler() const = 0;
             };
             template <sched::scheduler Scheduler>
@@ -240,7 +240,7 @@ namespace mcs::execution::task
                 {
                     return new (buffer) concrete(*this);
                 }
-                inner_state connect(state_base *b) override
+                inner_state connect(state_base *b) noexcept override
                 {
                     return inner_state(::std::move(sender), b);
                 }
@@ -267,7 +267,7 @@ namespace mcs::execution::task
             sender(const sender &) = default;
 
             template <receiver R>
-            state<R> connect(R &&r)
+            state<R> connect(R &&r) noexcept
             {
                 return state<R>(std::forward<R>(r), this->inner_sender);
             }

@@ -17,6 +17,6 @@ namespace mcs::execution::recv
         } && std::move_constructible<std::remove_cvref_t<Rcvr>> && // rvalues are
                                                                    // movable, and
         std::constructible_from<std::remove_cvref_t<Rcvr>,
-                                Rcvr>; // lvalues are copyable
-
+                                Rcvr> // lvalues are copyable
+        && std::is_nothrow_move_constructible_v<std::remove_cvref_t<Rcvr>>;
 }; // namespace mcs::execution::recv
