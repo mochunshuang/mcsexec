@@ -34,6 +34,8 @@ namespace mcs::execution
 
     struct check_completion_signature_error;
 
+    struct require_no_children_sndr;
+
     // NOLINTBEGIN
     template <class... What>
     struct sender_type_check_failure

@@ -28,6 +28,8 @@
 #include "__detail/ctx/__run_loop.hpp"
 #include "__detail/queries/__forwarding_query.hpp"
 
+#include "./__detail/__scope.hpp"
+
 namespace mcs::execution
 {
     // ==============Concepts===================

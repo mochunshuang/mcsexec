@@ -41,6 +41,9 @@ namespace mcs::execution
         {
             template <typename Q>
             constexpr auto query(Q &&q) const noexcept
+                requires(
+                    requires { std::declval<State>().query(std::forward<Q>(q)); } ||
+                    requires { std::declval<Env>().query(std::forward<Q>(q)); })
             {
                 if constexpr (requires { state.query(std::forward<Q>(q)); })
                     return state.query(std::forward<Q>(q));
