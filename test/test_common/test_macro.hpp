@@ -17,7 +17,7 @@ namespace mcstest
         std::atomic<std::size_t> pass_count;  // NOLINT
         std::atomic<std::size_t> total_count; // NOLINT
 
-        void print() noexcept
+        void print() const noexcept
         {
 
             std::cout << "\033[32m"; // 开始绿色输出
