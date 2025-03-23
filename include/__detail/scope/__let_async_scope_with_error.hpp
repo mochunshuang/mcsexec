@@ -288,7 +288,7 @@ namespace mcs::execution
     {
         template <class State, class Rcvr, class... Args>
         inline void let_async_scope_bind(State &state, Rcvr &rcvr,
-                                         Args &&...args) // exposition only
+                                         Args &&...args) noexcept // exposition only
         {
             // NOLINTNEXTLINE
             constexpr bool is_nothrow = std::decay_t<decltype(state)>::nothrow::value;
