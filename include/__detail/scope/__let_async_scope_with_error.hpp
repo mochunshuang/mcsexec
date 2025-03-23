@@ -163,6 +163,9 @@ namespace mcs::execution
         {
             using type =
                 functional::call_result_t<Fn, scope_token_type, std::decay_t<Args> &...>;
+            static constexpr bool is_nothrow = // NOLINT
+                std::is_nothrow_invocable_v<Fn, scope_token_type,
+                                            std::decay_t<Args> &...>;
         };
 
         struct then_functor
@@ -173,6 +176,35 @@ namespace mcs::execution
                 return std::forward<T>(result);
             }
         };
+
+        template <typename Fn, typename scope_token_type, typename Sigs>
+        static consteval auto is_fn_nothrow()
+        {
+            auto compute = []<typename Tag, typename... Args>(
+                               Tag (*)(Args...)) consteval {
+                if constexpr (std::is_same_v<Tag, set_value_t>)
+                {
+                    if constexpr (requires {
+                                      typename as_sndr2<Fn, scope_token_type,
+                                                        Tag(Args...)>::type;
+                                  })
+                    {
+                        using Ret = as_sndr2<Fn, scope_token_type, Tag(Args...)>::type;
+                        static_assert(snd::sender<Ret>, "T not a sndr");
+                        return as_sndr2<Fn, scope_token_type, Tag(Args...)>::is_nothrow;
+                    }
+                    else
+                        throw;
+                }
+                else
+                    return true;
+            };
+            auto compute_all =
+                [&]<typename... Sig>(cmplsigs::completion_signatures<Sig...>) consteval {
+                    return (compute(static_cast<Sig *>(nullptr)) && ...);
+                };
+            return compute_all(Sigs{});
+        }
 
         template <typename join_sender, typename Fn, typename scope_token_type,
                   typename Sigs, typename Rcvr, typename Env>
@@ -238,6 +270,8 @@ namespace mcs::execution
 
                 struct state_type
                 {
+                    using nothrow = std::integral_constant<
+                        bool, is_fn_nothrow<Fn, scope_token_type, LetSigs>()>;
                     Fn fn;
                     Env env;
                     scope_type scope;
@@ -256,6 +290,8 @@ namespace mcs::execution
         inline void let_async_scope_bind(State &state, Rcvr &rcvr,
                                          Args &&...args) // exposition only
         {
+            // NOLINTNEXTLINE
+            constexpr bool is_nothrow = std::decay_t<decltype(state)>::nothrow::value;
             using scope_token_type = decltype(state.scope.get_token());
             auto create_scope_token = [&]() noexcept { // NOLINT
                 return state.scope.get_token();
@@ -264,17 +300,18 @@ namespace mcs::execution
             auto &args_variant =
                 state.args.template emplace<decayed_tuple<scope_token_type, Args...>>(
                     create_scope_token(), std::forward<Args>(args)...);
-            try
+
+            if constexpr (is_nothrow)
             {
-                auto sndr2 = [&] {
+                auto sndr2 = [&] noexcept {
                     return nest(std::apply(std::move(state.fn), args_variant),
                                 state.scope.get_token());
                 };
-                auto result_sender = [&] {
+                auto result_sender = [&] noexcept {
                     return adapt::when_all_with_variant(sndr2(), state.scope.join()) |
                            adapt::then(scope::__detail::then_functor());
                 };
-                auto mkop2 = [&] {
+                auto mkop2 = [&] noexcept {
                     return conn::connect(
                         result_sender(),
                         __detail::receiver2{std::move(rcvr), std::move(state.env)});
@@ -284,22 +321,46 @@ namespace mcs::execution
                     snd::general::emplace_from{mkop2});
                 opstate::start(op2);
             }
-            catch (...)
+            else
             {
-                // TODO(mcs): 异常通道暂时无法处理.直接简单处理
-                // state.scope.request_stop();
-                // auto result_sender = adapt::when_all(
-                //     factories::just_error(std::current_exception()),
-                //     state.scope.join());
-                // auto rcvr2 = __detail::receiver2{std::move(rcvr),
-                // std::move(state.env)}; auto mkop2 = [&] noexcept { // NOLINT
-                //     return conn::connect(std::move(result_sender), std::move(rcvr2));
-                // };
-                // auto &op2 = state.ops2.template emplace<decltype(mkop2())>(
-                //     snd::general::emplace_from{mkop2});
-                // opstate::start(op2);
-                state.scope.request_stop();
-                recv::set_error(std::move(rcvr), std::current_exception());
+                try
+                {
+                    auto sndr2 = [&] {
+                        return nest(std::apply(std::move(state.fn), args_variant),
+                                    state.scope.get_token());
+                    };
+                    auto result_sender = [&] {
+                        return adapt::when_all_with_variant(sndr2(), state.scope.join()) |
+                               adapt::then(scope::__detail::then_functor());
+                    };
+                    auto mkop2 = [&] {
+                        return conn::connect(
+                            result_sender(),
+                            __detail::receiver2{std::move(rcvr), std::move(state.env)});
+                    };
+                    // NOTE: ops2 的op类型要和mkop2返回的类型匹配
+                    auto &op2 = state.ops2.template emplace<decltype(mkop2())>(
+                        snd::general::emplace_from{mkop2});
+                    opstate::start(op2);
+                }
+                catch (...)
+                {
+                    // TODO(mcs): 异常通道暂时无法处理.直接简单处理
+                    // state.scope.request_stop();
+                    // auto result_sender = adapt::when_all(
+                    //     factories::just_error(std::current_exception()),
+                    //     state.scope.join());
+                    // auto rcvr2 = __detail::receiver2{std::move(rcvr),
+                    // std::move(state.env)}; auto mkop2 = [&] noexcept { // NOLINT
+                    //     return conn::connect(std::move(result_sender),
+                    //     std::move(rcvr2));
+                    // };
+                    // auto &op2 = state.ops2.template emplace<decltype(mkop2())>(
+                    //     snd::general::emplace_from{mkop2});
+                    // opstate::start(op2);
+                    state.scope.request_stop();
+                    recv::set_error(std::move(rcvr), std::current_exception());
+                }
             }
         }
     }; // namespace scope
