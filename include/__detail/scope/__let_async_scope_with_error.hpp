@@ -270,7 +270,7 @@ namespace mcs::execution
 
                 struct state_type
                 {
-                    using nothrow = std::integral_constant<
+                    using nothrow [[maybe_unused]] = std::integral_constant<
                         bool, is_fn_nothrow<Fn, scope_token_type, LetSigs>()>;
                     Fn fn;
                     Env env;

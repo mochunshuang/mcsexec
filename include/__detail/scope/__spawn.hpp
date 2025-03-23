@@ -45,7 +45,7 @@ namespace mcs::execution
         {
             template <snd::sender Sndr, async_scope_token Token,
                       class Env = empty_env> // NOLINTNEXTLINE
-            auto operator()(Sndr &&sndr, Token &&token, Env &&env = {}) const -> void
+            auto operator()(Sndr &&sndr, Token token, Env &&env = {}) const -> void
             {
 
                 auto newSndr = token.wrap(std::forward<Sndr>(sndr));
