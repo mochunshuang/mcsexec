@@ -66,6 +66,10 @@ int main()
                 mcs::execution::snd::__detail::basic_sender<
                     mcs::execution::scope::counting_scope::join_t,
                     mcs::execution::scope::counting_scope *>>;
+            static_assert(
+                std::is_same_v<
+                    Rcvr,
+                    mcs::execution::consumers::__sync_wait::sync_wait_receiver<Sndr>>);
             using OP [[maybe_unused]] =
                 decltype(ex::conn::connect(std::forward<Sndr>(std::declval<Sndr>()),
                                            std::forward<Rcvr>(std::declval<Rcvr>())));

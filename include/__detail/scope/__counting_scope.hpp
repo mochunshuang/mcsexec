@@ -167,7 +167,7 @@ namespace mcs::execution
          * If s.complete-inline() was not invoked, registers s with *s.scope to have
          * s.complete() invoked when s.scope->count becomes zero.
          */
-        static constexpr auto start = [](auto &s, auto &rcvr) noexcept { // NOLINT
+        static constexpr auto start = [](auto &s, auto & /*rcvr*/) noexcept { // NOLINT
             using enum scope::state_type;
             auto state = s.scope->state.load(std::memory_order_acquire);
             switch (state)

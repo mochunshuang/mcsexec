@@ -4,7 +4,6 @@
 #include <utility>
 
 #include "./__async_scope_token.hpp"
-#include "./__wrapped_sender_from.hpp"
 
 #include "../snd/__transform_sender.hpp"
 #include "../snd/__make_sender.hpp"
@@ -33,7 +32,7 @@ namespace mcs::execution
 
             nest_data &operator=(const nest_data &) = delete;
             nest_data &operator=(nest_data &&) = delete;
-            nest_data(Token t, Sndr &&s) : sndr(t.wrap(forward<Sndr>(s))), token(t)
+            nest_data(Token t, Sndr &&s) : sndr(t.wrap(std::forward<Sndr>(s))), token(t)
             {
                 if (not token.try_associate())
                     sndr.reset();
@@ -93,7 +92,7 @@ namespace mcs::execution
         struct nest_t
         {
             template <snd::sender Sndr, scope::async_scope_token Token>
-            auto operator()(Sndr &&sndr, Token &&token)
+            auto operator()(Sndr &&sndr, Token &&token) const
             {
                 auto dom = snd::general::get_domain_early(std::as_const(sndr));
                 return snd::transform_sender(
@@ -116,7 +115,7 @@ namespace mcs::execution
     {
         static constexpr auto get_state = // NOLINT
             []<class Sndr, class Rcvr>(Sndr &&sndr, Rcvr &rcvr) noexcept {
-                auto &[_, data] = sndr;
+                auto &&[_, data] = std::forward<Sndr>(sndr);
                 static_assert(std::is_same_v<decltype(_), scope::nest_t>);
 
                 using scope_token = decltype(data.token);

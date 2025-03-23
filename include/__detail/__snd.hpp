@@ -14,6 +14,8 @@
 
 #include "snd/__make_sender.hpp"
 
+#include "snd/__detail/mate_type/__data_type.hpp"
+
 namespace mcs::execution
 {
     using ::mcs::execution::snd::default_domain;
@@ -38,5 +40,8 @@ namespace mcs::execution
     using ::mcs::execution::snd::tag_of_t;
 
     using ::mcs::execution::snd::make_sender;
+
+    //
+    using ::mcs::execution::snd::__detail::mate_type::data_type;
 
 }; // namespace mcs::execution

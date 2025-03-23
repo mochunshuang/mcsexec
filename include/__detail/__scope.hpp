@@ -8,6 +8,8 @@
 
 #include "./scope/__async_scope_token.hpp"
 
+#include "./scope/__let_async_scope.hpp"
+
 namespace mcs::execution
 {
     using ::mcs::execution::scope::counting_scope;
@@ -21,5 +23,7 @@ namespace mcs::execution
     using ::mcs::execution::scope::spawn_future;
 
     using ::mcs::execution::scope::async_scope_token;
+
+    using ::mcs::execution::scope::let_async_scope;
 
 }; // namespace mcs::execution

@@ -1,6 +1,8 @@
 #include "../test_base_head.hpp"
+#include <iostream>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <variant>
 
 #include "../sched/MyScheduler.hpp"
@@ -182,5 +184,20 @@ int main()
             std::is_same_v<decltype(ret), std::tuple<std::variant<std::tuple<int>>,
                                                      std::variant<std::tuple<double>>>>);
     };
+
+    TEST("when_all_with_variant | then") = [] {
+        auto snd = ex::when_all_with_variant(ex::just(3, 1.0), ex::just(0.1415)) |
+                   ex::then([](auto &&a, auto &&) -> decltype(auto) {
+                       return std::forward<decltype(a)>(a);
+                   });
+        using CS = ex::snd::completion_signatures_of_t<decltype(snd)>;
+        static_assert(
+            std::is_same_v<mcs::execution::cmplsigs::completion_signatures<
+                               mcs::execution::recv::set_value_t(
+                                   std::variant<std::tuple<int, double>> &&),
+                               mcs::execution::recv::set_error_t(std::exception_ptr)>,
+                           CS>);
+    };
+
     return 0;
 }

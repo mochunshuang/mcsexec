@@ -23,5 +23,14 @@ int main()
         EXPECT(ret == 1);
     };
 
+    TEST("then cs with v2") = [] {
+        using CS = ex::cmplsigs::completion_signatures<
+            ex::recv::set_value_t(int), ex::recv::set_error_t(std::exception_ptr)>;
+        using CS2 = ex::cmplsigs::completion_signatures<ex::recv::set_value_t(int &&)>;
+
+        using CS3 = decltype(CS{} + CS2{});
+        static_assert(std::is_same_v<CS, CS3>);
+    };
+
     return 0;
 }
