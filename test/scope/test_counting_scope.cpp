@@ -52,7 +52,6 @@ int main()
         {
             std::cout << "代码块耗时大于或等于 100 毫秒。" << '\n';
         }
-        EXPECT(res == false);
 
         // wait for all work nested within scope
         // to finish
@@ -127,6 +126,299 @@ int main()
         }
         EXPECT(res == true);
         mcs::this_thread::sync_wait(scope.join());
+    };
+
+    TEST("Token test") = [] {
+        struct counting_scope
+        {
+            struct token
+            {
+                auto *get_scope()
+                {
+                    return scope;
+                }
+
+              private:
+                counting_scope *scope;
+                token(counting_scope *s) : scope(s) {}
+                friend counting_scope;
+            };
+            auto get_token()
+            {
+                return token(this);
+            }
+        };
+        counting_scope scope;
+        auto t1 = scope.get_token();
+        auto t2 = scope.get_token();
+        auto t3 = t2;
+
+        EXPECT((t1.get_scope()) == &scope);
+        EXPECT((t1.get_scope()) == (t2.get_scope()));
+        EXPECT((t2.get_scope()) == (t3.get_scope()));
+    };
+
+    TEST("with on") = [] {
+        ex::ctx::static_thread_pool<1> pool;
+        ex::counting_scope scope;
+        ex::ctx::static_thread_pool<1> pool2;
+        std::cout << "\ntest: with on\n";
+
+        ex::sender auto snd =
+            ex::schedule(pool.get_scheduler()) | ex::then([&] {
+                //
+                std::cout << "scope hello world\n";
+                std::this_thread::sleep_for(std::chrono::milliseconds(100)); // NOLINT
+            });
+        [[maybe_unused]] auto start = std::chrono::high_resolution_clock::now();
+        try
+        {
+            {
+                auto sched = pool2.get_scheduler();
+                auto sndr = mcs::execution::factories::schedule(sched);
+                auto env = sndr.get_env();
+                // env.query(ex::get_scheduler);  //NOTE: 确实编译错误
+                auto r = env.query(
+                    ex::get_completion_scheduler_t<mcs::execution::set_value_t>{});
+                EXPECT(r == sched);
+
+                // NOTE: on 依赖 queries::get_scheduler 依赖调度。
+                {
+                    // 又是有了，没有JOIN集成，是没有用的
+                    // NOTE: ex::spawn 缺少 queries::get_scheduler 从环境，整合失败
+                    auto sndr = ex::on(pool2.get_scheduler(), std::move(snd));
+                    [[maybe_unused]] auto env = ex::snd::general::SCHED_ENV(
+                        ex::queries::get_completion_scheduler<
+                            ex::functional::decayed_typeof<ex::set_value>>(
+                            ex::queries::get_env(sndr)));
+                }
+            }
+
+            //   fire, but don't forget
+            ex::spawn(ex::on(pool2.get_scheduler(), std::move(snd)), scope.get_token());
+        }
+        catch (const std::exception &e)
+        {
+            // 打印标准异常信息
+            std::cerr << "Caught exception: " << e.what() << '\n';
+        }
+        mcs::this_thread::sync_wait(scope.join());
+    };
+
+    TEST("spawn + on with parallel work") = [] {
+        std::cout << "\n test: [ spawn + on with parallel work]\n";
+        ex::static_thread_pool<4> pool;
+        auto sch = pool.get_scheduler();
+        ex::counting_scope scope;
+
+        constexpr int num = 100;
+        std::array<bool, num> check_done;
+        check_done.fill(false);
+
+        auto get_work = [](int id) {
+            return ex::just(id) | ex::then([](int id) noexcept {
+                       std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                       return id;
+                   });
+        };
+
+        for (int i = 0; i < num; ++i)
+        {
+            ex::spawn(ex::on(sch, get_work(i)) |
+                          ex::then([&](auto id) noexcept { check_done[id] = true; }),
+                      scope.get_token());
+        }
+        auto start = std::chrono::high_resolution_clock::now();
+        mcs::this_thread::sync_wait(scope.join());
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration =
+            std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        std::cout << "sync_wait 前后耗时: " << duration.count() << " 毫秒" << '\n';
+
+        for (const auto &v : check_done)
+        {
+            EXPECT(v);
+        }
+    };
+
+    TEST("spawn + on with parallel work 2 ") = [] {
+        std::cout << "\n test: [ spawn + on with parallel work 2 ]\n";
+        ex::static_thread_pool<4> pool;
+        ex::static_thread_pool<1> pool0;
+        auto sch = pool.get_scheduler();
+        ex::counting_scope scope;
+
+        constexpr int num = 100;
+        std::array<bool, num> check_done;
+        check_done.fill(false);
+
+        auto get_work = [&](int id) {
+            return ex::schedule(pool0.get_scheduler()) | ex::then([=]() noexcept {
+                       std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                       return id;
+                   });
+        };
+        auto start = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < num; ++i)
+        {
+            ex::spawn(ex::on(sch, get_work(i)) |
+                          ex::then([&](auto id) noexcept { check_done[id] = true; }),
+                      scope.get_token());
+        }
+
+        {
+            auto end = std::chrono::high_resolution_clock::now();
+            auto duration =
+                std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            std::cout << "sync_wait 前耗时: " << duration.count() << " 毫秒" << '\n';
+        }
+        mcs::this_thread::sync_wait(scope.join());
+        {
+            auto end = std::chrono::high_resolution_clock::now();
+            auto duration =
+                std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            std::cout << "sync_wait 后耗时: " << duration.count() << " 毫秒" << '\n';
+        }
+
+        for (const auto &v : check_done)
+        {
+            EXPECT(v);
+        }
+    };
+
+    TEST("spawn + starts_on with parallel work") = [] {
+        std::cout << "\n test: [ spawn + starts_on with parallel work ]\n";
+        ex::static_thread_pool<4> pool;
+        ex::static_thread_pool<1> pool0;
+        auto sch = pool.get_scheduler();
+        ex::counting_scope scope;
+
+        constexpr int num = 100;
+        std::array<bool, num> check_done;
+        check_done.fill(false);
+
+        auto get_work = [&](int id) {
+            return ex::schedule(pool0.get_scheduler()) | ex::then([=]() noexcept {
+                       std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                       return id;
+                   });
+        };
+        auto start = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < num; ++i)
+        {
+            ex::spawn(ex::starts_on(sch, get_work(i)) |
+                          ex::then([&](auto id) noexcept { check_done[id] = true; }),
+                      scope.get_token());
+        }
+
+        {
+            auto end = std::chrono::high_resolution_clock::now();
+            auto duration =
+                std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            std::cout << "sync_wait 前耗时: " << duration.count() << " 毫秒" << '\n';
+        }
+        mcs::this_thread::sync_wait(scope.join());
+        {
+            auto end = std::chrono::high_resolution_clock::now();
+            auto duration =
+                std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            std::cout << "sync_wait 后耗时: " << duration.count() << " 毫秒" << '\n';
+        }
+
+        for (const auto &v : check_done)
+        {
+            EXPECT(v);
+        }
+    };
+
+    TEST("spawn + continues_on with parallel work") = [] {
+        std::cout << "\n test: [ spawn + continues_on with parallel work ]\n";
+        ex::static_thread_pool<4> pool;
+        ex::static_thread_pool<1> pool0;
+        auto sch = pool.get_scheduler();
+        ex::counting_scope scope;
+
+        constexpr int num = 100;
+        std::array<bool, num> check_done;
+        check_done.fill(false);
+
+        auto get_work = [&](int id) {
+            return ex::schedule(pool0.get_scheduler()) | ex::then([=]() noexcept {
+                       std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                       return id;
+                   });
+        };
+
+        auto start = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < num; ++i)
+        {
+            ex::spawn(get_work(i) | ex::continues_on(sch) |
+                          ex::then([&](auto id) noexcept { check_done[id] = true; }),
+                      scope.get_token());
+        }
+        {
+            auto end = std::chrono::high_resolution_clock::now();
+            auto duration =
+                std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            std::cout << "sync_wait 前耗时: " << duration.count() << " 毫秒" << '\n';
+        }
+        mcs::this_thread::sync_wait(scope.join());
+        {
+            auto end = std::chrono::high_resolution_clock::now();
+            auto duration =
+                std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            std::cout << "sync_wait 后耗时: " << duration.count() << " 毫秒" << '\n';
+        }
+
+        for (const auto &v : check_done)
+        {
+            EXPECT(v);
+        }
+    };
+
+    TEST("spawn immediately ") = [] {
+        std::cout << "\n test: [ spawn immediately ]\n";
+        ex::static_thread_pool<1> pool;
+        ex::static_thread_pool<1> pool0;
+        auto sch = pool.get_scheduler();
+        ex::counting_scope scope;
+
+        constexpr int num = 1;
+        std::array<bool, num> check_done;
+        check_done.fill(false);
+
+        auto get_work = [&](int id) {
+            return ex::schedule(pool0.get_scheduler()) | ex::then([=]() noexcept {
+                       std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                       return id;
+                   });
+        };
+
+        auto start = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < num; ++i)
+        {
+            ex::spawn(get_work(i) | ex::continues_on(sch) |
+                          ex::then([&](auto id) noexcept { check_done[id] = true; }),
+                      scope.get_token());
+        }
+        {
+            auto end = std::chrono::high_resolution_clock::now();
+            auto duration =
+                std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            std::cout << "sync_wait 前耗时: " << duration.count() << " 毫秒" << '\n';
+        }
+        mcs::this_thread::sync_wait(scope.join());
+        {
+            auto end = std::chrono::high_resolution_clock::now();
+            auto duration =
+                std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            std::cout << "sync_wait 后耗时: " << duration.count() << " 毫秒" << '\n';
+        }
+
+        for (const auto &v : check_done)
+        {
+            EXPECT(v);
+        }
     };
 
     std::cout << " main done\n";

@@ -103,7 +103,7 @@ namespace mcs::execution
                 // Note: optimization for no copy
                 using OutSndr = decltype((out_sndr));
                 using Env = decltype((env));
-                auto &&[_, data, __] = out_sndr;
+                auto &&[_, data, __] = std::forward<Sndr>(out_sndr);
                 if constexpr (sched::scheduler<decltype(data)>)
                 {
                     return snd::general::JOIN_ENV(
@@ -122,7 +122,7 @@ namespace mcs::execution
             {
                 // Note: optimization for no copy
                 using OutSndr = decltype((out_sndr));
-                auto &&[_, data, child] = out_sndr;
+                auto &&[_, data, child] = std::forward<Sndr>(out_sndr);
 
                 if constexpr (sched::scheduler<decltype(data)>)
                 {

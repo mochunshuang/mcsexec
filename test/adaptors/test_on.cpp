@@ -111,6 +111,52 @@ int main()
         std::cout << "test [ on with 1 schedule ] done\n\n";
     };
 
+    TEST("on with 1 schedule 10 times with 2 schedule") = [&] {
+        std::cout << "test [ on with 1 schedule 10 times with 2 schedule ] start\n\n";
+        auto on_out_id = std::this_thread::get_id();
+
+        for (int i = 0; i < 10; ++i) // NOLINT
+        {
+            auto snd = cpu.get_scheduler().schedule() | ex::then([&] noexcept {
+                           std::cout << "on with 1 schedule schedule id: "
+                                     << std::this_thread::get_id() << "\n";
+                           EXPECT(on_out_id != std::this_thread::get_id());
+                       });
+
+            auto task = ex::on(io.get_scheduler(), std::move(snd)) | // NOLINT
+                        ex::then([&] {
+                            std::cout << "then id: " << std::this_thread::get_id()
+                                      << "\n";
+                            EXPECT(on_out_id == std::this_thread::get_id());
+                        });
+            mcs::this_thread::sync_wait(std::move(task)); // NOLINT
+        }
+        std::cout << "test [ on with 1 schedule 10 times with 2 schedule ] done\n\n";
+    };
+
+    TEST("on with 1 schedule 10 times with 1 schedule") = [&] {
+        std::cout << "test [ on with 1 schedule 10 times with 1 schedule ] start\n\n";
+        auto on_out_id = std::this_thread::get_id();
+
+        for (int i = 0; i < 10; ++i) // NOLINT
+        {
+            auto snd = ex::just() | ex::then([&] noexcept {
+                           std::cout << "on with 1 schedule schedule id: "
+                                     << std::this_thread::get_id() << "\n";
+                           EXPECT(on_out_id != std::this_thread::get_id());
+                       });
+
+            auto task = ex::on(io.get_scheduler(), std::move(snd)) | // NOLINT
+                        ex::then([&] {
+                            std::cout << "then id: " << std::this_thread::get_id()
+                                      << "\n";
+                            EXPECT(on_out_id == std::this_thread::get_id());
+                        });
+            mcs::this_thread::sync_wait(std::move(task)); // NOLINT
+        }
+        std::cout << "test [ on with 1 schedule 10 times with 1 schedule ] done\n\n";
+    };
+
     // NOTE: 错误实践。类似 死锁。 自己等待自己完成才下一步，这是矛盾的。应该约束一下
     TEST("on with both before and after only 1 schedule") = [&] {
         // auto snd = io.get_scheduler().schedule() | ex::then([] noexcept {

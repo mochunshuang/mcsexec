@@ -18,6 +18,79 @@ namespace mcs::execution
     {
         namespace __detail
         {
+            struct inline_scheduler
+            {
+                struct env
+                {
+                    [[nodiscard]] static constexpr inline_scheduler query(
+                        const queries::get_completion_scheduler_t<set_value_t>
+                            & /*unused*/) noexcept
+                    {
+                        return {};
+                    }
+                };
+                template <recv::receiver Receiver>
+                struct state
+                {
+                    using operation_state_concept = operation_state_t;
+                    std::remove_cvref_t<Receiver> receiver; // NOLINT
+                    void start() & noexcept
+                    {
+                        recv::set_value(std::move(receiver));
+                    }
+                };
+                struct sender
+                {
+                    using sender_concept = sender_t;
+                    using completion_signatures =
+                        cmplsigs::completion_signatures<set_value_t()>;
+
+                    [[nodiscard]] env get_env() const noexcept // NOLINT
+                    {
+                        return {};
+                    }
+                    template <recv::receiver Receiver>
+                    state<Receiver> connect(Receiver &&receiver) noexcept
+                    {
+                        return {std::forward<Receiver>(receiver)};
+                    }
+                };
+                static_assert(snd::sender<sender>);
+
+                using scheduler_concept = scheduler_t;
+                inline_scheduler() = default;
+
+                static constexpr sender schedule() noexcept
+                {
+                    return {};
+                }
+                bool operator==(const inline_scheduler &) const = default;
+            };
+
+            struct scheduler_env_t
+            {
+                [[nodiscard]] constexpr auto query( // NOLINT
+                    const mcs::execution::queries::get_scheduler_t & /*unused*/)
+                    const noexcept
+                {
+                    return inline_scheduler();
+                }
+            };
+
+            template <typename Env>
+            auto __may_add_get_scheduler_env(Env &&env) -> decltype(auto)
+            {
+                if constexpr (requires { queries::get_scheduler(env); })
+                {
+                    return std::forward<Env>(env);
+                }
+                else
+                {
+                    return snd::general::JOIN_ENV(scheduler_env_t{},
+                                                  std::forward<Env>(env));
+                }
+            }
+
             template <snd::sender Sndr, class Env>
             auto __choose_allocator_and_env(const Sndr &newSndr, const Env &env) noexcept
             {
@@ -52,7 +125,9 @@ namespace mcs::execution
                 auto [alloc, senv] = __detail::__choose_allocator_and_env(newSndr, env);
 
                 auto makeSender = [&]() noexcept {
-                    return factories::write_env(std::move(newSndr), std::move(senv));
+                    return factories::write_env(
+                        std::move(newSndr),
+                        __detail::__may_add_get_scheduler_env(std::move(senv)));
                 };
 
                 using sender_t = decltype(makeSender());
