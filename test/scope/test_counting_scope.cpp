@@ -252,17 +252,26 @@ int main()
         std::array<bool, num> check_done;
         check_done.fill(false);
 
+        std::array<bool, num> check_start;
+        check_start.fill(false);
+
         auto get_work = [&](int id) {
-            return ex::schedule(pool0.get_scheduler()) | ex::then([=]() noexcept {
+            return ex::schedule(pool0.get_scheduler()) |
+                   ex::then([=, &check_start]() noexcept {
                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                       check_start[id] = true;
+                       EXPECT(not check_done[id]);
                        return id;
                    });
         };
         auto start = std::chrono::high_resolution_clock::now();
         for (int i = 0; i < num; ++i)
         {
-            ex::spawn(ex::on(sch, get_work(i)) |
-                          ex::then([&](auto id) noexcept { check_done[id] = true; }),
+            EXPECT(not check_done[i]);
+            ex::spawn(ex::on(sch, get_work(i)) | ex::then([&](auto id) noexcept {
+                          EXPECT(check_start[id]);
+                          check_done[id] = true;
+                      }),
                       scope.get_token());
         }
 
