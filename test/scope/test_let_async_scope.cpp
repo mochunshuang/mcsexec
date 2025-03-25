@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
+#include <array>
 
 // NOLINTBEGIN
 int main()
@@ -138,11 +139,11 @@ int main()
         mcs::this_thread::sync_wait(scope_sender);
         EXPECT(upon_error_called);
     };
-
-    // TODO 有bug要解决
 #if 0
-    TEST("with spawn") = [] {
-        //
+    TEST("base + spawn") = [] {
+        bool done = false;
+        ex::static_thread_pool<4> pool;
+        auto sch = pool.get_scheduler();
         auto some_work = [&](int i) noexcept -> ex::sender auto {
             return ex::just() | ex::then([i]() {
                        if (i % 10 == 0)
@@ -151,33 +152,28 @@ int main()
                        }
                    });
         };
-        bool done = false;
-        auto foo = [&]() noexcept -> ex::sender auto {
-            return ex::just() |
-                   ex::let_async_scope([&](ex::async_scope_token auto scope) noexcept {
-                       return ex::just() | ex::then([&] noexcept {
-                                  std::cout << "Before tasks launch\n";
-                              }) |
-                              ex::then([&] noexcept {
-                                  EXPECT(not done);
-                                  for (int i = 0; i < 100; ++i) // NOLINT
-                                  {
-                                      ex::spawn(some_work(i), scope);
-                                      EXPECT(not done);
-                                  };
-                                  EXPECT(not done);
-                              });
-                   }) |
-                   ex::then([&] {
-                       std::cout << "After tasks complete successfully\n";
-                       done = true;
-                   });
-        };
-        ex::sender auto work = foo();
-        using CS [[maybe_unused]] = snd::completion_signatures_of_t<decltype(work)>;
 
-        EXPECT(not done);
-        mcs::this_thread::sync_wait(std::move(work));
+        auto scope_sender =
+            just(1, std::string("abc")) |
+            let_async_scope([&](auto scope_token, auto &scoped_data,
+                                std::string &) noexcept {
+                return just() | then([&]() noexcept {
+                           // Create parallel work
+                           for (int i = 0; i < 100; ++i)
+                           {
+                               // NOTE: if spawn() throws, the exception will be
+                               // propagated as the
+                               //       result of let_async_scope through its
+                               //       set_error completion
+                               ex::spawn(ex::starts_on(sch, some_work(i)), scope_token);
+                           }
+                       });
+            }) |
+            then([&]() {
+                std::cout << "let_async_scope end \n";
+                done = true;
+            });
+        mcs::this_thread::sync_wait(scope_sender);
         EXPECT(done);
     };
 #endif

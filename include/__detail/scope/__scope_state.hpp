@@ -27,8 +27,9 @@ namespace mcs::execution::scope
         {
         }
 
-        void complete()
+        void complete() noexcept
         {
+            static_assert(noexcept(op.start()), "op.start() need noexcept");
             op.start();
         }
 
@@ -37,7 +38,7 @@ namespace mcs::execution::scope
             recv::set_value(std::move(receiver));
         }
 
-        static void invoke(scope_state_base *self)
+        static void invoke(scope_state_base *self) noexcept
         {
             auto *derived = static_cast<scope_state *>(self);
             derived->complete();

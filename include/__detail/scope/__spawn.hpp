@@ -137,6 +137,7 @@ namespace mcs::execution
                     decltype(alloc)>::template rebind_alloc<state_t>;
                 using allocator_t = std::allocator_traits<alloc_t>;
 
+                // NOTE: 标准库的 deallocate 的有异常的.堆分配容易有异常
                 alloc_t stateAlloc{alloc};
                 auto *op = allocator_t::allocate(stateAlloc, 1);
 

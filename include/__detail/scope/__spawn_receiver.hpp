@@ -12,11 +12,11 @@ namespace mcs::execution::scope
 
         void set_value() && noexcept // NOLINT
         {
-            state->complete();
+            state->complete(state);
         }
         void set_stopped() && noexcept // NOLINT
         {
-            state->complete();
+            state->complete(state);
         }
     };
 }; // namespace mcs::execution::scope

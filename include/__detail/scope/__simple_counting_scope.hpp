@@ -64,7 +64,7 @@ namespace mcs::execution
                  * complete() on all objects registered with *scope.
                  *
                  */
-                void disassociate() const
+                void disassociate() const noexcept
                 {
                     if (scope->count.fetch_sub(1) == 1)
                     {
@@ -96,12 +96,12 @@ namespace mcs::execution
 
             // Postcondtions: count is 0 and state is unused is  default
             simple_counting_scope() noexcept = default;
-            ~simple_counting_scope()
+            ~simple_counting_scope() noexcept
             {
                 // If state is not one of joined, unused, or unused-and-closed, invokes
                 // terminate Otherwise, has no effects.
                 if (state != joined && state != unused && state != unused_and_closed)
-                    std::terminate();
+                    std::terminate(); // TODO(mcs): terminate 没有有效的错误信息
             }
 
             // Returns: An object t of type simple_counting_scope::token such that
