@@ -1,11 +1,11 @@
 #pragma once
 
-#include <atomic>
-
 #include "../snd/__sender.hpp"
 #include "../snd/__make_sender.hpp"
 #include "../snd/general/__impls_for.hpp"
 #include "../tool/SafeIntrusiveForwardList.hpp"
+#include "../tool/CasSpinLock.hpp"
+#include "../tool/ScopedLock.hpp"
 
 #include "./__scope_state.hpp"
 #include "./__state_type.hpp"
@@ -40,7 +40,8 @@ namespace mcs::execution
                  */
                 bool try_associate() const noexcept // NOLINT
                 {
-                    auto state = scope->state.load(std::memory_order_acquire);
+                    tool::ScopedLock lock(scope->spin_lock);
+                    auto &state = scope->state;
                     // If scope->state is not one of unused, open, or open-and-joining
                     // the operation has no effect
                     if (state != unused && state != open && state != open_and_joining)
@@ -52,7 +53,7 @@ namespace mcs::execution
                     scope->count++;
                     if (state == unused)
                     {
-                        scope->state.store(open, std::memory_order_release);
+                        state = open;
                     }
                     return true;
                 }
@@ -66,12 +67,13 @@ namespace mcs::execution
                  */
                 void disassociate() const noexcept
                 {
-                    if (scope->count.fetch_sub(1) == 1)
+                    tool::ScopedLock lock(scope->spin_lock);
+                    if (1 == (scope->count--))
                     {
-                        if (auto state = scope->state.load(std::memory_order_acquire);
+                        if (auto &state = scope->state;
                             state == open_and_joining || state == closed_and_joining)
                         {
-                            scope->state.store(joined, std::memory_order_release);
+                            state = joined;
                         }
                         while (!scope->registers.empty())
                         {
@@ -119,16 +121,17 @@ namespace mcs::execution
             */
             void close() noexcept
             {
-                switch (state.load(std::memory_order_acquire))
+                tool::ScopedLock lock(spin_lock);
+                switch (state)
                 {
                 case unused:
-                    state.store(unused_and_closed, std::memory_order_release);
+                    state = unused_and_closed;
                     break;
                 case open:
-                    state.store(closed, std::memory_order_release);
+                    state = closed;
                     break;
                 case open_and_joining:
-                    state.store(closed_and_joining, std::memory_order_release);
+                    state = closed_and_joining;
                     break;
                 default:
                     break;
@@ -139,10 +142,10 @@ namespace mcs::execution
             {
             };
             snd::sender auto join() noexcept;
-
-            std::atomic<state_type> state{unused};                      // NOLINT
-            std::atomic<std::size_t> count{0};                          // NOLINT
+            state_type state{unused};                                   // NOLINT
+            std::size_t count{0};                                       // NOLINT
             tool::SafeIntrusiveForwardList<scope_state_base> registers; // NOLINT
+            tool::CasSpinLock spin_lock;                                // NOLINT
         };
     }; // namespace scope
 
@@ -169,25 +172,27 @@ namespace mcs::execution
          */
         static constexpr auto start = [](auto &s, auto &) noexcept { // NOLINT
             using enum scope::state_type;
-            auto state = s.scope->state.load(std::memory_order_acquire);
+            tool::ScopedLock lock(s.scope->spin_lock);
+            auto &state = s.scope->state;
+            auto &count = s.scope->count;
             switch (state)
             {
             case unused:
             case unused_and_closed:
             case joined: {
                 if (state != joined)
-                    s.scope->state.store(joined, std::memory_order_release);
+                    state = joined;
                 s.complete_inline();
                 return;
             }
             break;
             case open: {
-                s.scope->state.store(open_and_joining, std::memory_order_release);
-                if (s.scope->count.load(std::memory_order_acquire) == 0)
+                state = open_and_joining;
+                if (count == 0)
                 {
                     // open -> open_and_joining -> joined
                     // NOTE: 修正的地方；直接转移
-                    s.scope->state.store(joined, std::memory_order_release);
+                    state = joined;
                     s.complete();
                     return;
                 }
@@ -195,12 +200,12 @@ namespace mcs::execution
             }
             break;
             case closed: {
-                s.scope->state.store(closed_and_joining, std::memory_order_release);
-                if (s.scope->count.load(std::memory_order_acquire) == 0)
+                state = closed_and_joining;
+                if (count == 0)
                 {
                     // open -> closed_and_joining -> joined
                     // NOTE: 修正的地方；直接转移
-                    s.scope->state.store(joined, std::memory_order_release);
+                    state = joined;
                     s.complete();
                     return;
                 }

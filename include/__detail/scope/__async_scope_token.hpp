@@ -25,7 +25,7 @@ namespace mcs::execution::scope
     template <class Token>
     concept async_scope_token = std::copyable<Token> && requires(Token token) {
         { token.try_associate() } noexcept -> std::same_as<bool>;
-        { token.disassociate() } -> std::same_as<void>;
+        { token.disassociate() } noexcept -> std::same_as<void>;
         { token.wrap(std::declval<test_sender>()) } noexcept -> snd::sender_in<test_env>;
     };
 }; // namespace mcs::execution::scope

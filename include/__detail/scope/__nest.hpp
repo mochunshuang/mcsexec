@@ -32,14 +32,15 @@ namespace mcs::execution
 
             nest_data &operator=(const nest_data &) = delete;
             nest_data &operator=(nest_data &&) = delete;
-            nest_data(Token t, Sndr &&s) : sndr(t.wrap(std::forward<Sndr>(s))), token(t)
+            nest_data(Token t, Sndr &&s) noexcept
+                : sndr(t.wrap(std::forward<Sndr>(s))), token(t)
             {
                 if (not token.try_associate())
                     sndr.reset();
             }
 
             // copy
-            nest_data(const nest_data &other)
+            nest_data(const nest_data &other) noexcept
                 requires std::copy_constructible<wrap_sender>
                 : token(other.token)
             {
@@ -58,7 +59,7 @@ namespace mcs::execution
             }
 
             // alternative copy-constructor implementation:
-            nest_data(const nest_data &other)
+            nest_data(const nest_data &other) noexcept
                 requires(not std::copy_constructible<wrap_sender>)
                 : sndr(other.sndr), token(other.token)
             {
@@ -67,14 +68,15 @@ namespace mcs::execution
             }
 
             // move
-            nest_data(nest_data &&other) noexcept(
-                std::is_nothrow_move_constructible_v<wrap_sender>)
+            nest_data(nest_data &&other) noexcept
                 : sndr(std::move(other).sndr), token(std::move(other).token)
             {
+                static_assert(noexcept(std::is_nothrow_move_constructible_v<wrap_sender>),
+                              "need nothrow");
                 other.sndr.reset();
             }
 
-            ~nest_data()
+            ~nest_data() noexcept
             {
                 if (sndr.has_value())
                 {
@@ -91,8 +93,14 @@ namespace mcs::execution
         // the lifetime of any async operations created with the sender.
         struct nest_t
         {
+            /**
+             * additional effects:
+             * 1.the association ends when the nest-sender is destroyed or, if it is
+             *   connected, when the resulting operation state is destroyed
+             * 2. whatever effects are added by the token’s wrap() method.
+             */
             template <snd::sender Sndr, scope::async_scope_token Token>
-            auto operator()(Sndr &&sndr, Token &&token) const
+            auto operator()(Sndr &&sndr, Token &&token) const noexcept
             {
                 auto dom = snd::general::get_domain_early(std::as_const(sndr));
                 return snd::transform_sender(
@@ -101,7 +109,7 @@ namespace mcs::execution
             }
 
             template <scope::async_scope_token Token>
-            auto operator()(Token &&token) const
+            auto operator()(Token &&token) const noexcept
                 -> pipeable::sender_adaptor<nest_t, Token>
             {
                 return {*this, std::forward<Token>(token)};
@@ -145,7 +153,7 @@ namespace mcs::execution
                     op_state &operator=(op_state &&) = delete;
                     op_state(op_state &&) = delete;
 
-                    ~op_state()
+                    ~op_state() noexcept
                     {
                         if (associated)
                         {
@@ -158,12 +166,12 @@ namespace mcs::execution
                         : token(std::move(token)), rcvr(std::addressof(r))
                     {
                     }
-                    op_state(scope_token token, wrap_sender &&sndr, Rcvr &r)
+                    op_state(scope_token token, wrap_sender &&sndr, Rcvr &r) noexcept
                         : associated(true), token(std::move(token)),
                           op(conn::connect(std::move(sndr), std::move(r)))
                     {
                     }
-                    op_state(scope_token token, const wrap_sender &sndr, Rcvr &r)
+                    op_state(scope_token token, const wrap_sender &sndr, Rcvr &r) noexcept
                         : associated(token.try_associate()), token(std::move(token)),
                           rcvr(std::addressof(r))
                     {
