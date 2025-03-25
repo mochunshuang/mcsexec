@@ -66,7 +66,7 @@ namespace mcs::execution
                  */
                 void disassociate() const
                 {
-                    if (scope->count.fetch_add(1) == 1)
+                    if (scope->count.fetch_sub(1) == 1)
                     {
                         if (auto state = scope->state.load(std::memory_order_acquire);
                             state == open_and_joining || state == closed_and_joining)
@@ -213,10 +213,9 @@ namespace mcs::execution
         };
     };
 
-    // TODO(mcs): 无法从 Scope 拿到签名信息的
-    template <typename Scope>
+    template <typename Scope, typename... Env>
     struct cmplsigs::completion_signatures_for_impl<
-        snd::__detail::basic_sender<scope::simple_counting_scope::join_t, Scope>>
+        snd::__detail::basic_sender<scope::simple_counting_scope::join_t, Scope>, Env...>
     {
         using type = cmplsigs::completion_signatures<set_value_t(), set_stopped_t()>;
     };
