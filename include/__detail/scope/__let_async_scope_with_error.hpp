@@ -25,7 +25,6 @@
 
 #include "../adapt/__when_all_with_variant.hpp"
 #include "../adapt/__then.hpp"
-#include "../factories/__just.hpp"
 
 namespace mcs::execution
 {
@@ -161,10 +160,10 @@ namespace mcs::execution
         template <typename Fn, typename scope_token_type, typename Tag, typename... Args>
         struct as_sndr2<Fn, scope_token_type, Tag(Args...)>
         {
-            using type =
-                functional::call_result_t<Fn, scope_token_type, std::decay_t<Args> &...>;
+            using type = functional::call_result_t<Fn, std::decay_t<scope_token_type> &,
+                                                   std::decay_t<Args> &...>;
             static constexpr bool is_nothrow = // NOLINT
-                std::is_nothrow_invocable_v<Fn, scope_token_type,
+                std::is_nothrow_invocable_v<Fn, std::decay_t<scope_token_type> &,
                                             std::decay_t<Args> &...>;
         };
 
@@ -389,12 +388,8 @@ namespace mcs::execution
         static constexpr auto complete = // NOLINT
             []<class Tag, class... Args>(auto, auto &state, auto &rcvr, Tag,
                                          Args &&...args) noexcept -> void {
-            // TODO(mcs): 异常处理有点问题
             if constexpr (std::same_as<Tag, set_value_t>)
             {
-                // TRY_EVAL(std::move(rcvr),
-                //            let_async_scope_bind(state, rcvr,
-                //            std::forward<Args>(args)...));
                 // NOTE: It's already try-catch in let_async_scope_bind
                 scope::let_async_scope_bind(state, rcvr, std::forward<Args>(args)...);
             }
@@ -405,7 +400,6 @@ namespace mcs::execution
         };
     };
 
-    // TODO(mcs): 完成签名，取决于 complete
     template <typename Sndr, typename Fun, typename... Env, typename... Errors>
     struct cmplsigs::completion_signatures_for_impl<
         snd::__detail::basic_sender<scope::let_async_scope_with_error_t<Errors...>, Fun,
