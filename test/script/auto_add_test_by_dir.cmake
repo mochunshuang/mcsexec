@@ -15,7 +15,8 @@ function(auto_add_test_by_dir dir_name)
         get_filename_component(test_name ${test_file} NAME_WE)
 
         # 生成可执行程序名：组-cpp文件名
-        set(target_name "${dir_name}-${test_name}")
+        string(REPLACE "/" "-" path_prefix "${dir_name}")
+        set(target_name "${path_prefix}-${test_name}")
 
         # 添加可执行程序
         add_executable(${target_name} ${test_file})
