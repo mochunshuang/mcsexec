@@ -19,27 +19,27 @@ namespace mcs::execution::snd::__detail
     struct product_type_base<::std::index_sequence<I...>, T...>
         : ::mcs::execution::snd::__detail::product_type_element<I, T>...
     {
-        static constexpr ::std::size_t size() noexcept
+        static consteval ::std::size_t size() noexcept
         {
             return sizeof...(T);
         }
 
         template <::std::size_t J, typename S>
-        static auto element_get( // NOLINT
+        constexpr static auto element_get( // NOLINT
             ::mcs::execution::snd::__detail::product_type_element<J, S> &self) noexcept
             -> S &
         {
             return self.value;
         }
         template <::std::size_t J, typename S>
-        static auto element_get( // NOLINTNEXTLINE // NOLINT
+        constexpr static auto element_get( // NOLINTNEXTLINE // NOLINT
             ::mcs::execution::snd::__detail::product_type_element<J, S> &&self) noexcept
             -> S &&
         {
             return ::std::move(self.value);
         }
         template <::std::size_t J, typename S>
-        static auto element_get( // NOLINT
+        constexpr static auto element_get( // NOLINT
             const ::mcs::execution::snd::__detail::product_type_element<J, S>
                 &self) noexcept -> const S &
         {
@@ -47,17 +47,17 @@ namespace mcs::execution::snd::__detail
         }
 
         template <::std::size_t J>
-        auto get() & noexcept -> decltype(auto)
+        constexpr auto get() & noexcept -> decltype(auto)
         {
             return this->element_get<J>(*this);
         }
         template <::std::size_t J>
-        auto get() && noexcept -> decltype(auto)
+        constexpr auto get() && noexcept -> decltype(auto)
         {
             return this->element_get<J>(::std::move(*this));
         }
         template <::std::size_t J>
-        [[nodiscard]] auto get() const & noexcept -> decltype(auto)
+        [[nodiscard]] constexpr auto get() const & noexcept -> decltype(auto)
         {
             return this->element_get<J>(*this);
         }
