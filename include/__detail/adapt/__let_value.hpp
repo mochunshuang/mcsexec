@@ -47,7 +47,7 @@ namespace mcs::execution
         {
 
             template <snd::sender Sndr>
-            auto operator()(const Sndr &sndr) const // noexcept
+            auto operator()(const Sndr &sndr) const noexcept
             {
                 // functional::decayed_typeof<recv::set_value> is Completion respectively
                 if constexpr (requires() {
@@ -89,7 +89,7 @@ namespace mcs::execution
                 requires(diagnostics::check_type<snd::__detail::basic_sender<
                              adapt::__let_t<Completion>, std::decay_t<Fun>,
                              std::decay_t<Sndr>>>)
-            auto operator()(Sndr &&sndr, Fun &&f) const
+            auto operator()(Sndr &&sndr, Fun &&f) const noexcept
             {
                 auto dom = snd::general::get_domain_early(std::as_const(sndr));
                 return snd::transform_sender(dom,
@@ -98,7 +98,8 @@ namespace mcs::execution
             }
 
             template <movable_value Fun>
-            auto operator()(Fun &&fun) const -> pipeable::sender_adaptor<__let_t, Fun>
+            auto operator()(Fun &&fun) const noexcept
+                -> pipeable::sender_adaptor<__let_t, Fun>
             {
                 return {*this, std::forward<Fun>(fun)};
             }

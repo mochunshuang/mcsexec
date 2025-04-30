@@ -25,14 +25,15 @@ namespace mcs::execution
             template <snd::sender Sndr>
                 requires diagnostics::check_type<snd::__detail::basic_sender<
                     adapt::stopped_as_optional_t, snd::empty_data, std::decay_t<Sndr>>>
-            auto operator()(Sndr &&sndr) const // noexcept
+            auto operator()(Sndr &&sndr) const noexcept
             {
                 auto dom = snd::general::get_domain_early(std::as_const(sndr));
                 return snd::transform_sender(
                     dom, snd::make_sender(*this, {}, std::forward<Sndr>(sndr)));
             }
 
-            auto operator()() const -> pipeable::sender_adaptor<stopped_as_optional_t>
+            auto operator()() const noexcept
+                -> pipeable::sender_adaptor<stopped_as_optional_t>
             {
                 return {*this};
             }

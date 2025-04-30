@@ -43,7 +43,7 @@ namespace mcs::execution
                                                              std::decay_t<Fun>>,
                                  std::decay_t<Sndr>>>)
                 auto operator()(Sndr &&sndr, Policy &&policy, Shape &&shape,
-                                Fun &&f) const // noexcept
+                                Fun &&f) const noexcept
                 {
                     auto dom = snd::general::get_domain_early(std::as_const(sndr));
                     return snd::transform_sender(
@@ -56,7 +56,7 @@ namespace mcs::execution
                 }
 
                 template <policy Policy, shape Shape, movable_value Fun>
-                auto operator()(Policy &&policy, Shape &&shape, Fun &&fun) const
+                auto operator()(Policy &&policy, Shape &&shape, Fun &&fun) const noexcept
                     -> pipeable::sender_adaptor<bulk_algo, Policy, Shape, Fun>
                 {
                     return {*this, std::forward<Policy>(policy),

@@ -62,7 +62,7 @@ namespace mcs::execution
         struct let_async_scope_with_error_t
         {
             template <snd::sender Sndr, movable_value Fun>
-            auto operator()(Sndr &&sndr, Fun &&f) const // noexcept
+            auto operator()(Sndr &&sndr, Fun &&f) const noexcept
             {
                 auto dom = snd::general::get_domain_early(std::as_const(sndr));
                 return snd::transform_sender(dom,

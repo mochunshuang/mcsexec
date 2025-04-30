@@ -398,7 +398,7 @@ namespace mcs::execution
         struct split_env
         {
             [[nodiscard]] constexpr auto query( // NOLINT
-                queries::get_stop_token_t const & /*unused*/) const
+                queries::get_stop_token_t const & /*unused*/) const noexcept
             {
                 // https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p3409r1.html#orgb5a09bc
                 return stoptoken::single_inplace_stop_token{};
@@ -483,14 +483,14 @@ namespace mcs::execution
             template <snd::sender Sndr>
                 requires(diagnostics::check_type<snd::__detail::basic_sender<
                              adapt::split_t, snd::empty_data, std::decay_t<Sndr>>>)
-            auto operator()(Sndr &&sndr) const // noexcept
+            auto operator()(Sndr &&sndr) const noexcept
             {
                 auto dom = snd::general::get_domain_early(std::as_const(sndr));
                 return snd::transform_sender(
                     dom, snd::make_sender(*this, {}, std::forward<Sndr>(sndr)));
             }
 
-            auto operator()() const -> pipeable::sender_adaptor<split_t>
+            auto operator()() const noexcept -> pipeable::sender_adaptor<split_t>
             {
                 return {*this};
             }

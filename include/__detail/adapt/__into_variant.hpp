@@ -23,14 +23,14 @@ namespace mcs::execution
         struct into_variant_t
         {
             template <snd::sender Sndr>
-            auto operator()(Sndr &&sndr) const // noexcept
+            auto operator()(Sndr &&sndr) const noexcept
             {
                 auto dom = snd::general::get_domain_early(std::as_const(sndr));
                 return snd::transform_sender(
                     dom, snd::make_sender(*this, {}, std::forward<Sndr>(sndr)));
             }
 
-            auto operator()() const -> pipeable::sender_adaptor<into_variant_t>
+            auto operator()() const noexcept -> pipeable::sender_adaptor<into_variant_t>
             {
                 return {{*this}};
             }

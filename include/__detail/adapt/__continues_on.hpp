@@ -26,7 +26,7 @@ namespace mcs::execution
         {
             // make_sender provides tag_of_t will-format
             template <snd::sender Sndr, sched::scheduler Sch>
-            auto operator()(Sndr &&sndr, Sch &&sch) const
+            auto operator()(Sndr &&sndr, Sch &&sch) const noexcept
             {
                 auto dom = snd::general::get_domain_early(std::as_const(sndr));
                 return snd::transform_sender(
@@ -35,7 +35,7 @@ namespace mcs::execution
             }
 
             template <sched::scheduler Sch>
-            auto operator()(Sch &&sch) const
+            auto operator()(Sch &&sch) const noexcept
                 -> pipeable::sender_adaptor<continues_on_t, Sch>
             {
                 return {*this, std::forward<Sch>(sch)};

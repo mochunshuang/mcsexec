@@ -51,7 +51,7 @@ namespace mcs::execution
              */
             template <typename Sched, typename Sndr>
                 requires(not on_check_one<Sched, Sndr>)
-            auto operator()(Sched &&sch, Sndr &&sndr) const
+            auto operator()(Sched &&sch, Sndr &&sndr) const noexcept
             {
                 auto dom = snd::general::query_or_default(
                     queries::get_domain, std::as_const(sch), snd::default_domain());
@@ -85,7 +85,7 @@ namespace mcs::execution
              */
             template <typename Sndr, typename Sched, typename Adaptor>
                 requires(not on_check_two<Sched, Sndr, Adaptor>)
-            auto operator()(Sndr &&sndr, Sched &&sch, Adaptor &&closure) const
+            auto operator()(Sndr &&sndr, Sched &&sch, Adaptor &&closure) const noexcept
             {
                 auto dom = snd::general::get_domain_early(std::as_const(sndr));
                 return snd::transform_sender(

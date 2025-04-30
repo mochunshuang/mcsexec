@@ -12,7 +12,7 @@ namespace mcs::execution
         inline constexpr struct unstoppable_t
         {
             template <snd::sender Sndr>
-            auto operator()(Sndr sndr) const
+            auto operator()(Sndr sndr) const noexcept
             {
                 return factories::write_env(std::move(sndr),
                                             queries::prop(queries::get_stop_token,

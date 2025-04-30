@@ -19,7 +19,7 @@ namespace mcs::execution
         struct starts_on_t
         {
             template <sched::scheduler Sched, snd::sender Sndr>
-            auto operator()(Sched &&sch, Sndr &&sndr) const
+            auto operator()(Sched &&sch, Sndr &&sndr) const noexcept
             {
                 auto dom = snd::general::query_or_default(
                     queries::get_domain, std::as_const(sch), snd::default_domain());

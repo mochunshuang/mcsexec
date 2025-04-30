@@ -13,7 +13,7 @@ namespace mcs::execution
         struct stopped_as_error_t
         {
             template <snd::sender Sndr, movable_value Err>
-            auto operator()(Sndr &&sndr, Err &&err) const // noexcept
+            auto operator()(Sndr &&sndr, Err &&err) const noexcept
             {
                 auto dom = snd::general::get_domain_early(std::as_const(sndr));
                 return snd::transform_sender(
@@ -22,7 +22,7 @@ namespace mcs::execution
             }
 
             template <movable_value E>
-            auto operator()(E &&e) const
+            auto operator()(E &&e) const noexcept
                 -> pipeable::sender_adaptor<stopped_as_error_t, E>
             {
                 return {*this, std::forward<E>(e)};
