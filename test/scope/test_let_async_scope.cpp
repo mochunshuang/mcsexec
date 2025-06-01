@@ -287,6 +287,34 @@ int main()
         }
     };
 
+    TEST("spawn + lazy") = [] {
+        {
+            mcs::this_thread::sync_wait([] -> ex::lazy<> { // NOLINT
+                co_return;                                 // NOLINT
+            }());
+        }
+        {
+            mcs::this_thread::sync_wait([] -> ex::lazy<bool> { // NOLINT
+                co_return true;                                // NOLINT
+            }() | ex::then([](bool res) noexcept {
+                                                  EXPECT(res);
+                                                  std::cout
+                                                      << "get value by lazy: " << res
+                                                      << '\n';
+                                              }));
+        }
+        {
+            // NOTE: 无法适配
+            // mcs::this_thread::sync_wait(
+            //     ex::just() | [] -> ex::lazy<bool> { // NOLINT
+            //         co_return true;                 // NOLINT
+            //     }() | ex::then([](bool res) noexcept {
+            //                            EXPECT(res);
+            //                            std::cout << "get value by lazy: " << res <<
+            //                            '\n';
+            //                        }));
+        }
+    };
     std::cout << " main done\n";
     return 0;
 }

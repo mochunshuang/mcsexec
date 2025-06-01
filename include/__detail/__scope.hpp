@@ -26,4 +26,6 @@ namespace mcs::execution
 
     using ::mcs::execution::scope::let_async_scope;
 
+    using ::mcs::execution::scope::let_async_scope_with_error;
+
 }; // namespace mcs::execution

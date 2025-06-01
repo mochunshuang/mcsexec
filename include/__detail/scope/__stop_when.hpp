@@ -142,7 +142,23 @@ namespace mcs::execution
             else if constexpr (std::is_same_v<Tag, set_error_t>)
             {
                 // NOTE: spawn_receiver no set_error_t handle fun
-                std::rethrow_exception(std::forward<Args>(args)...);
+                // TODO(mcs): 先简单解决 lazy  + scope
+                if constexpr (std::is_same_v<type_list<std::decay_t<Args>...>,
+                                             type_list<std::error_code>>)
+                {
+                    try
+                    {
+                        throw(std::forward<Args>(args), ...);
+                    }
+                    catch (...)
+                    {
+                        std::rethrow_exception(std::current_exception());
+                    }
+                }
+                else
+                {
+                    std::rethrow_exception(std::forward<Args>(args)...);
+                }
             }
             else
             {

@@ -1,4 +1,8 @@
 #include "../test_base_head.hpp"
+#include <chrono>
+#include <iostream>
+#include <thread>
+#include <utility>
 
 int main()
 {
@@ -75,6 +79,44 @@ int main()
         }
     };
 
+    TEST("co_await 3 ") = [] {
+        auto fun = [] -> ex::lazy<int> {
+            auto [a, b] = co_await ex::just(std::make_pair(-1, "name"));
+            co_return a;
+        };
+        {
+            auto [ret] =
+                mcs::this_thread::sync_wait(fun() | ex::then([](int i) {
+                                                std::cout << "[co_await 2]: then call\n";
+                                                std::cout << "i: " << i << '\n';
+                                                return i;
+                                            }))
+                    .value();
+            EXPECT(ret == -1);
+        }
+    };
+
+    TEST("co_await 4 ") = [] {
+        auto fun = [] -> ex::lazy<int> {
+            auto [a, b] = co_await (ex::just(1) | ex::then([](auto p) noexcept {
+                                        if (p > 0)
+                                            return std::make_pair(-1, "name");
+                                        return std::make_pair(p, "name");
+                                    }));
+            co_return a;
+        };
+        {
+            auto [ret] =
+                mcs::this_thread::sync_wait(fun() | ex::then([](int i) {
+                                                std::cout << "[co_await 2]: then call\n";
+                                                std::cout << "i: " << i << '\n';
+                                                return i;
+                                            }))
+                    .value();
+            EXPECT(ret == -1);
+        }
+    };
+
     TEST("co_yield only for error ") = [] {
         auto fun = [] -> ex::lazy<int> {
             co_yield mcs::execution::task::with_error{-99}; // NOLINT
@@ -102,6 +144,25 @@ int main()
                 if (i-- == 0)
                     co_return 1;
             }
+        }());
+        assert(rc);
+        auto [value] = rc.value_or(std::tuple{0});
+        EXPECT(value == 1);
+    };
+
+    TEST("with while(i-->0)") = [] {
+        auto rc = mcs::this_thread::sync_wait([] -> ex::lazy<int> { // NOLINT
+            int i = 3;                                              // NOLINT
+            while (i-- > 0)
+            {
+                auto ret = co_await (ex::just(i) | ex::then([](int i) noexcept {
+                                         std::this_thread::sleep_for(
+                                             std::chrono::milliseconds(i));
+                                         return i;
+                                     }));
+                std::cout << "while + co_await: " << ret << '\n';
+            }
+            co_return 1;
         }());
         assert(rc);
         auto [value] = rc.value_or(std::tuple{0});
