@@ -52,10 +52,16 @@ jobs:
 
       - name: CMake Configuration
         run: |
+          # cmake -B build \
+          #   -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+          #   -DCMAKE_C_COMPILER=${{env.CC}} \
+          #   -DCMAKE_CXX_COMPILER=${{env.CXX}} \
+          #   -G Ninja
+          # 动态获取g++-14的实际路径
           cmake -B build \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
-            -DCMAKE_C_COMPILER=${{env.CC}} \
-            -DCMAKE_CXX_COMPILER=${{env.CXX}} \
+            -DCMAKE_C_COMPILER=$(which gcc-14) \
+            -DCMAKE_CXX_COMPILER=$(which g++-14) \
             -G Ninja
 
       - name: Build Project
