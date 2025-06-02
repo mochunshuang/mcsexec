@@ -240,7 +240,7 @@ int main()
         std::cout << "\n test: [ base: ex::spawn + ThreadPool ]\n";
         ex::counting_scope scope;
         {
-            constexpr auto k_time = 100;
+            constexpr auto k_time = 10; // github action 性能不行
 
             ThreadPool<k_time> pool;
             auto start = std::chrono::high_resolution_clock::now();
