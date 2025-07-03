@@ -67,6 +67,12 @@ auto apply_state(auto &state, Args &&...args) noexcept // NOLINT
     return std::apply(std::move(state.fn), args_variant);
 }
 
+template <class... Fns>
+struct overload_set : Fns...
+{
+    using Fns::operator()...;
+};
+
 int main()
 {
     {
@@ -91,6 +97,30 @@ int main()
                 std::variant<std::monostate,
                              std::tuple<Scope::Token, int, std::basic_string<char>>>,
                 T>);
+    }
+
+    // 变体访问
+    {
+        // 定义一个变体类型，可能存储 int、string 或 double
+        using MyVariant = std::variant<int, std::string, double>;
+
+        // 创建变体实例
+        MyVariant var1 = 3;
+        MyVariant var2 = "hello";
+        MyVariant var3 = 1.0;
+
+        // 用 overload_set 定义访问器：对每种类型实现不同处理
+        auto visitor = overload_set{
+            [](int x) { std::cout << "处理 int: " << x << "\n"; },
+            [](const std::string &s) { std::cout << "处理 string: " << s << "\n"; },
+            [](double d) {
+                std::cout << "处理 double: " << d << "\n";
+            }};
+
+        // 使用 std::visit 访问 variant，自动匹配对应类型的处理函数
+        std::visit(visitor, var1); // 输出：处理 int: 42
+        std::visit(visitor, var2); // 输出：处理 string: hello
+        std::visit(visitor, var3); // 输出：处理 double: 3.14
     }
 
     std::cout << "main done\n";

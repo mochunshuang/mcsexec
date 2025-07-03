@@ -1,7 +1,7 @@
 #pragma once
 
 #include <array>
-namespace mcs::execution::task::__detail
+namespace mcs::execution::__task::__detail
 {
     /**
      * @brief Utility providing small object optimization and type erasure.
@@ -82,4 +82,4 @@ namespace mcs::execution::task::__detail
             return this->pointer();
         }
     };
-}; // namespace mcs::execution::task::__detail
+}; // namespace mcs::execution::__task::__detail

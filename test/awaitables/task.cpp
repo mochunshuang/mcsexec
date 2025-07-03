@@ -1,4 +1,6 @@
 #include <iostream>
+#include <stdexcept>
+#include <system_error>
 #include <utility>
 #include <variant>
 
@@ -98,9 +100,8 @@ struct task
         }
         void unhandled_exception() noexcept // NOLINT
         {
+            // NOTE: 直接 让 recr 唤醒即可。交给 reciver
             this->result.template emplace<std::exception_ptr>(std::current_exception());
-            // TODO(mcs) 应该接受协程体了吧？ 就怕被其他Sndr 操作了一下
-            state->complete(state, this->result);
         }
 
         // NOTE: 变成 sender_awaitable 或者 它本身。
@@ -190,8 +191,12 @@ struct task
                     ex::recv::set_value(std::move(self->rcvr), std::move(r));
                 }
                 break;
-            case 2: // NOTE: tow type error //TODO(mcs)
+            case 2: // NOTE: tow type error //TODO(mcs) 如果多个
+                ex::set_error(std::move(self->rcvr), std::get<2>(variant_result));
+                break;
             case 3:
+                ex::set_error(std::move(self->rcvr), std::get<3>(variant_result));
+                break;
             default:
 
                 break;
@@ -390,6 +395,32 @@ int main()
         assert(rc);
         auto [value] = rc.value_or(std::tuple{0});
         EXPECT(value == 1);
+    };
+
+    TEST("co_yield only for error ") = [] {
+        auto fun = [] -> task<int> {
+            // 感觉没必要了
+            // co_yield mcs::execution::task::with_error{-99}; // NOLINT
+
+            // throw std::error_code{-99}; //NOTE: 不允许
+            throw std::runtime_error{"error"};
+            UNEXPECT("never reached");
+            co_return -1;
+        };
+        {
+            auto [ret] =
+                mcs::this_thread::sync_wait(fun() | ex::then([](int i) {
+                                                std::cout << "[co_yield]: then call\n";
+                                                std::cout << "i: " << i << '\n';
+                                                return i;
+                                            }) |
+                                            ex::upon_error([](auto e) {
+                                                std::cout << "[upon_error]:  call\n";
+                                                return -1;
+                                            }))
+                    .value();
+            EXPECT(ret == -1);
+        }
     };
 
     std::cout << "main done\n";

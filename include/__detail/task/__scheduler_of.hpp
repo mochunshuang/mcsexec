@@ -3,7 +3,7 @@
 #include "./__any_scheduler.hpp"
 #include "../sched/__scheduler.hpp"
 
-namespace mcs::execution::task
+namespace mcs::execution::__task
 {
     template <typename>
     struct scheduler_of
@@ -22,4 +22,4 @@ namespace mcs::execution::task
     template <typename Context>
     using scheduler_of_t = typename scheduler_of<Context>::type;
 
-}; // namespace mcs::execution::task
+}; // namespace mcs::execution::__task

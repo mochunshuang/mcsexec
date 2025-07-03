@@ -7,7 +7,7 @@
 #include "../cmplsigs/__completion_signatures.hpp"
 #include "../sched/__scheduler.hpp"
 
-namespace mcs::execution::task
+namespace mcs::execution::__task
 {
     /*!
      * @brief Scheduler completing immmediately when started on the same thread
@@ -76,4 +76,4 @@ namespace mcs::execution::task
         bool operator==(const inline_scheduler &) const = default;
     };
     static_assert(sched::scheduler<inline_scheduler>);
-}; // namespace mcs::execution::task
+}; // namespace mcs::execution::__task

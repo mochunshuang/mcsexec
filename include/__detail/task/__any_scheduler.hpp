@@ -10,7 +10,7 @@
 #include "../snd/__sender.hpp"
 #include "../conn/__connect.hpp"
 
-namespace mcs::execution::task
+namespace mcs::execution::__task
 {
     /**
      * @brief Type-erasing scheduler
@@ -335,4 +335,4 @@ namespace mcs::execution::task
     };
     static_assert(sched::scheduler<any_scheduler>);
 
-}; // namespace mcs::execution::task
+}; // namespace mcs::execution::__task

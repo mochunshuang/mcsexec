@@ -1,7 +1,7 @@
 #pragma once
 
 #include <memory>
-namespace mcs::execution::task
+namespace mcs::execution::__task
 {
     template <typename>
     struct allocator_of
@@ -32,7 +32,7 @@ namespace mcs::execution::task
     template <typename Allocator, typename A0, typename... A>
     Allocator find_allocator(A0 const & /*unused*/, const A &...a)
     {
-        return ::mcs::execution::task::find_allocator<Allocator>(a...);
+        return ::mcs::execution::__task::find_allocator<Allocator>(a...);
     }
 
     template <typename C, typename... A>
@@ -56,4 +56,4 @@ namespace mcs::execution::task
         aptr->~allocator_type();
         traits::deallocate(alloc, static_cast<std::byte *>(ptr), size);
     }
-}; // namespace mcs::execution::task
+}; // namespace mcs::execution::__task

@@ -7,14 +7,15 @@
 
 int main()
 {
-    static_assert(ex::snd::sender<mcs::execution::__task::lazy<int>>);
+    // NOTE: 和 ex::lazy 不同， 协程内部 co_await 上下午切换 可以是不同的线程池
+    static_assert(ex::snd::sender<mcs::execution::__task::task<int>>);
 
-    TEST(" lazy<int> is sender") = [] {
-        static_assert(ex::snd::sender<mcs::execution::__task::lazy<int>>);
+    TEST(" task<int> is sender") = [] {
+        static_assert(ex::snd::sender<mcs::execution::__task::task<int>>);
     };
 
-    TEST("lazy<int> ") = [] {
-        auto rc = mcs::this_thread::sync_wait([] -> ex::lazy<int> { // NOLINT
+    TEST("task<int> ") = [] {
+        auto rc = mcs::this_thread::sync_wait([] -> ex::task<int> { // NOLINT
             co_return 17;                                           // NOLINT
         }());
         assert(rc);
@@ -22,8 +23,8 @@ int main()
         EXPECT(value == 17);
     };
 
-    TEST("lazy<int> ") = [] {
-        auto rc = mcs::this_thread::sync_wait([] -> ex::lazy<int> { // NOLINT
+    TEST("task<int> ") = [] {
+        auto rc = mcs::this_thread::sync_wait([] -> ex::task<int> { // NOLINT
             co_return 17;                                           // NOLINT
         }() | ex::then([](int i) { return 1 + i; }));
         assert(rc);
@@ -32,7 +33,7 @@ int main()
     };
 
     TEST("co_await ") = [] {
-        [[maybe_unused]] auto o = mcs::this_thread::sync_wait([]() -> ex::lazy<> {
+        [[maybe_unused]] auto o = mcs::this_thread::sync_wait([]() -> ex::task<> {
             co_await ex::just(); // void // NOLINT
             std::cout << "after co_await ex::just()\n";
             [[maybe_unused]] auto v = co_await ex::just(42); // int // NOLINT
@@ -63,7 +64,7 @@ int main()
     };
 
     TEST("co_await 2 ") = [] {
-        auto fun = [] -> ex::lazy<int> {
+        auto fun = [] -> ex::task<int> {
             int i = 0;
             co_await ex::just(i);
             co_return -1;
@@ -81,7 +82,7 @@ int main()
     };
 
     TEST("co_await 3 ") = [] {
-        auto fun = [] -> ex::lazy<int> {
+        auto fun = [] -> ex::task<int> {
             auto [a, b] = co_await ex::just(std::make_pair(-1, "name"));
             co_return a;
         };
@@ -98,7 +99,7 @@ int main()
     };
 
     TEST("co_await 4 ") = [] {
-        auto fun = [] -> ex::lazy<int> {
+        auto fun = [] -> ex::task<int> {
             auto [a, b] = co_await (ex::just(1) | ex::then([](auto p) noexcept {
                                         if (p > 0)
                                             return std::make_pair(-1, "name");
@@ -118,8 +119,10 @@ int main()
         }
     };
 
+    // NOTE: 暂时觉得没必要
+#if false // NOLINT
     TEST("co_yield only for error ") = [] {
-        auto fun = [] -> ex::lazy<int> {
+        auto fun = [] -> ex::task<int> {
             co_yield mcs::execution::__task::with_error{-99}; // NOLINT
             UNEXPECT("never reached");
             co_return -1;
@@ -135,10 +138,11 @@ int main()
             EXPECT(ret == -99);
         }
     };
+#endif
 
     // Note: 目前都不支持 co_yield + while 做正常的数据处理
     TEST("with while(true)") = [] {
-        auto rc = mcs::this_thread::sync_wait([] -> ex::lazy<int> { // NOLINT
+        auto rc = mcs::this_thread::sync_wait([] -> ex::task<int> { // NOLINT
             int i = 100000;                                         // NOLINT
             while (true)
             {
@@ -152,7 +156,7 @@ int main()
     };
 
     TEST("with while(i-->0)") = [] {
-        auto rc = mcs::this_thread::sync_wait([] -> ex::lazy<int> { // NOLINT
+        auto rc = mcs::this_thread::sync_wait([] -> ex::task<int> { // NOLINT
             int i = 3;                                              // NOLINT
             while (i-- > 0)
             {
@@ -170,10 +174,11 @@ int main()
         EXPECT(value == 1);
     };
 
-    TEST("with while(i-->0) 2 ") = [] {
-        auto rc = mcs::this_thread::sync_wait([] -> ex::lazy<int> { // NOLINT
-            int i = 3;                                              // NOLINT
-            ex::static_thread_pool<3> pool;
+    ex::static_thread_pool<3> pool;
+    TEST("with while(i-->0) 2 ") = [&] {
+        auto rc = mcs::this_thread::sync_wait([](auto &pool) -> ex::task<int> { // NOLINT
+            int i = 3;                                                          // NOLINT
+
             std::cout << "enter task thread_id: " << std::this_thread::get_id() << '\n';
             while (i-- > 0)
             {
@@ -191,20 +196,21 @@ int main()
                           << '\n';
             }
             co_return 1;
-        }());
+        }(pool));
         assert(rc);
         auto [value] = rc.value_or(std::tuple{0});
         EXPECT(value == 1);
     };
     std::cout << "\nwith while(i-->0) 2\n";
     TEST("with while(i-->0) 2 ") = [] {
-        ex::static_thread_pool<1>
-            start_pool; // TODO(mcs) ex::lazy 还是static_thread_pool 设计失败，调度失败
-        auto start =    // NOTE: 线程体内部 总是唯一的 线程。 BUG?. 这不就是阻塞吗？？？？
-            ex::schedule(start_pool.get_scheduler()) | ex::let_value([]() noexcept {
-                return [] -> ex::lazy<int> { // NOLINT
-                    int i = 2;               // NOLINT
-                    ex::static_thread_pool<2> pool;
+        ex::static_thread_pool<1> start_pool; // TODO(mcs) ex::lazy 还是static_thread_pool
+                                              // 设计失败，调度失败
+        ex::static_thread_pool<2> pool;
+        auto start = // NOTE: 线程体内部 总是唯一的 线程。 BUG?. 这不就是阻塞吗？？？？
+            ex::schedule(start_pool.get_scheduler()) | ex::let_value([&]() noexcept {
+                return [](auto &pool) -> ex::task<int> { // NOLINT
+                    int i = 2;                           // NOLINT
+
                     std::cout << "enter task thread_id: " << std::this_thread::get_id()
                               << '\n';
                     while (i-- > 0)
@@ -225,7 +231,7 @@ int main()
                             << '\n';
                     }
                     co_return 1;
-                }();
+                }(pool);
             });
         auto rc = mcs::this_thread::sync_wait(std::move(start));
         assert(rc);
@@ -235,11 +241,12 @@ int main()
     std::cout << "\nwith while(i-->0) 2 replace\n";
     TEST("with while(i-->0) 2 replace ") = [] {
         ex::static_thread_pool<1> start_pool;
+        ex::static_thread_pool<2> pool;
         auto start =
-            ex::schedule(start_pool.get_scheduler()) | ex::let_value([]() noexcept {
-                return [] -> ex::lazy<int> { // NOLINT
-                    int i = 2;               // NOLINT
-                    ex::static_thread_pool<2> pool;
+            ex::schedule(start_pool.get_scheduler()) | ex::let_value([&]() noexcept {
+                return [](auto &pool) -> ex::task<int> { // NOLINT
+                    int i = 2;                           // NOLINT
+
                     std::cout << "enter task thread_id: " << std::this_thread::get_id()
                               << '\n';
                     while (i-- > 0)
@@ -265,7 +272,7 @@ int main()
                             << '\n';
                     }
                     co_return 1;
-                }();
+                }(pool);
             });
         auto rc = mcs::this_thread::sync_wait(std::move(start));
         assert(rc);
@@ -273,8 +280,8 @@ int main()
         EXPECT(value == 1);
     };
 
-    std::cout << "\nex::lazy<int> replace\n";
-    TEST("ex::lazy<int> replace ") = [] {
+    std::cout << "\nex::task<int> replace\n";
+    TEST("ex::task<int> replace ") = [] {
         ex::static_thread_pool<1> start_pool;
         auto start = ex::schedule(start_pool.get_scheduler()) | ex::then([]() noexcept {
                          int i = 2; // NOLINT
@@ -357,7 +364,7 @@ int main()
                 return 1;
             }
         };
-        auto rc = mcs::this_thread::sync_wait([] -> ex::lazy<int> { // NOLINT
+        auto rc = mcs::this_thread::sync_wait([] -> ex::task<int> { // NOLINT
             // auto r = co_await immediate_awaiter{}; // TODO(mcs) 可以做到吗？
             // co_return r;
             co_return 1;

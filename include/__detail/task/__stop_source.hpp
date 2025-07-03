@@ -2,7 +2,7 @@
 
 #include "../__stoptoken/__inplace_stop_source.hpp"
 
-namespace mcs::execution::task
+namespace mcs::execution::__task
 {
     template <typename>
     struct stop_source_of
@@ -18,4 +18,4 @@ namespace mcs::execution::task
     template <typename Context>
     using stop_source_of_t = typename stop_source_of<Context>::type;
 
-}; // namespace mcs::execution::task
+}; // namespace mcs::execution::__task

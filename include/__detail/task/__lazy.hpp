@@ -12,7 +12,7 @@
 #include <optional>
 #include <variant>
 
-namespace mcs::execution::task
+namespace mcs::execution::__task
 {
 
     template <std::size_t Start, typename Fun, typename Var, std::size_t... I>
@@ -430,4 +430,4 @@ namespace mcs::execution::task
                                    std::exchange(this->handle, {}));
         }
     };
-}; // namespace mcs::execution::task
+}; // namespace mcs::execution::__task
