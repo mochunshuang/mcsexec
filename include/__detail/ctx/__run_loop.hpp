@@ -6,6 +6,7 @@
 
 #include "../__core_types.hpp"
 
+#include "../queries/__get_scheduler.hpp"
 #include "../queries/__get_stop_token.hpp"
 #include "../queries/__get_completion_scheduler.hpp"
 #include "../recv/__set_stopped.hpp"
@@ -153,6 +154,11 @@ namespace mcs::execution::ctx
                     {
                         return scheduler{run_loop_};
                     }
+                    [[nodiscard]] auto query(queries::get_scheduler_t const & /*unused*/)
+                        const noexcept -> scheduler;
+                    // {
+                    //     return run_loop_->get_scheduler();
+                    // }
                 };
 
                 // NOLINTNEXTLINE
@@ -319,6 +325,14 @@ namespace mcs::execution::ctx
         state.store(State::finishing);
         lk.unlock();
         cv.notify_all();
+    }
+
+    // 外部定义env::query函数。
+    // TODO(mcs): c++标准目前没有这个要求，有必要吗
+    auto run_loop::scheduler::sender::env::query(
+        queries::get_scheduler_t const & /*unused*/) const noexcept -> scheduler
+    {
+        return scheduler{run_loop_};
     }
 
 }; // namespace mcs::execution::ctx

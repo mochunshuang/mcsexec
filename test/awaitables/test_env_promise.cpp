@@ -8,6 +8,7 @@ int main()
         {
         };
 
+        //NOTE: 默认的 env_promise 目前不知道怎么用
         env_promise<local_env> promise;
 
         static_assert(noexcept(promise.get_return_object()));

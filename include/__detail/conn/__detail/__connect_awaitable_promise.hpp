@@ -24,7 +24,7 @@ namespace mcs::execution::conn::__detail
 
             operation_state_task(operation_state_task &&o) = delete;
 
-            ~operation_state_task()
+            ~operation_state_task() noexcept
             {
                 coro.destroy();
             }

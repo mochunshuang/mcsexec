@@ -9,6 +9,7 @@ struct promise_type
 int main()
 {
     TEST("base") = [] {
+        // NOTE: only void、bool、std::coroutine_handle<auto> can be await_suspend_result
         static_assert(await_suspend_result<void>);
         static_assert(await_suspend_result<bool>);
         static_assert(await_suspend_result<std::coroutine_handle<>>);

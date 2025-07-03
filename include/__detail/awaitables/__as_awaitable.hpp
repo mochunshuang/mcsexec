@@ -3,6 +3,7 @@
 #include "./__is_awaitable.hpp"
 #include "./__sender_awaitable.hpp"
 #include "./__awaitable_sender.hpp"
+#include "./__has_as_awaitable.hpp"
 
 namespace mcs::execution::awaitables
 {
@@ -15,12 +16,8 @@ namespace mcs::execution::awaitables
         auto operator()(Expr &&expr, Promise &p) const
         {
             // 1. expr.as_awaitable(p) if that expression is well-formed.
-            if constexpr (requires { ::std::forward<Expr>(expr).as_awaitable(p); })
+            if constexpr (has_as_awaitable<Expr, Promise>)
             {
-                static_assert(
-                    awaitables::is_awaitable<
-                        decltype(::std::forward<Expr>(expr).as_awaitable(p)), Promise>,
-                    "as_awaitable must return an awaitable");
                 return ::std::forward<Expr>(expr).as_awaitable(p);
             }
             // 2. (void(p), expr) if is-awaitable<Expr, U> is true, where U is an

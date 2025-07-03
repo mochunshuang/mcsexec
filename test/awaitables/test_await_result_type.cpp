@@ -52,7 +52,7 @@ int main()
     TEST("base") = [] {
         using namespace mcs::execution::awaitables; // NOLINT
 
-        // typed_awaiter<T>.await_resume() => T
+        // NOTE: typed_awaiter<T>.await_resume() => T
         static_assert(
             std::same_as<int, await_result_type<typed_awaiter<int>, promise_type>>);
         static_assert(

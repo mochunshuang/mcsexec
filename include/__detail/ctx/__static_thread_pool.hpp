@@ -97,6 +97,11 @@ namespace mcs::execution::ctx
 
                 worker_started.wait();
             }
+
+            std::thread::id thread_id() const noexcept // NOLINT
+            {
+                return t_id;
+            }
         };
 
       public:
@@ -133,6 +138,14 @@ namespace mcs::execution::ctx
                           << ", run_loop_address: " << std::addressof(pool[i].run_loop)
                           << '\n';
             }
+        }
+        constexpr auto &operator[](std::size_t i) noexcept
+        {
+            return pool[i];
+        }
+        consteval static auto size() noexcept
+        {
+            return Num;
         }
 
       private:

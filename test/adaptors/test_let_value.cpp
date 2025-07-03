@@ -76,6 +76,27 @@ int main()
         }
     };
 
+    TEST("let_value and then") = [] {
+        ex::sender auto snd =
+            ex::just() | ex::let_value([] noexcept {
+                return ex::just(1) | ex::then([](int v) noexcept { return v * 2; });
+            }) |
+            ex::then([](int v) noexcept { return v * 2; });
+        auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
+        EXPECT(ret == 1 * 2 * 2);
+    };
+
+    TEST("let_value and then 2") = [] {
+        ex::sender auto snd = ex::just(1, 2, 3) |
+                              ex::let_value([](int a, int b, int c) noexcept {
+                                  return ex::just(a * b * c) |
+                                         ex::then([](int v) noexcept { return v * 2; });
+                              }) |
+                              ex::then([](int v) noexcept { return v * 2; });
+        auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
+        EXPECT(ret == (1 * 2 * 3) * 2 * 2);
+    };
+
     TEST("let_value can be used to transform values") = [] {
         ex::sender auto snd =
             ex::just(13) | ex::let_value([](int x) { return ex::just(x + 4); });
