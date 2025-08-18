@@ -2,7 +2,7 @@
     "editor.formatOnPaste": true,
     "editor.formatOnSave": true,
     "editor.formatOnType": true,
-    "clangd.path": "D:/mysoftware/clangd_20.1.8/bin/clangd.exe",
+    "clangd.path": "D:/mysoftware/clangd_19.1.2/bin/clangd.exe",
     "query-drivers": [
         "D:/mysoftware/clangd_18.1.3/bin/clangd.exe",
         "D:/mysoftware/llvm-mingw-20231128-ucrt-x86_64/bin/clangd.exe",
