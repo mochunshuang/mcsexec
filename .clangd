@@ -42,10 +42,10 @@ Diagnostics:
     CheckOptions:
       readability-identifier-length.MinimumParameterNameLength: 1
       readability-identifier-length.MinimumVariableNameLength: 1 #变量的长度限制激活，默认至少3各字符
-      readability-identifier-naming.VariableCase: camelBack,lower_case
+      readability-identifier-naming.VariableCase: camelBack
       readability-identifier-naming.GlobalVariableCase: lower_case
       readability-identifier-naming.GlobalVariablePrefix: g_
-      readability-identifier-naming.PrivateMemberPrefix: m_
+      readability-identifier-naming.PrivateMemberSuffix: _
       # ui 例外
       readability-identifier-naming.PrivateMemberIgnoredRegexp: ^ui,
       # 函数名
@@ -59,13 +59,13 @@ Diagnostics:
       # 常量
       readability-identifier-naming.ConstantCase: lower_case
       readability-identifier-naming.ConstantPrefix: k_
-      readability-identifier-naming.EnumCase: UPPER_CASE,Status
+      readability-identifier-naming.EnumCase: UPPER_CASE
       readability-identifier-naming.EnumConstantCase: UPPER_CASE
       # 宏定义
       readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
       # 类
       readability-identifier-naming.ClassCase: CamelCase
-      readability-identifier-naming.StructCase: CamelCase,lower_case
+      readability-identifier-naming.StructCase: CamelCase
       # 函数方法
       readability-identifier-naming.FunctionCase: lower_case
       readability-identifier-naming.ClassMethodCase: camelBack
