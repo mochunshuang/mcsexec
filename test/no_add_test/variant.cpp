@@ -1,5 +1,9 @@
+#include <algorithm>
 #include <cassert>
+#include <exception>
 #include <iostream>
+#include <stdexcept>
+#include <system_error>
 #include <tuple>
 #include <utility>
 #include <variant>
@@ -121,6 +125,44 @@ int main()
         std::visit(visitor, var1); // 输出：处理 int: 42
         std::visit(visitor, var2); // 输出：处理 string: hello
         std::visit(visitor, var3); // 输出：处理 double: 3.14
+    }
+
+    {
+        using error_obj = std::variant<std::exception_ptr, std::error_code>;
+        auto print_error = [](const error_obj &err) {
+            if (std::holds_alternative<std::exception_ptr>(err))
+            {
+                try
+                {
+                    std::rethrow_exception(std::get<std::exception_ptr>(err));
+                }
+                catch (const std::exception &e)
+                {
+                    std::cerr << "Exception: " << e.what() << '\n';
+                }
+                catch (...)
+                {
+                    std::cerr << "Unknown exception" << '\n';
+                }
+            }
+            else if (std::holds_alternative<std::error_code>(err))
+            {
+                std::cerr << "Error code: " << std::get<std::error_code>(err).message()
+                          << "," << std::get<std::error_code>(err).value() << '\n';
+            }
+        };
+        std::exception_ptr o = std::make_exception_ptr(std::runtime_error("err"));
+        error_obj obj = std::move(o);
+        print_error(obj);
+        // std::errc
+        obj = std::make_error_code(std::io_errc::stream);
+        print_error(obj);
+
+        obj = std::make_error_code(std::errc::connection_reset);
+        print_error(obj);
+
+        auto v = std::get<std::error_code>(std::move(obj));
+        (void)v;
     }
 
     std::cout << "main done\n";

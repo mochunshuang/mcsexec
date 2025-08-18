@@ -158,12 +158,64 @@ Task<void> test_coroutine()
     co_return;
 }
 
+Task<void> test_coroutine_goto(int value)
+{
+    if (value == 0)
+    {
+        auto x = co_await MyInt{value};
+        std::cout << "test_coroutine_goto value: " << x << "\n\n";
+        if (value == 0)
+            goto lable_2;
+    }
+    if (value == 1)
+    {
+        auto x = co_await MyInt{value};
+        std::cout << "test_coroutine_goto value: " << x << "\n\n";
+        value += 2;
+    }
+    if (value == 2)
+    {
+    lable_2:
+        auto x = co_await MyInt{value};
+        std::cout << "test_coroutine_goto value: " << x << "\n\n";
+        if (value == 0)
+            goto lable_4;
+    }
+    if (value == 3)
+    {
+        using T = decltype(co_await MyInt{value});
+        static_assert(std::is_same_v<T, int>);
+        auto x = co_await MyInt{value};
+        std::cout << "test_coroutine_goto value: " << x << "\n\n";
+    }
+    if (value == 4)
+    {
+    lable_4:
+        auto x = co_await MyInt{value};
+        std::cout << "test_coroutine_goto value: " << x << "\n\n";
+    }
+
+    if (value == -1)
+    {
+        value = 44;
+        goto lable_4;
+    }
+
+    // NOTE: goto 非常灵活。想去哪执行指令就能去哪
+}
+
 int main()
 {
     test_coroutine();
 
-    // 确保协程有机会完成
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::cout << "test_coroutine_goto(0)\n";
+    test_coroutine_goto(0);
+
+    std::cout << "\ntest_coroutine_goto(1)\n";
+    test_coroutine_goto(1);
+
+    std::cout << "\ntest_coroutine_goto(-1)\n";
+    test_coroutine_goto(-1);
     std::cout << "main done\n";
 
     // NOTE: await_transform 和  co_await 关键字重写都是为了 生成 awaiter

@@ -1,9 +1,40 @@
 #include "../test_base_head.hpp"
+#include <algorithm>
 #include <cassert>
 #include <chrono>
+#include <coroutine>
+#include <exception>
 #include <iostream>
+#include <system_error>
 #include <thread>
+#include <unordered_map>
 #include <utility>
+#include <variant>
+
+struct discard_all_receiver
+{
+    using receiver_concept = mcs::execution::receiver_t;
+
+    template <typename... A> // NOLINTNEXTLINE
+    auto set_value(A &&...a) && noexcept -> void
+    {
+    }
+
+    template <typename E> // NOLINTNEXTLINE
+    auto set_error(E &&e) && noexcept -> void
+    {
+    }
+
+    void set_stopped() && noexcept // NOLINT
+    {
+    }
+
+    constexpr auto get_env() const noexcept // NOLINT
+    {
+
+        return ex::empty_env{};
+    }
+};
 
 int main()
 {
@@ -12,7 +43,276 @@ int main()
 
     TEST(" task<int> is sender") = [] {
         static_assert(ex::snd::sender<mcs::execution::__task::task<int>>);
+        bool handle_called = false;
+        auto h = [](bool &c) -> ex::task<> {
+            c = true;
+
+            // co_await std::suspend_always{}; // NOTE:外面会一直等待
+            co_return;
+        }(handle_called);
+
+        std::unordered_map<int, ex::task<>> map;
+        // using T = decltype(map[0]); //KEY ,value 不能移动好像
+#if 0 // 不允许
+        
+        map.insert(std::make_pair(0, std::move(h)));
+        mcs::this_thread::sync_wait(std::move(map[0]));
+#endif
+        mcs::this_thread::sync_wait(std::move(h));
+
+        assert(handle_called);
     };
+
+    TEST(" task<> connect") = [] {
+        static_assert(ex::snd::sender<mcs::execution::__task::task<int>>);
+        int value = 0;
+        ex::static_thread_pool<1> start_pool;
+        {
+            auto h = [](int &c, auto &pool) -> ex::task<> {
+                c = 1;
+                co_await (ex::schedule(pool[0].get_scheduler()) | ex::then([&] noexcept {
+                              std::this_thread::sleep_for(
+                                  std::chrono::milliseconds(10)); // NOLINT
+                              c = 3;
+                          }));
+                co_await std::suspend_always{}; // NOTE: 退出协程。 释放线程资源
+                co_return;
+            }(value, start_pool);
+
+            auto op = ex::connect(std::move(h), discard_all_receiver{});
+
+            // NOTE: OP 是堆内存的化，释放掉，就不可能内存泄漏
+            assert(value == 0);
+            op.start(); // NOTE:当封装到一个类型，用堆内存生成对象，就能紧急启动、
+            assert(value == 1);
+            while (value == 1) // NOLINT
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                std::cout << "   >>> value==1\n";
+            }
+            assert(value == 3);
+        }
+        // NOTE: start_pool 的线程不会被阻塞
+        {
+            value = 0;
+            auto h = [](int &c, auto &pool) -> ex::task<> {
+                c = 1;
+                co_await (ex::schedule(pool[0].get_scheduler()) | ex::then([&] noexcept {
+                              std::this_thread::sleep_for(
+                                  std::chrono::milliseconds(10)); // NOLINT
+                              c = 3;
+                          }));
+                co_await std::suspend_always{}; // NOTE: 退出协程
+                co_return;
+            }(value, start_pool);
+
+            // auto op = ex::connect(std::move(h), discard_all_receiver{});
+            using op_type = decltype(ex::connect(std::move(h), discard_all_receiver{}));
+
+            struct operation_type
+            {
+                explicit operation_type(ex::task<> &&h)
+                    : op{ex::connect(std::move(h), discard_all_receiver{})}, self{this}
+                {
+                    op.start(); // 紧急启动
+                }
+                op_type op;
+                operation_type *self;
+            };
+
+            assert(value == 0);
+            // NOTE:当封装到一个类型，用堆内存生成对象，就能紧急启动、
+            operation_type op{std::move(h)};
+            assert(value == 1);
+            while (value == 1) // NOLINT
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                std::cout << "   >>> operation_type value==1\n";
+            }
+            assert(value == 3);
+        }
+    };
+
+    TEST("task<int> and task<int> ") = [] {
+        auto handle = [] -> ex::task<int> { // NOLINT
+            co_return 17;                   // NOLINT
+        };
+        auto rc = mcs::this_thread::sync_wait([&] -> ex::task<int> { // NOLINT
+            co_return co_await handle();                             // NOLINT
+        }());
+        assert(rc);
+        auto [value] = rc.value_or(std::tuple{0});
+        EXPECT(value == 17);
+    };
+
+    TEST("task<variant> and task<int> ") = [] {
+        auto handle = [] -> ex::task<std::variant<int, std::error_code>> { // NOLINT
+            co_return std::make_error_code(std::errc::connection_reset);
+            co_return 17; // NOLINT
+        };
+        auto rc = mcs::this_thread::sync_wait([&] -> ex::task<int> { // NOLINT
+            auto var = co_await handle();
+            if (std::holds_alternative<std::error_code>(var))
+                co_return -1;
+            co_return std::get<int>(var); // NOLINT
+        }());
+        assert(rc);
+        auto [value] = rc.value_or(std::tuple{0});
+        EXPECT(value == -1);
+    };
+
+    TEST("task<int> and task<int>_with_except ") = [] {
+        // NOLINTBEGIN
+        class Error
+        {
+          private:
+            std::variant<int, std::exception_ptr, std::error_code> value;
+
+          public:
+            // 构造函数
+            Error(int code) : value(code) {}
+            Error(std::exception_ptr &&ex) : value(std::move(ex)) {}
+            Error(std::error_code &&ec) : value(std::move(ec)) {}
+
+            // 判断是否包含异常
+            bool has_exception() const
+            {
+                return std::holds_alternative<std::exception_ptr>(value);
+            }
+
+            auto index() const noexcept
+            {
+                return value.index();
+            }
+
+            // 获取异常指针（需配合 has_exception 使用）
+            std::exception_ptr exception() const
+            {
+                return std::get<std::exception_ptr>(value);
+            }
+        };
+
+        auto handle = [] -> ex::task<int> { // NOLINT
+            throw std::runtime_error{"error"};
+            co_return 17; // NOLINT
+        };
+        using S =
+            decltype(handle() | ex::then([](int v) { return Error{std::move(v)}; }) |
+                     ex::upon_error(
+                         [](auto &&e) noexcept { return Error{std::move(e)}; }));
+        using CS = ex::completion_signatures_of_t<S>; // NOTE: 组合会修改签名
+        static_assert(
+            std::is_same_v<
+                ex::completion_signatures<ex::set_value_t(Error), ex::set_stopped_t()>,
+                CS>);
+
+        // NOLINTEND
+        auto rc = mcs::this_thread::sync_wait([&] -> ex::task<int> { // NOLIN
+            Error v =
+                co_await (handle() | ex::then([](int v) { return Error{std::move(v)}; }) |
+                          ex::upon_error([](auto &&e) noexcept {
+                              return Error{std::move(e)};
+                          })); // NOLINT
+
+            EXPECT(v.index() == 1);
+            co_return 17;
+        }());
+        assert(rc);
+        auto [value] = rc.value_or(std::tuple{0});
+        EXPECT(value == 17);
+    };
+
+    {
+        static int count = 0;
+        struct test_object
+        {
+            test_object() noexcept
+            {
+                count++;
+            };
+            test_object(test_object &&o) noexcept
+                : valid(std::exchange(o.valid, false)) {};
+            test_object &operator=(test_object &&) = delete;
+            test_object(const test_object &o) = delete;
+            test_object &operator=(const test_object &) = delete;
+            ~test_object() noexcept
+            {
+                std::cout << "--->>> Resource destroyed\n";
+                valid = false;
+                count--;
+            }
+            bool valid{true}; // NOLINT
+        };
+        TEST("task<variant> and && ") = [] {
+            ex::static_thread_pool<1> start_pool;
+            auto handle = [&](test_object &&obj) -> ex::task<bool> { // NOLINT
+                auto input_id = std::this_thread::get_id();
+                auto v = co_await (ex::schedule(start_pool[0].get_scheduler()) |
+                                   ex::then([&] noexcept {
+                                       std::this_thread::sleep_for(
+                                           std::chrono::milliseconds(50)); // NOLINT
+                                       return 1;
+                                   }));
+                EXPECT(v == 1);
+                EXPECT(input_id != std::this_thread::get_id());
+
+                // NOTE: 纯右值保证 1 次构造，1 次析构。 没有未定义行为
+                // NOTE: 可以替代 完美转发
+                EXPECT(count == 1);
+                std::cout << "--->>> co_return obj.valid\n";
+                co_return obj.valid; // NOLINT
+            };
+            auto rc = mcs::this_thread::sync_wait(
+                [&](test_object &&obj) -> ex::task<bool> {     // NOLINT
+                    co_return co_await handle(std::move(obj)); // NOLINT
+                }(test_object{}));
+            assert(rc);
+            auto [value] = rc.value();
+            EXPECT(value == true);
+
+            EXPECT(count == 0);
+        };
+    }
+
+    {
+        TEST("change pool test ") = [] {
+            ex::static_thread_pool<1> start_pool;
+            ex::static_thread_pool<1> pool;
+            auto start =
+                ex::schedule(start_pool.get_scheduler()) | ex::let_value([&]() noexcept {
+                    return [](auto &start_pool, auto &pool) -> ex::task<int> { // NOLINT
+                        std::cout
+                            << "enter task thread_id: " << std::this_thread::get_id()
+                            << '\n';
+                        std::cout
+                            << "before co_await thread_id: " << std::this_thread::get_id()
+                            << '\n';
+                        assert(not start_pool[0]
+                                       .is_waiting_task_state()); // NOTE: 还在执行任务中
+                        [[maybe_unused]] auto ret = co_await (
+                            ex::schedule(pool[0].get_scheduler()) |
+                            ex::then([&]() noexcept {
+                                // NOTE: start_pool 已经执行完了所有任务. 已经切换了线程
+                                assert(start_pool[0].is_waiting_task_state());
+                                std::cout << "inter co_await thread_id: "
+                                          << std::this_thread::get_id() << '\n';
+                                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                                return 0;
+                            }));
+                        std::cout
+                            << "after co_await thread_id: " << std::this_thread::get_id()
+                            << '\n';
+                        co_return 1;
+                    }(start_pool, pool);
+                });
+            auto rc = mcs::this_thread::sync_wait(std::move(start));
+            assert(rc);
+            auto [value] = rc.value_or(std::tuple{0});
+            EXPECT(value == 1);
+
+            std::cout << "change pool test done" << '\n' << '\n';
+        };
+    }
 
     TEST("task<int> ") = [] {
         auto rc = mcs::this_thread::sync_wait([] -> ex::task<int> { // NOLINT
@@ -372,6 +672,58 @@ int main()
         assert(rc);
         auto [value] = rc.value_or(std::tuple{0});
         EXPECT(value == 1);
+    };
+
+    TEST("co_yield only for error ") = [] {
+        auto fun = [] -> ex::task<int> {
+            // 感觉没必要了
+            // co_yield mcs::execution::task::with_error{-99}; // NOLINT
+
+            // throw std::error_code{-99}; //NOTE: 不允许
+            throw std::runtime_error{"error"};
+            UNEXPECT("never reached");
+            co_return -1;
+        };
+        {
+            auto [ret] =
+                mcs::this_thread::sync_wait(fun() | ex::then([](int i) {
+                                                std::cout << "[co_yield]: then call\n";
+                                                std::cout << "i: " << i << '\n';
+                                                return i;
+                                            }) |
+                                            ex::upon_error([](auto /*e*/) {
+                                                std::cout << "[upon_error]:  call\n";
+                                                return -1;
+                                            }))
+                    .value();
+            EXPECT(ret == -1);
+        }
+    };
+
+    TEST("co_yield only for error with  noexcept") = [] {
+        auto fun = []() noexcept -> ex::task<int> {
+            // 感觉没必要了
+            // co_yield mcs::execution::task::with_error{-99}; // NOLINT
+
+            // throw std::error_code{-99}; //NOTE: 不允许
+            throw std::runtime_error{"error"};
+            UNEXPECT("never reached");
+            co_return 0;
+        };
+        {
+            auto [ret] =
+                mcs::this_thread::sync_wait(fun() | ex::then([](int i) {
+                                                std::cout << "[co_yield]: then call\n";
+                                                std::cout << "i: " << i << '\n';
+                                                return i;
+                                            }) |
+                                            ex::upon_error([](auto /*e*/) {
+                                                std::cout << "[upon_error]:  call\n";
+                                                return -1;
+                                            }))
+                    .value();
+            EXPECT(ret == -1);
+        }
     };
     return 0;
 }

@@ -93,7 +93,11 @@ int main()
 
     // NOTE:
     assert(not coro.handle.done());
-    coro.resume();
+    // coro.resume();
+    {
+        auto h = coro.handle; // NOTE: 值语义
+        h.resume();
+    }
     assert(coro.handle.promise().value == 999);
 
     assert(coro.handle.done());

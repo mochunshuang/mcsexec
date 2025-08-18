@@ -2,8 +2,59 @@
 #include "../test_base_head.hpp"
 #include <algorithm>
 #include <cassert>
+#include <exception>
 #include <string_view>
+#include <system_error>
 #include <tuple>
+#include <type_traits>
+
+template <bool error_code>
+struct two_errror_sender
+{
+    template <typename Revr>
+    struct state
+    {
+        using operation_state_concept = ::mcs::execution::operation_state_t;
+
+        Revr rcvr; // NOLINT
+
+        explicit state(Revr &&r) noexcept : rcvr{std::move(r)} {};
+
+        ~state() noexcept = default;
+        state(state &&) = delete;
+        state(const state &) = delete;
+        state &operator=(state &&) = delete;
+        state &operator=(const state &) = delete;
+
+        void start() & noexcept
+        {
+            if constexpr (error_code)
+            {
+                ::mcs::execution::recv::set_error(
+                    std::move(rcvr), std::make_error_code(std::io_errc::stream));
+            }
+            else
+            {
+                ::mcs::execution::recv::set_error(
+                    std::move(rcvr), std::make_exception_ptr(
+                                         std::logic_error{"exception_ptr description"}));
+            }
+        }
+    };
+    using sender_concept = ::mcs::execution::sender_t;
+    using completion_signatures = ::mcs::execution::completion_signatures<
+        ::mcs::execution::set_value_t(), ::mcs::execution::set_error_t(std::error_code),
+        ::mcs::execution::set_error_t(std::exception_ptr)>;
+
+    using indices_for = std::index_sequence_for<>;
+
+    template <::mcs::execution::receiver Recv>
+    constexpr auto connect(Recv recv) noexcept -> state<Recv>
+    {
+        return state<Recv>{std::move(recv)};
+    }
+};
+static_assert(::mcs::execution::sender<two_errror_sender<true>>);
 
 int main()
 {
@@ -343,5 +394,131 @@ int main()
         auto [ret] = mcs::this_thread::sync_wait(snd).value();
         EXPECT(ret == "error description");
     };
+
+    TEST("with sync_wait 2 ") = [] {
+        {
+            constexpr auto let_error_noexcept = false; // NOLINT
+            ex::sender auto snd =
+                ex::just() //
+                | ex::then([]() -> std::string {
+                      throw std::logic_error{"error description"};
+                      return {};
+                  }) //
+                | ex::let_error([](std::exception_ptr eptr) noexcept(let_error_noexcept) {
+                      try
+                      {
+                          std::rethrow_exception(std::move(eptr));
+                      }
+                      catch (const std::exception &e)
+                      {
+                          return ex::just(std::string{e.what()});
+                      }
+                  });
+            using S = ex::snd::completion_signatures_of_t<decltype(snd)>;
+
+            if constexpr (let_error_noexcept)
+            {
+                bool v = std::is_same_v<
+                    S, ex::completion_signatures<ex::set_value_t(std::string)>>;
+                assert(v);
+            }
+            else
+            {
+                bool v = std::is_same_v<
+                    S, ex::completion_signatures<ex::set_value_t(std::string),
+                                                 ex::set_error_t(std::exception_ptr)>>;
+                assert(v);
+            }
+        }
+        {
+            constexpr auto let_error_noexcept = false; // NOLINT
+#define test_error_code 1
+            ex::sender auto snd =
+#if (test_error_code)
+                ex::just_error(std::make_error_code(std::io_errc::stream))
+#else
+                ex::just_error(std::make_exception_ptr(
+                    std::logic_error{"exception_ptr description"}))
+#endif
+                | ex::then([]() -> std::string {
+                      throw std::logic_error{"error description"};
+                      return {};
+                  }) |
+                ex::upon_error([](auto eptr) noexcept(let_error_noexcept) {
+                    if constexpr (std::is_same_v<decltype(eptr), std::error_code>)
+                    {
+                        return std::string{"error_code"};
+                    }
+                    else
+                    {
+                        try
+                        {
+                            std::rethrow_exception(std::move(eptr));
+                        }
+                        catch (const std::exception &e)
+                        {
+                            return std::string{e.what()};
+                        }
+                    }
+                });
+            using S = ex::snd::completion_signatures_of_t<decltype(snd)>;
+            static_assert(
+                std::is_same_v<
+                    S, ex::completion_signatures<ex::set_value_t(std::string),
+                                                 ex::set_error_t(std::exception_ptr)>>);
+            auto [ret] = mcs::this_thread::sync_wait(snd).value();
+#if (test_error_code)
+            EXPECT(ret == "error_code");
+#else
+            EXPECT(ret == "exception_ptr description");
+#endif
+        }
+
+        // NOTE: 另一种表达。  结论：必须一次性 处理前面 所有错误类型
+        // 处理。所有异常的请求。我编译期限制了，是这样的
+        {
+            constexpr auto let_error_noexcept = true; // NOLINT
+
+#define test_error_code 1
+
+            auto snd = ex::just() | ex::let_value([] {
+#if (test_error_code)
+                           return two_errror_sender<true>();
+#else
+                           return two_errror_sender<false>();
+
+#endif
+                       }) |
+                       ex::then([]() -> std::string { return {}; }) |
+                       ex::upon_error([](auto eptr) noexcept(let_error_noexcept) {
+                           if constexpr (std::is_same_v<decltype(eptr), std::error_code>)
+                           {
+                               return std::string{"error_code"};
+                           }
+                           else
+                           {
+                               try
+                               {
+                                   std::rethrow_exception(std::move(eptr));
+                               }
+                               catch (const std::exception &e)
+                               {
+                                   return std::string{e.what()};
+                               }
+                           }
+                       });
+            using S = ex::snd::completion_signatures_of_t<decltype(snd)>;
+            static_assert(
+                std::is_same_v<S,
+                               ex::completion_signatures<ex::set_value_t(std::string)>>);
+            auto [ret] = mcs::this_thread::sync_wait(snd).value();
+#if (test_error_code)
+            EXPECT(ret == "error_code");
+#else
+            EXPECT(ret == "exception_ptr description");
+#endif
+        }
+    };
+
     return 0;
 }
