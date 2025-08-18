@@ -77,19 +77,17 @@ namespace mcs::execution::ctx
                         });
                         if (run_loop.head != nullptr)
                         {
-                            auto *op = std::exchange(run_loop.head, run_loop.head->next);
+                            std::exchange(run_loop.head, run_loop.head->next)->execute();
                             if (run_loop.head == nullptr)
                                 run_loop.tail = nullptr;
-                            op->execute();
                         }
                     }
                     // Note: Clean up the remaining work
                     while (not stoken.stop_requested() && run_loop.head != nullptr)
                     {
-                        auto *op = std::exchange(run_loop.head, run_loop.head->next);
+                        std::exchange(run_loop.head, run_loop.head->next)->execute();
                         if (run_loop.head == nullptr)
                             run_loop.tail = nullptr;
-                        op->execute();
                     }
                     run_loop.state.store(run_loop::State::finished,
                                          std::memory_order_release);
@@ -101,6 +99,10 @@ namespace mcs::execution::ctx
             std::thread::id thread_id() const noexcept // NOLINT
             {
                 return t_id;
+            }
+            bool is_waiting_task_state() const noexcept // NOLINT
+            {
+                return run_loop.head == nullptr && run_loop.tail == nullptr;
             }
         };
 

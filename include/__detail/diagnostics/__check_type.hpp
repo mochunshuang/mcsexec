@@ -22,10 +22,12 @@ namespace mcs::execution::diagnostics
 
     template <typename F>
     concept check_set_stoped_arg = requires(F &&f) { static_cast<F &&>(f)(); };
-    template <typename F>
-    concept check_set_error_arg = requires(F &&f, universal_arg &&e) {
-        static_cast<F &&>(f)(static_cast<universal_arg &&>(e));
-    };
+    // template <typename F>
+    // concept check_set_error_arg = requires(F &&f, universal_arg &&e) {
+    //     static_cast<F &&>(f)(static_cast<universal_arg &&>(e));
+    // };
+    template <typename F> // NOTE: f 如果使用 auto，内部只能得到 universal_arg，无法分发
+    concept check_set_error_arg = true;
 
     template <class... T>
     inline constexpr bool check_type_impl = false; // NOLINT
