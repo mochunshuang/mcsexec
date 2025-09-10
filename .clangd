@@ -42,7 +42,7 @@ Diagnostics:
     CheckOptions:
       readability-identifier-length.MinimumParameterNameLength: 1
       readability-identifier-length.MinimumVariableNameLength: 1 #变量的长度限制激活，默认至少3各字符
-      readability-identifier-naming.VariableCase: camelBack
+      readability-identifier-naming.VariableCase: camelBack,lower_case
       readability-identifier-naming.GlobalVariableCase: lower_case
       readability-identifier-naming.GlobalVariablePrefix: g_
       readability-identifier-naming.PrivateMemberSuffix: _
@@ -65,7 +65,7 @@ Diagnostics:
       readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
       # 类
       readability-identifier-naming.ClassCase: CamelCase
-      readability-identifier-naming.StructCase: CamelCase
+      readability-identifier-naming.StructCase: lower_case
       # 函数方法
       readability-identifier-naming.FunctionCase: lower_case
       readability-identifier-naming.ClassMethodCase: camelBack
