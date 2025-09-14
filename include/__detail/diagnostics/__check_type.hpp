@@ -34,14 +34,17 @@ namespace mcs::execution::diagnostics
 
     template <snd::sender Sndr, class... Env> // NOLINTNEXTLINE
     inline constexpr bool check_type_impl<Sndr, Env...> = []() consteval {
-        using index = Sndr::indices_for;
-        []<std::size_t... Is>(std::index_sequence<Is...>) {
-            (static_cast<void>(
-                 snd::get_completion_signatures<
-                     snd::__detail::mate_type::child_type<Sndr, Is>,
-                     decltype(snd::general::FWD_ENV(std::declval<Env>()))...>()),
-             ...);
-        }(index{});
+        if constexpr (requires() { Sndr::indices_for; })
+        {
+            using index = Sndr::indices_for;
+            []<std::size_t... Is>(std::index_sequence<Is...>) {
+                (static_cast<void>(
+                     snd::get_completion_signatures<
+                         snd::__detail::mate_type::child_type<Sndr, Is>,
+                         decltype(snd::general::FWD_ENV(std::declval<Env>()))...>()),
+                 ...);
+            }(index{});
+        }
         return true;
     }();
 

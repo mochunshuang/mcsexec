@@ -33,7 +33,7 @@ namespace mcs::execution
                 requires(snd::sender_for<OutSndr, starts_on_t>)
             auto transform_env(OutSndr &&out_sndr, Env &&env) noexcept // NOLINT
             {
-                auto &&[_, sch, __] = out_sndr;
+                auto &&[_, sch, __] = std::forward<OutSndr>(out_sndr);
                 return snd::general::JOIN_ENV(
                     snd::general::SCHED_ENV(sch),
                     snd::general::FWD_ENV(std::forward<Env>(env)));
@@ -45,8 +45,8 @@ namespace mcs::execution
                 requires(snd::sender_for<decltype((out_sndr)), starts_on_t>)
             {
                 // Note: optimization for no copy
-                using OutSndr = decltype(out_sndr);
-                auto &&[_, sch, sndr] = out_sndr;
+                using OutSndr = decltype((out_sndr));
+                auto &&[_, sch, sndr] = std::forward<Sndr>(out_sndr);
                 return adapt::let_value(
                     factories::schedule(sch),
                     [sndr = std::forward_like<OutSndr>(sndr)]() mutable noexcept(

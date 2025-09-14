@@ -226,14 +226,18 @@ namespace mcs::execution
                     snd::get_completion_signatures<sched::schedule_result_t<Sched>,
                                                    decltype(snd::general::FWD_ENV(
                                                        std::declval<Env>()))...>());
-                using index = Sndr::indices_for;
-                []<std::size_t... Is>(std::index_sequence<Is...>) {
-                    (static_cast<void>(
-                         snd::get_completion_signatures<
-                             snd::__detail::mate_type::child_type<Sndr, Is>,
-                             decltype(snd::general::FWD_ENV(std::declval<Env>()))...>()),
-                     ...);
-                }(index{});
+
+                if constexpr (requires() { Sndr::indices_for; })
+                {
+                    using index = Sndr::indices_for;
+                    []<std::size_t... Is>(std::index_sequence<Is...>) {
+                        (static_cast<void>(snd::get_completion_signatures<
+                                           snd::__detail::mate_type::child_type<Sndr, Is>,
+                                           decltype(snd::general::FWD_ENV(
+                                               std::declval<Env>()))...>()),
+                         ...);
+                    }(index{});
+                }
                 return true;
             }();
     }; // namespace diagnostics

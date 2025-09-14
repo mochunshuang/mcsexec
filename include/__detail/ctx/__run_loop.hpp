@@ -112,8 +112,27 @@ namespace mcs::execution::ctx
             Rcvr rcvr; // NOLINT
         };
 
-        // Instances of run-loop-scheduler remain valid until the end of the lifetime of
-        // the run_loop instance from which they were obtained.
+        // [exec.run.loop.members] Member functions:
+        state_node *pop_front() noexcept;      // NOLINT // exposition only
+        void push_back(state_node *) noexcept; // NOLINT// exposition only
+
+      public:
+        // [exec.run.loop.ctor] construct/copy/destroy
+        run_loop() noexcept = default;
+        run_loop(run_loop &&) = delete;
+        run_loop(const run_loop &) = delete;
+        run_loop &operator=(run_loop &&) = delete;
+        run_loop &operator=(const run_loop &) = delete;
+        ~run_loop() noexcept
+        {
+            if (head != nullptr ||
+                state.load(std::memory_order_acquire) == State::running)
+                std::terminate();
+        }
+
+        // NOTE: event 类型，还是公开类型好一点。 get_scheduler() 类型公开
+        //  Instances of run-loop-scheduler remain valid until the end of the lifetime of
+        //  the run_loop instance from which they were obtained.
         class scheduler // NOLINT
         {
             friend run_loop;
@@ -122,6 +141,7 @@ namespace mcs::execution::ctx
 
             run_loop *run_loop_{}; // NOLINT
 
+          public:
             class sender // NOLINT
             {
                 friend scheduler;
@@ -185,8 +205,6 @@ namespace mcs::execution::ctx
                     return {};
                 }
             };
-
-          public:
             scheduler() = default;
             using scheduler_concept = scheduler_t; // models scheduler
 
@@ -199,24 +217,6 @@ namespace mcs::execution::ctx
                 return sender{run_loop_};
             }
         };
-
-        // [exec.run.loop.members] Member functions:
-        state_node *pop_front() noexcept;      // NOLINT // exposition only
-        void push_back(state_node *) noexcept; // NOLINT// exposition only
-
-      public:
-        // [exec.run.loop.ctor] construct/copy/destroy
-        run_loop() noexcept = default;
-        run_loop(run_loop &&) = delete;
-        run_loop(const run_loop &) = delete;
-        run_loop &operator=(run_loop &&) = delete;
-        run_loop &operator=(const run_loop &) = delete;
-        ~run_loop() noexcept
-        {
-            if (head != nullptr ||
-                state.load(std::memory_order_acquire) == State::running)
-                std::terminate();
-        }
 
         // [exec.run.loop.members] Member functions:
         [[nodiscard]] auto get_scheduler() noexcept -> sched::scheduler auto // NOLINT
