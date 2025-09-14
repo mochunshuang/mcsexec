@@ -10,3 +10,5 @@
 #include "./recv/error_receiver.hpp"
 #include "./recv/void_receiver.hpp"
 #include "./recv/any_receiver.hpp"
+#include "./recv/receiver_all_to_void.hpp"
+#include "./recv/any_receiver_no_env.hpp"
