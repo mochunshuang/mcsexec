@@ -183,8 +183,8 @@ Task<void> test_coroutine_goto(int value)
     }
     if (value == 3)
     {
-        using T = decltype(co_await MyInt{value});
-        static_assert(std::is_same_v<T, int>);
+        // using T = decltype(co_await MyInt{value}); //NOTE: co_await 限制不运行在这里
+        // static_assert(std::is_same_v<T, int>);
         auto x = co_await MyInt{value};
         std::cout << "test_coroutine_goto value: " << x << "\n\n";
     }

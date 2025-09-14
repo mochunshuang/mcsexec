@@ -60,10 +60,10 @@ struct my_coroutine
     std::coroutine_handle<promise_type> handle{};
 };
 
-struct AsyncAwaiter
+struct async_awaiter
 {
     int value;
-    AsyncAwaiter(int v) : value(v) {}
+    async_awaiter(int v) : value(v) {}
     bool await_ready()
     {
         return false;
@@ -78,7 +78,7 @@ struct AsyncAwaiter
 
 my_coroutine<int> task()
 {
-    co_await AsyncAwaiter{10};
+    co_await async_awaiter{10};
     std::cout << "co_return: " << 999 << '\n';
     co_return 999;
 }
