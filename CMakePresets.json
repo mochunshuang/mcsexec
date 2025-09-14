@@ -47,6 +47,19 @@
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
             }
+        },
+        {
+            "name": "windows-msvc",
+            "inherits": [
+                "impl_windows-msvc"
+            ],
+            "displayName": "windows-msvc",
+            "description": "This is available after impl_windows-msvc implemented",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
         }
     ]
 }

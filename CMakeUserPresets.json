@@ -45,6 +45,19 @@
             "environment": {
                 "PATH": "D:/mysoftware/Qt6.5/Tools/Ninja;D:/mysoftware/msys64/ucrt64/bin;D:/mysoftware/msys64/usr/bin"
             }
+        },
+        {
+            "name": "impl_windows-msvc",
+            "displayName": "local windows-msvc setting for your self",
+            "description": "implemente windows-msvc configure",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/",
+                "CMAKE_C_COMPILER": "cl.exe",
+                "CMAKE_CXX_COMPILER": "cl.exe",
+                "CMAKE_BUILD_TYPE": "Release"
+            }
         }
     ],
     "buildPresets": [
@@ -62,6 +75,11 @@
             "name": "windows-mys32-g++",
             "configurePreset": "windows-mys32-g++",
             "description": "implemente windows-mys32-g++ buildPresets"
+        },
+        {
+            "name": "windows-msvc",
+            "configurePreset": "windows-msvc",
+            "description": "implemente windows-msvc buildPresets"
         }
     ],
     "testPresets": [
@@ -100,6 +118,18 @@
                 "stopOnFailure": true
             },
             "description": "implemente windows-mys32-g++ testPresets"
+        },
+        {
+            "name": "windows-msvc",
+            "configurePreset": "windows-msvc",
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error",
+                "stopOnFailure": true
+            },
+            "description": "implemente windows-msvc testPresets"
         }
     ],
     "packagePresets": [
@@ -126,6 +156,14 @@
                 "TGZ"
             ],
             "description": "implemente windows-mys32-g++ packagePresets"
+        },
+        {
+            "name": "windows-msvc",
+            "configurePreset": "windows-msvc",
+            "generators": [
+                "TGZ"
+            ],
+            "description": "implemente windows-msvc packagePresets"
         }
     ],
     "workflowPresets": [
@@ -180,6 +218,24 @@
                 {
                     "type": "test",
                     "name": "windows-mys32-g++"
+                }
+            ]
+        },
+        {
+            "name": "windows-msvc-workflow",
+            "description": "implemente windows-msvc workflowPresets",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "windows-msvc"
+                },
+                {
+                    "type": "build",
+                    "name": "windows-msvc"
+                },
+                {
+                    "type": "test",
+                    "name": "windows-msvc"
                 }
             ]
         }
