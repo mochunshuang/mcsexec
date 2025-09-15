@@ -133,7 +133,6 @@ int main()
 
     TEST("let_value can be used to change the sender") = [] {
         bool called{false};
-        int err_code = 17;
         std::any data;
         test::channel chanel{test::channel::NO_CALL};
         ex::sender auto snd =
@@ -334,5 +333,67 @@ int main()
         static_assert(
             std::is_same_v<ex::cmplsigs::completion_signatures<recv::set_value_t()>, CO>);
     };
+
+    TEST("let_value make ex::starts_on") = [] {
+        ex::static_thread_pool<1> pool;
+        auto [thread_id]{mcs::this_thread::sync_wait(
+                             ex::schedule(pool.get_scheduler()) |
+                             ex::then([] { return std::this_thread::get_id(); }))
+                             .value()};
+
+        std::thread::id t_id;
+        std::thread::id let_id;
+        bool done{};
+        auto sndr = ex::just() | ex::then([&]() noexcept {
+                        done = true;
+                        t_id = std::this_thread::get_id();
+                    });
+        auto snd = ex::let_value(factories::schedule(pool.get_scheduler()),
+                                 [&]() mutable noexcept {
+                                     let_id = std::this_thread::get_id();
+                                     return std::move(sndr);
+                                 });
+        auto op = ex::connect(std::move(snd), test::receiver_all_to_void{});
+
+        start(op);
+
+        while (not done)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+        EXPECT(thread_id == t_id);
+        EXPECT(thread_id == let_id);
+    };
+#if 0 // NOTE: TODO 测试崩溃。会阻塞死的
+    TEST("let_value with connect") = [] {
+        ex::static_thread_pool<1> pool;
+        auto [thread_id]{mcs::this_thread::sync_wait(
+                             ex::schedule(pool.get_scheduler()) |
+                             ex::then([] { return std::this_thread::get_id(); }))
+                             .value()};
+
+        std::thread::id t_id;
+        std::thread::id let_id;
+        bool done{};
+        auto sndr = [&]() -> ex::task<> {
+            t_id = std::this_thread::get_id();
+            done = true;
+            co_return;
+        }();
+        auto snd = ex::let_value(factories::schedule(pool.get_scheduler()),
+                                 [&]() mutable noexcept {
+                                     let_id = std::this_thread::get_id();
+                                     return std::move(sndr);
+                                 });
+        auto op = ex::connect(std::move(snd), test::receiver_all_to_void{});
+
+        start(op);
+
+        while (not done)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+        EXPECT(thread_id == t_id);
+        EXPECT(thread_id == let_id);
+    };
+#endif
     return 0;
 }

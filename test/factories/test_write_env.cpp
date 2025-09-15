@@ -153,6 +153,57 @@ int main()
         static_assert(std::is_same_v<decltype(v1), ex::snd::general::FWD_ENV<ex::env<>>>);
         static_assert(std::is_same_v<decltype(v1), decltype(v2)>);
     };
+    TEST("write-env test: get_env()2") = [] {
+        ex::static_thread_pool<1> pool;
+        auto sched = pool.get_scheduler();
+
+        auto sndr = ex::schedule(sched);
+        auto s = ex::get_scheduler(sndr.get_env());
+        using T = decltype(s);
+        static_assert(std::is_same_v<mcs::execution::ctx::run_loop::scheduler, T>);
+
+        auto s2 = s; // NOTE: 可以复制
+        auto s3 = ex::write_env(std::move(sndr),
+                                ex::prop(ex::get_stop_token, ex::never_stop_token()));
+
+        // NOTE: 那么 核心来了。 S3 还能找到 scheduler 这个信息吗？
+        auto e = ex::get_scheduler(s3.get_env());
+        static_assert(
+            std::is_same_v<mcs::execution::ctx::run_loop::scheduler, decltype(e)>);
+        auto e2 = ex::get_stop_token(s3.get_env());
+        // NOTE: 可以找到，刚添加的信息
+        static_assert(std::is_same_v<decltype(e2), ex::never_stop_token>);
+        // NOTE: 结论，还是能找到的
+    };
+    TEST("write-env test: get_env()3") = [] {
+        ex::static_thread_pool<1> pool;
+        auto sndr = [](ex::sched::scheduler auto sched) noexcept -> ex::task<int> {
+            auto ret =
+                co_await (ex::schedule(sched) | ex::then([]() noexcept { return 1; }));
+            co_return ret;
+        }(pool.get_scheduler());
+        // NOTE: 还能找到吗？
+        // auto sche = ex::get_scheduler(sndr.get_env()); //NOTE: 确实没有提供这个接口
+        auto s = ex::write_env(std::move(sndr),
+                               ex::prop(ex::get_scheduler, pool.get_scheduler()));
+        // auto sche = ex::get_scheduler(s.get_env()); //NOTE: 限制太多
+        // s.get_env().query(ex::get_scheduler); //NOTE: TODO 感觉是bug
+
+        {
+            auto s =
+                ex::write_env(std::move(sndr),
+                              ex::env{ex::prop(ex::get_scheduler, pool.get_scheduler())});
+            // auto sche = ex::get_scheduler(s.get_env()); //NOTE: 还是不行
+            // s.get_env().query(ex::get_scheduler);
+        }
+        {
+            //
+            auto s = ex::write_env(std::move(sndr),
+                                   ex::prop(ex::get_stop_token, ex::never_stop_token()));
+            // s.get_env().query(ex::get_stop_token); // NOTE: 一样不行
+        }
+        // NOTE: 结论。 可能是 ex::task 缺少实现。确实不完整
+    };
     std::cout << "main done\n";
     return 0;
 }
