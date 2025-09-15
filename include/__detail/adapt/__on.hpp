@@ -101,8 +101,8 @@ namespace mcs::execution
                 requires(snd::sender_for<decltype((out_sndr)), on_t>)
             {
                 // Note: optimization for no copy
-                using OutSndr = decltype((out_sndr));
-                using Env = decltype((env));
+                using OutSndr = decltype(out_sndr);
+                using Env = decltype(env);
                 auto &&[_, data, __] = std::forward<Sndr>(out_sndr);
                 if constexpr (sched::scheduler<decltype(data)>)
                 {
@@ -121,7 +121,7 @@ namespace mcs::execution
                 requires(snd::sender_for<decltype((out_sndr)), on_t>)
             {
                 // Note: optimization for no copy
-                using OutSndr = decltype((out_sndr));
+                using OutSndr = decltype(out_sndr);
                 auto &&[_, data, child] = std::forward<Sndr>(out_sndr);
 
                 if constexpr (sched::scheduler<decltype(data)>)

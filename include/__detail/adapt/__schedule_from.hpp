@@ -140,17 +140,16 @@ namespace mcs::execution
 
         // Note: used by basic_state initialized when connect(out_sndr,out_recr)
         static constexpr auto get_state = // NOLINT
-            []<class OutSndr, class OutRcvr>(OutSndr &&sndr, OutRcvr &rcvr) noexcept(true)
-            requires(snd::sender_in<snd::__detail::mate_type::child_type<OutSndr>,
-                                    queries::env_of_t<OutRcvr>>)
+            []<class Sndr, class Rcvr>(Sndr &&sndr, Rcvr &rcvr) noexcept(true)
+            requires(snd::sender_in<snd::__detail::mate_type::child_type<Sndr>,
+                                    queries::env_of_t<Rcvr>>)
         {
             auto &[_, sch, child] = sndr;
             using sched_t = decltype(auto(sch));
 
             //  Note: add E_CS because as complete try-catch
 
-            using Sigs =
-                snd::completion_signatures_of_t<OutSndr, queries::env_of_t<OutRcvr>>;
+            using Sigs = snd::completion_signatures_of_t<Sndr, queries::env_of_t<Rcvr>>;
 
             constexpr auto get_variant = // NOLINT
                 []<typename... Sig>(cmplsigs::completion_signatures<Sig...>) consteval {
@@ -170,7 +169,7 @@ namespace mcs::execution
              */
             // Note: variant_t denotes the type variant<monostate, as-tuple<Sigs>...>
             using variant_t = std::remove_pointer_t<decltype(get_variant(Sigs{}))>;
-            using state_type = adapt::state_type<Sigs, OutRcvr, sched_t, variant_t>;
+            using state_type = adapt::state_type<Sigs, Rcvr, sched_t, variant_t>;
 
             return state_type{sch, rcvr};
         };

@@ -375,10 +375,11 @@ namespace mcs::execution
          *
          */
         static constexpr auto get_state = // NOLINT
-            []<class OutSndr, class Rcvr>(OutSndr &&out_sndr, Rcvr & /*rcvr*/) noexcept {
+            []<class Sndr, class Rcvr>(Sndr &&out_sndr, Rcvr & /*rcvr*/) noexcept {
                 using error_variant_type = typename tfxcmplsigs::unique_variadic_template<
                     std::variant<Errors...>>::type;
-                auto &&[tag, fun, sndr] = std::forward<OutSndr>(out_sndr);
+                using OutSndr = decltype(out_sndr);
+                auto &&[tag, fun, sndr] = std::forward<Sndr>(out_sndr);
                 using child_type = std::decay_t<decltype(sndr)>;
                 return scope::__detail::get_let_async_scope_with_error_state<
                     error_variant_type, child_type, Rcvr>(

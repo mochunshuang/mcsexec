@@ -14,6 +14,7 @@
 #include "../queries/__stop_token_of_t.hpp"
 
 #include <optional>
+#include <system_error>
 
 namespace mcs::execution
 {
