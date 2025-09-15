@@ -15,7 +15,8 @@
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/",
                 "CMAKE_CXX_COMPILER": "D:/mysoftware/x86_64-14.2.0-release-posix-seh-ucrt-rt_v12/mingw64/bin/g++.exe",
-                "CMAKE_BUILD_TYPE": "Release"
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_CXX_FLAGS": "-O3 -g"
             }
         },
         {
@@ -27,7 +28,8 @@
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/",
                 "CMAKE_CXX_COMPILER": "D:/mysoftware/LLVM_clang_19.1/LLVM/bin/clang++.exe",
-                "CMAKE_BUILD_TYPE": "Release"
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_CXX_FLAGS": "-O3 -g"
             }
         },
         {
@@ -56,7 +58,8 @@
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/",
                 "CMAKE_C_COMPILER": "cl.exe",
                 "CMAKE_CXX_COMPILER": "cl.exe",
-                "CMAKE_BUILD_TYPE": "Release"
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_CXX_FLAGS": "-O3 -g"
             }
         }
     ],

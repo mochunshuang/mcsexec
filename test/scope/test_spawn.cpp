@@ -21,7 +21,7 @@ class ThreadPool
     class Thread
     {
       public:
-        Thread() : stop(false)
+        constexpr Thread() : stop(false)
         {
             thread = std::jthread([this] {
                 while (true)
@@ -56,7 +56,7 @@ class ThreadPool
             });
         }
 
-        ~Thread() noexcept
+        constexpr ~Thread() noexcept
         {
             {
                 std::unique_lock<std::mutex> lock(queue_mutex);
@@ -66,7 +66,7 @@ class ThreadPool
             EXPECT(tasks.empty());
         }
 
-        void add_task(std::function<void()> &&task)
+        constexpr void add_task(std::function<void()> &&task)
         {
             {
                 std::unique_lock<std::mutex> lock(queue_mutex);
@@ -76,7 +76,7 @@ class ThreadPool
             condition.notify_one();
         }
 
-        auto setId(int id)
+        constexpr auto setId(int id)
         {
             this->id = id;
         }
@@ -91,7 +91,7 @@ class ThreadPool
     };
 
   public:
-    ThreadPool() : threads(theads_count) // 关键：使用初始化列表
+    constexpr ThreadPool() : threads(theads_count) // 关键：使用初始化列表
     {
         int i = 0;
         for (auto &t : threads)
@@ -100,7 +100,7 @@ class ThreadPool
         }
     }
 
-    void add_task(size_t thread_index, std::function<void()> task)
+    constexpr void add_task(size_t thread_index, std::function<void()> task)
     {
         if (thread_index < threads.size())
         {
@@ -239,13 +239,14 @@ int main()
     TEST("base: ex::spawn + ThreadPool") = [] {
         std::cout << "\n test: [ base: ex::spawn + ThreadPool ]\n";
         ex::counting_scope scope;
+        // TODO BUGBUG WITH clang++ //NOTE: 突然不行，代码我都没改过。太离谱
+        // NOTE: 单独测试没问题 和 ctest 一起就有问题，太离谱了
+        //   	 54 - scope-test_spawn (Exit code 0xc0000409
+        constexpr auto k_time = 4; // github action 性能不行
         {
-            // TODO BUGBUG WITH clang++ //NOTE: 突然不行，代码我都没改过。太离谱
-            // NOTE: 单独测试没问题 和 ctest 一起就有问题，太离谱了
-            //   	 54 - scope-test_spawn (Exit code 0xc0000409
-            constexpr auto k_time = 0; // github action 性能不行
-
-            ThreadPool<k_time> pool;
+            // NOTE:debug可以 release不可以。一个编译器可以，一个不可。思路：生命周期
+            //  NOTE: static 就能解决 Exit code 0xc0000409。 又是 生命周期....
+            static ThreadPool<k_time> pool;
             auto start = std::chrono::high_resolution_clock::now();
             {
                 auto start = std::chrono::high_resolution_clock::now();

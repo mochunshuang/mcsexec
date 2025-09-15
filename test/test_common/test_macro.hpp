@@ -6,9 +6,7 @@
 #include <source_location>
 #include <string_view>
 #include <iostream>
-
-#include <sstream>
-#include <utility>
+#include <format>
 
 namespace mcstest
 {
@@ -17,7 +15,7 @@ namespace mcstest
         std::atomic<std::size_t> pass_count;  // NOLINT
         std::atomic<std::size_t> total_count; // NOLINT
 
-        void print() const noexcept
+        constexpr void print() const noexcept
         {
 
             std::cout << "\033[32m"; // 开始绿色输出
@@ -27,7 +25,7 @@ namespace mcstest
         }
     };
 
-    static auto &get_test_counter() // NOLINT
+    constexpr static auto &get_test_counter() noexcept // NOLINT
     {
         static test_counter cunter;
         struct print // NOLINT
@@ -47,46 +45,36 @@ namespace mcstest
         std::source_location location; // NOLINT
     };
 
-    class ExpectError : public std::exception
+    class ExpectError : public std::runtime_error
     {
       public:
-        explicit ExpectError(std::string msg) : m_message(std::move(msg)) {}
-        [[nodiscard]] const char *what() const noexcept override
-        {
-            return m_message.c_str();
-        }
-
-      private:
-        std::string m_message;
+        using runtime_error::runtime_error;
     };
 
     // NOLINTNEXTLINE
-    static std::string formatErrorMessage(const std::source_location &location) noexcept
+    constexpr static std::string formatErrorMessage(const std::source_location &location)
     {
-        std::stringstream ss;
-        ss << "file_name: " << location.file_name() << ", line: " << location.line()
-           << ", column: " << location.column();
+        if (location.function_name() != nullptr)
+            return std::format("file_name: {}, line: {}, column: {}, function_name: {}\n",
+                               location.file_name(), location.line(), location.column(),
+                               location.function_name());
 
-        if (location.function_name() == nullptr)
-        {
-            ss << ", function_name: " << location.function_name();
-        }
-        ss << "\n";
-        return ss.str();
+        return std::format("file_name: {}, line: {}, column: {}\n", location.file_name(),
+                           location.line(), location.column());
     }
 
-    auto expect(const bool &expr, // NOLINT
-                const std::source_location &s = std::source_location::current()) -> void
+    constexpr auto expect(const bool &expr, // NOLINT
+                          const std::source_location &s = std::source_location::current())
+        -> void
     {
+        auto &count = get_test_counter();
         if (expr)
-            get_test_counter().pass_count++;
+            count.pass_count++;
         else
-        {
             throw ExpectError(formatErrorMessage(s));
-        }
-        get_test_counter().total_count++;
+        count.total_count++;
     }
-    static auto unexpect( // NOLINT
+    constexpr static auto unexpect( // NOLINT
         std::string_view msg,
         const std::source_location &s = std::source_location::current()) noexcept
     {
@@ -98,7 +86,7 @@ namespace mcstest
     {
         test_info info; // NOLINT
 
-        auto &operator=(auto &&test)
+        constexpr auto &operator=(auto &&test)
         {
             try
             {
@@ -114,7 +102,7 @@ namespace mcstest
     };
 
     // NOLINTNEXTLINE
-    static auto add_test(
+    constexpr static auto add_test(
         std::string_view name,
         std::source_location location = std::source_location::current()) noexcept
     {

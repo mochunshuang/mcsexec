@@ -363,7 +363,8 @@ int main()
         EXPECT(thread_id == t_id);
         EXPECT(thread_id == let_id);
     };
-#if 0 // NOTE: TODO 测试崩溃。会阻塞死的
+    // NOTE: Release 会阻塞死的 是因为 使用了一些警告的
+    // 用法。协程捕获引用，要非常小心。避免警告
     TEST("let_value with connect") = [] {
         ex::static_thread_pool<1> pool;
         auto [thread_id]{mcs::this_thread::sync_wait(
@@ -374,11 +375,12 @@ int main()
         std::thread::id t_id;
         std::thread::id let_id;
         bool done{};
-        auto sndr = [&]() -> ex::task<> {
+        auto sndr = [](auto &done, auto &t_id) -> ex::task<> {
             t_id = std::this_thread::get_id();
             done = true;
             co_return;
-        }();
+        }(done, t_id);
+        // NOTE: 手动实现 start_on ok.
         auto snd = ex::let_value(factories::schedule(pool.get_scheduler()),
                                  [&]() mutable noexcept {
                                      let_id = std::this_thread::get_id();
@@ -394,6 +396,6 @@ int main()
         EXPECT(thread_id == t_id);
         EXPECT(thread_id == let_id);
     };
-#endif
+
     return 0;
 }
