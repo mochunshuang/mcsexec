@@ -423,6 +423,33 @@ int main()
         }
     };
 
+    TEST("with ex::starts_on()") = [&] {
+        bool done{};
+        auto ret{0};
+        std::thread::id task_id;
+        std::thread::id then_id;
+
+        std::cout << "thread_id: " << pool[0].thread_id() << '\n';
+
+        auto task = [](auto &task_id) noexcept -> ::task<int> {
+            std::cout << "::task<int> in: " << std::this_thread::get_id() << '\n';
+            task_id = std::this_thread::get_id();
+            co_return 1;
+        }(task_id) | ex::then([&](int v) {
+                                                      done = true;
+                                                      ret = v;
+                                                      then_id =
+                                                          std::this_thread::get_id();
+                                                  });
+
+        mcs::this_thread::sync_wait(
+            ex::starts_on(pool[0].get_scheduler(), std::move(task)));
+
+        EXPECT(ret == 1);
+        EXPECT(task_id == pool[0].thread_id());
+        EXPECT(task_id == then_id);
+    };
+
     std::cout << "main done\n";
     return 0;
 }

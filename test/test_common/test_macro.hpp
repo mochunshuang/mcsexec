@@ -10,6 +10,20 @@
 
 namespace mcstest
 {
+    // ANSI 颜色控制码
+    namespace AnsiColor // NOLINTBEGIN
+    {
+        constexpr const char *reset = "\033[0m";    // 重置所有样式
+        constexpr const char *red = "\033[31m";     // 红色文本
+        constexpr const char *green = "\033[32m";   // 绿色文本
+        constexpr const char *yellow = "\033[33m";  // 黄色文本
+        constexpr const char *blue = "\033[34m";    // 蓝色文本
+        constexpr const char *magenta = "\033[35m"; // 品红色文本
+        constexpr const char *cyan = "\033[36m";    // 青色文本
+        constexpr const char *bold = "\033[1m";     // 粗体
+    }; // namespace AnsiColor
+    // NOLINTEND
+
     struct test_counter
     {
         std::atomic<std::size_t> pass_count;  // NOLINT
@@ -18,10 +32,10 @@ namespace mcstest
         constexpr void print() const noexcept
         {
 
-            std::cout << "\033[32m"; // 开始绿色输出
+            std::cout << AnsiColor::green; // 开始绿色输出
             std::cout << "total_assert: " << total_count << ", ";
             std::cout << "pass_assert: " << pass_count << '\n';
-            std::cout << "\033[0m"; // 重置颜色到默认设置
+            std::cout << AnsiColor::reset; // 重置颜色到默认设置
         }
     };
 
@@ -94,7 +108,15 @@ namespace mcstest
             }
             catch (const ExpectError &e)
             {
-                std::cout << "testname: " << info.name << " fault: " << e.what();
+                std::cout
+                    << AnsiColor::red << AnsiColor::bold
+                    << "\n================[Assertion failed begin]================\n"
+                    << AnsiColor::reset << AnsiColor::yellow
+                    << "[testname]: " << info.name << "\n[info]: " << e.what()
+                    << AnsiColor::red << AnsiColor::bold
+                    << "\n================[Assertion failed end]================\n"
+                    << AnsiColor::reset;
+                ;
                 throw;
             }
             return *this;
