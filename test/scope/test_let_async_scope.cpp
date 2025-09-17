@@ -289,12 +289,12 @@ int main()
 
     TEST("spawn + lazy") = [] {
         {
-            mcs::this_thread::sync_wait([] -> ex::lazy<> { // NOLINT
+            mcs::this_thread::sync_wait([] -> ex::task<> { // NOLINT
                 co_return;                                 // NOLINT
             }());
         }
         {
-            mcs::this_thread::sync_wait([] -> ex::lazy<bool> { // NOLINT
+            mcs::this_thread::sync_wait([] -> ex::task<bool> { // NOLINT
                 co_return true;                                // NOLINT
             }() | ex::then([](bool res) noexcept {
                                                   EXPECT(res);
@@ -306,7 +306,7 @@ int main()
         {
             // NOTE: 无法适配
             // mcs::this_thread::sync_wait(
-            //     ex::just() | [] -> ex::lazy<bool> { // NOLINT
+            //     ex::just() | [] -> ex::task<bool> { // NOLINT
             //         co_return true;                 // NOLINT
             //     }() | ex::then([](bool res) noexcept {
             //                            EXPECT(res);

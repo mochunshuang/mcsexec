@@ -68,7 +68,19 @@ int main()
                     else
                     {
                         // NOTE: 另一个线程。启动 转移sndr 可以避免死锁
-                        std::jthread j{[&] {
+                        // std::jthread j{[&] {
+                        //     ex::spawn(std::move(ex::schedule(pool.get_scheduler())) |
+                        //                   ex::then([&] noexcept {
+                        //                       inner_calld = true;
+                        //                       // NOTE: 没有切换线程
+                        //                       assert(std::this_thread::get_id() ==
+                        //                              pool_id);
+                        //                   }),
+                        //               scope.get_token());
+                        // }};
+                        // j.detach();
+                        // NOTE: 放在 awaiter 内部会崩溃或死锁 为何？
+                        std::jthread{[&] {
                             ex::spawn(std::move(ex::schedule(pool.get_scheduler())) |
                                           ex::then([&] noexcept {
                                               inner_calld = true;
@@ -77,8 +89,7 @@ int main()
                                                      pool_id);
                                           }),
                                       scope.get_token());
-                        }};
-                        j.detach();
+                        }}.detach();
                     }
                 }
                 else
@@ -104,23 +115,57 @@ int main()
         }
     };
 
-    // TODO(mcs): BUGBUG //NOTE: 实现依赖 start_on 先解决 start_on 没有bug的问题
-    TEST("task + on") = [&]() {
+    TEST("task + on +  ex::task<>") = [&]() {
         [[maybe_unused]] auto main_id = std::this_thread::get_id();
         auto pool_id = pool[0].thread_id();
 
-        bool calld = false;
-        auto task = [&]() -> ex::task<> {
-            constexpr auto test_error = false; // NOLINT
-            if constexpr (test_error)
-                assert(std::this_thread::get_id() == pool_id);
+        bool inner_calld = false;
+        auto task = [](auto &inner_calld, auto &pool_id, auto &pool,
+                       auto &scope) -> ex::task<> {
+            EXPECT(std::this_thread::get_id() == pool_id); // NOTE: 完美调度
+            constexpr auto test_deadlock = true;           // NOLINT
+            if constexpr (test_deadlock)
+            {
+                constexpr auto deadlock = false; // NOLINT
+                if constexpr (deadlock)
+                {
+                    // NOTE: 来到这里就会死锁
+                    ex::spawn(std::move(ex::schedule(pool.get_scheduler())) |
+                                  ex::then([&] noexcept {
+                                      inner_calld = true;
+                                      // NOTE: 没有切换线程
+                                      assert(std::this_thread::get_id() == pool_id);
+                                  }),
+                              scope.get_token());
+                }
+                else
+                {
+                    // NOTE: 放在 awaiter 内部会崩溃或死锁 为何？
+                    // NOTE: 这段代码块，交给其他线程执行。就避免递归死锁
+                    std::jthread{[&] {
+                        ex::spawn(std::move(ex::schedule(pool.get_scheduler())) |
+                                      ex::then([&] noexcept {
+                                          inner_calld = true;
+                                          // NOTE: 没有切换线程
+                                          assert(std::this_thread::get_id() == pool_id);
+                                      }),
+                                  scope.get_token());
+                    }}.detach();
+                }
+            }
             else
-                assert(std::this_thread::get_id() == main_id);
-            calld = true;
+            {
+                ex::spawn(ex::just() | ex::then([&] noexcept {
+                              inner_calld = true;
+                              // NOTE: 没有切换线程
+                              assert(std::this_thread::get_id() == pool_id);
+                          }),
+                          scope.get_token());
+            }
             co_return;
-        }();
+        }(inner_calld, pool_id, pool, scope);
         ex::spawn(ex::on(pool.get_scheduler(), std::move(task)), scope.get_token());
-        while (not calld)
+        while (not inner_calld)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(2));
             std::cout << "wait called...\n";

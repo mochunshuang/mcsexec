@@ -58,7 +58,7 @@ int main()
 
         while (not done)
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        std::cout << "with ex::task<> done";
+        std::cout << "with ex::task<> done\n";
     };
 
     TEST("with ex::task<int>") = [&] {
@@ -112,7 +112,7 @@ int main()
 
         // NOTE: co_await sndr。 一定是 suspend 的时候切换出去了吗？
         EXPECT(ret == 1);
-        EXPECT(task_id == main_id); // TODO(mcs): BUG
+        EXPECT(task_id == thread_id);
         EXPECT(task_id == then_id);
     };
 

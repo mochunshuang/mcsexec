@@ -239,9 +239,9 @@ int main()
     TEST("base: ex::spawn + ThreadPool") = [] {
         std::cout << "\n test: [ base: ex::spawn + ThreadPool ]\n";
         ex::counting_scope scope;
-        // TODO BUGBUG WITH clang++ //NOTE: 突然不行，代码我都没改过。太离谱
-        // NOTE: 单独测试没问题 和 ctest 一起就有问题，太离谱了
-        //   	 54 - scope-test_spawn (Exit code 0xc0000409
+        // NOTE: 突然不行，代码我都没改过。太离谱
+        //  NOTE: 单独测试没问题 和 ctest 一起就有问题，太离谱了
+        //    	 54 - scope-test_spawn (Exit code 0xc0000409
         constexpr auto k_time = 4; // github action 性能不行
         {
             // NOTE:debug可以 release不可以。一个编译器可以，一个不可。思路：生命周期

@@ -80,9 +80,9 @@ struct async_operation
                     });
 
         // NOTE: 死锁了
-        //  mcs::execution::spawn(
-        //      mcs::execution::on(cpu_pool().get_scheduler(), std::move(sndr)),
-        //      scope.get_token()); // NOLINT
+        // mcs::execution::spawn(
+        //     mcs::execution::on(cpu_pool().get_scheduler(), std::move(sndr)),
+        //     scope.get_token()); // NOLINT
         // NOTE: 死锁了
         // mcs::execution::spawn(
         //     std::move(sndr) | mcs::execution::continues_on(cpu_pool().get_scheduler()),
@@ -119,9 +119,9 @@ struct async_operation
         //                        scope.get_token()); // NOLINT
 
         // NOTE: 救不了
-        //  mcs::execution::spawn(std::move(sndr) | mcs::execution::continues_on(
-        //                                              ex::__task::inline_scheduler{}),
-        //                        scope.get_token()); // NOLINT
+        // mcs::execution::spawn(std::move(sndr) | mcs::execution::continues_on(
+        //                                             ex::__task::inline_scheduler{}),
+        //                       scope.get_token()); // NOLINT
 #elif 1
         auto sndr = ex::just() | ex::then([=] noexcept {
                         std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -166,16 +166,19 @@ struct async_operation
         //  mcs::execution::spawn(
         //      mcs::execution::on(cpu_pool().get_scheduler(), std::move(sndr)),
         //      scope.get_token()); // NOLINT
+
         // NOTE: 死锁
         // mcs::execution::spawn(
         //     mcs::execution::starts_on(cpu_pool().get_scheduler(), std::move(sndr)),
         //     scope.get_token()); // NOLINT
 
-        // NOTE: 不会死锁
-        mcs::execution::spawn(
-            std::move(sndr) | mcs::execution::continues_on(cpu_pool().get_scheduler()),
-            scope.get_token()); // NOLINT
+        // NOTE: 死锁
+        // mcs::execution::spawn(
+        //     std::move(sndr) | mcs::execution::continues_on(cpu_pool().get_scheduler()),
+        //     scope.get_token()); // NOLINT
 
+        // NOTE: 不切合线程没事
+        mcs::execution::spawn(std::move(sndr), scope.get_token());
 #else
         h.resume();
 #endif
@@ -290,10 +293,6 @@ int main()
                          .value();
         EXPECT(ret == 6);
     };
-
-    // NOTE: 必须如此
-    mcs::this_thread::sync_wait(scope.join());
-
     // NOTE: 还是未能解决。 线程切换的问题。 两个线程池的测试是OK的。
 
     // NOTE: 但是就是无法绑定 到 当个线程池中吗？
@@ -307,8 +306,7 @@ int main()
             std::cout << "suspend_never before...\n";
 
             auto in = std::this_thread::get_id();
-            EXPECT(in ==
-                   main_in); // TODO(mcs): BUG. 不过目前 task 确定从 revr 拿不到调度器
+            EXPECT(in == thread_in);
 
             int ret{};
             int times = 3;
@@ -332,6 +330,8 @@ int main()
         EXPECT(ret == 6);
     };
 
+    // NOTE: 必须如此
+    mcs::this_thread::sync_wait(scope.join());
     std::cout << "main done\n";
     return 0;
 }

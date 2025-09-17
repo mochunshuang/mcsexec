@@ -23,7 +23,7 @@ static_assert(ex::receiver<receiver>);
 
 int main()
 {
-    ex::__task::inline_scheduler sched;
+    mcs::execution::scope::__detail::inline_scheduler sched;
     auto sched_sender{ex::schedule(sched)};
 
     TEST("inline_scheduler is scheduler ") = [] {

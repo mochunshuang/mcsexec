@@ -503,8 +503,7 @@ int main()
     };
     std::cout << "\nwith while(i-->0) 2\n";
     TEST("with while(i-->0) 2 ") = [] {
-        ex::static_thread_pool<1> start_pool; // TODO(mcs) ex::lazy 还是static_thread_pool
-                                              // 设计失败，调度失败
+        ex::static_thread_pool<1> start_pool;
         ex::static_thread_pool<2> pool;
         auto start = // NOTE: 线程体内部 总是唯一的 线程。 BUG?. 这不就是阻塞吗？？？？
             ex::schedule(start_pool.get_scheduler()) | ex::let_value([&]() noexcept {
@@ -665,9 +664,8 @@ int main()
             }
         };
         auto rc = mcs::this_thread::sync_wait([] -> ex::task<int> { // NOLINT
-            // auto r = co_await immediate_awaiter{}; // TODO(mcs) 可以做到吗？
-            // co_return r;
-            co_return 1;
+            auto r = co_await immediate_awaiter{}; // TODO(mcs) 可以做到吗？
+            co_return r;
         }());
         assert(rc);
         auto [value] = rc.value_or(std::tuple{0});

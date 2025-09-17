@@ -101,10 +101,10 @@ void base_test5()
                    static_assert(ex::scope::async_scope_token<decltype(scope_token)>);
 
                    ex::spawn(ex::starts_on(sch,
-                                           [&]() noexcept -> ex::lazy<> {
+                                           [](auto &then_called) noexcept -> ex::task<> {
                                                then_called = true;
                                                co_return;
-                                           }()),
+                                           }(then_called)),
                              scope_token);
                    return ex::just();
                }) |
@@ -118,7 +118,7 @@ void base_test5()
 void base_test6()
 {
     bool then_called = false;
-    auto ret = [&]() noexcept -> ex::lazy<bool> {
+    auto ret = [&]() noexcept -> ex::task<bool> {
         co_return true;
     }() | ex::then([&](auto ret) noexcept { then_called = true; });
     static_assert(ex::sender<decltype(ret)>);
@@ -143,35 +143,36 @@ int main()
     base_test6();
 
     TEST("BASE") = [] {
-        auto rc = mcs::this_thread::sync_wait([] -> ex::lazy<bool> {
+        auto rc = mcs::this_thread::sync_wait([]() -> ex::task<bool> {
             co_return true;
         }());
         assert(rc);
     };
 
-    TEST("scope") = [] {
+    TEST("scope") = [&] {
         ex::static_thread_pool<1> pool;
         auto sch = pool.get_scheduler();
         bool then_called = false;
-        auto snd = ex::just() | ex::then([]() {}) |
-                   ex::let_async_scope([&](auto scope_token) noexcept {
-                       // NOLINTEND
-                       static_assert(ex::scope::async_scope_token<decltype(scope_token)>);
+        auto snd =
+            ex::just() | ex::then([]() {}) |
+            ex::let_async_scope([&](auto scope_token) noexcept {
+                // NOLINTEND
+                static_assert(ex::scope::async_scope_token<decltype(scope_token)>);
 
-                       ex::spawn(ex::starts_on(sch,
-                                               [&]() noexcept -> ex::lazy<> {
-                                                   std::this_thread::sleep_for(
-                                                       std::chrono::milliseconds(10));
-                                                   then_called = true;
-                                                   co_return;
-                                               }()),
-                                 scope_token);
-                       return ex::just();
-                   }) |
-                   ex::then([&]() {
-                       EXPECT(then_called);
-                       std::cout << "let_async_scope done\n";
-                   });
+                ex::spawn(ex::starts_on(sch,
+                                        [](auto &then_called) noexcept -> ex::task<> {
+                                            std::this_thread::sleep_for(
+                                                std::chrono::milliseconds(10));
+                                            then_called = true;
+                                            co_return;
+                                        }(then_called)),
+                          scope_token);
+                return ex::just();
+            }) |
+            ex::then([&]() {
+                EXPECT(then_called);
+                std::cout << "let_async_scope done\n";
+            });
         mcs::this_thread::sync_wait(std::move(snd));
     };
     std::cout << "main done\n";

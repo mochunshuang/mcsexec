@@ -105,23 +105,16 @@ int main()
         }
     };
 
-// TODO(mcs): BUGBUG
-#if 0
     TEST("task + starts_on") = [&]() {
         [[maybe_unused]] auto main_id = std::this_thread::get_id();
         auto pool_id = pool[0].thread_id();
 
         bool calld = false;
-        auto task = [&]() -> ex::task<> {
-            constexpr auto test_error = false; // NOLINT
-            if constexpr (test_error)
-                assert(std::this_thread::get_id() == pool_id);
-            else
-                assert(std::this_thread::get_id() ==
-                       main_id); // NOTE: 居然不是从 pool 线程开始
+        auto task = [](auto &calld, auto &pool_id) -> ex::task<> {
+            EXPECT(std::this_thread::get_id() == pool_id);
             calld = true;
             co_return;
-        }();
+        }(calld, pool_id);
         ex::spawn(ex::starts_on(pool.get_scheduler(), std::move(task)),
                   scope.get_token());
         while (not calld)
@@ -129,18 +122,9 @@ int main()
             std::this_thread::sleep_for(std::chrono::milliseconds(2));
             std::cout << "wait called...\n";
         }
-        {
-            using S = decltype(ex::starts_on(pool.get_scheduler(), std::move(task)));
-            using E = decltype(std::declval<S>().get_env());
-            // std::declval<E>().query(ex::queries::get_scheduler); // NOTE: 找不到
-            auto sndr = ex::on(pool.get_scheduler(), std::move(task));
-            // sndr.get_env().query(ex::queries::get_scheduler); // NOTE: 语法错误
-        }
     };
-#endif
 
     TEST("sndr + starts_on") = [&]() {
-        auto main_id{std::this_thread::get_id()};
         auto [thread_id]{mcs::this_thread::sync_wait(
                              ex::schedule(pool.get_scheduler()) |
                              ex::then([] { return std::this_thread::get_id(); }))
@@ -168,7 +152,7 @@ int main()
         auto pool_id = thread_id;
 
         bool calld = false;
-        auto task = [&]() -> ex::task<> {
+        auto task = [](auto &calld, auto &main_id, auto &pool_id) -> ex::task<> {
             if (std::this_thread::get_id() == pool_id)
             {
                 std::cout << "std::this_thread::get_id() == pool_id\n";
@@ -179,7 +163,7 @@ int main()
             }
             calld = true;
             co_return;
-        }();
+        }(calld, main_id, pool_id);
 
         using T = decltype(task);
         // NOTE: 返回值是 写错局部，不是promise

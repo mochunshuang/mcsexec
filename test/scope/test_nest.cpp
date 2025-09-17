@@ -33,7 +33,6 @@ struct recever_all_but_empty_env
 
 int main()
 {
-    // TODO(mcs):
     TEST("base nest") = [] {
         auto snd = ex::just(1, 2);
         ex::simple_counting_scope scope;
