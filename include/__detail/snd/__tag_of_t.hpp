@@ -1,6 +1,7 @@
 #pragma once
 
 #include "./__sender.hpp"
+#include <type_traits>
 
 namespace mcs::execution::snd
 {
@@ -32,5 +33,5 @@ namespace mcs::execution::snd
     // Otherwise, tag_of_t<Sndr> is ill-formed.
     // template <sender Sndr>
     template <sender Sndr>
-    using tag_of_t = typename __detail::tag_of_t_impl<Sndr>::type;
+    using tag_of_t = typename __detail::tag_of_t_impl<std::decay_t<Sndr>>::type;
 }; // namespace mcs::execution::snd

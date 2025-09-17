@@ -244,8 +244,7 @@ int main()
         EXPECT(t_id == pool[0].thread_id());
     };
 
-    {
-
+    TEST("env from ex::starts_on + row start") = [&] {
         auto &context = pool[0];
         std::thread::id t_id;
         auto [thread_id]{mcs::this_thread::sync_wait(
@@ -267,7 +266,34 @@ int main()
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
         assert(t_id == thread_id); // NOTE: 没有未定义行为
-    }
+    };
+
+    TEST("env from ex::starts_on + row start + ex::task<>") = [&] {
+        auto &context = pool[0];
+        std::thread::id t_id;
+        auto main_id = std::this_thread::get_id();
+        auto [thread_id]{mcs::this_thread::sync_wait(
+                             ex::schedule(context.get_scheduler()) |
+                             ex::then([&] { return std::this_thread::get_id(); }))
+                             .value_or(std::tuple{std::thread::id{}})};
+
+        bool called{};
+        auto task = []() -> ex::task<> {
+            co_return;
+        }() | ex::then([&]() {
+                                t_id = std::this_thread::get_id();
+                                called = true;
+                            });
+        auto sndr = ex::starts_on(context.get_scheduler(), std::move(task));
+        auto op = ex::connect(std::move(sndr), receiver_all{});
+
+        ex::start(op);
+
+        while (not called)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+        assert(t_id == main_id); // TODO(mcs): BUGBUG 未定义行为
+    };
 
     return 0;
 }
