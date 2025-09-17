@@ -495,9 +495,8 @@ namespace mcs::execution
                 return {*this};
             }
 
-            template <snd::sender Sndr>
+            template <snd::sender_for<split_t> Sndr>
             auto transform_sender(Sndr &&sndr) noexcept // NOLINT
-                requires(snd::sender_for<decltype((sndr)), split_t>)
             {
                 // Note: tag_change: split_t => split_impl_tag
                 // Note: data_change: {} => shared_wrapper(shared_state{child},old_tag)

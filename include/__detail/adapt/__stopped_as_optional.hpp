@@ -38,9 +38,9 @@ namespace mcs::execution
                 return {*this};
             }
 
-            template <snd::sender Sndr, typename Env> // NOLINTNEXTLINE
+            template <snd::sender_for<stopped_as_optional_t> Sndr,
+                      typename Env> // NOLINTNEXTLINE
             auto transform_sender(Sndr &&sndr, const Env & /*env*/) noexcept
-                requires(snd::sender_for<decltype((sndr)), stopped_as_optional_t>)
             {
                 if constexpr (not snd::has_constexpr_completions<Sndr, Env>)
                 {

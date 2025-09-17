@@ -29,8 +29,7 @@ namespace mcs::execution
             };
 
             // for default_domain
-            template <snd::sender Sndr, typename Env>
-                requires(snd::sender_for<Sndr, starts_on_t>)
+            template <snd::sender_for<starts_on_t> Sndr, typename Env>
             auto transform_env(Sndr &&out_sndr, Env &&env) noexcept // NOLINT
             {
                 auto &&[_, sch, __] = std::forward<Sndr>(out_sndr);
@@ -40,9 +39,8 @@ namespace mcs::execution
             }
 
             // for connect
-            template <snd::sender Sndr, typename Env> // NOLINTNEXTLINE
+            template <snd::sender_for<starts_on_t> Sndr, typename Env> // NOLINTNEXTLINE
             auto transform_sender(Sndr &&out_sndr, const Env & /*env*/) noexcept
-                requires(snd::sender_for<decltype((out_sndr)), starts_on_t>)
             {
                 // Note: optimization for no copy. @see example/bulk.cpp test
                 auto &&[_, sch, sndr] = std::forward<Sndr>(out_sndr);

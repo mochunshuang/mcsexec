@@ -96,9 +96,8 @@ namespace mcs::execution
                              std::forward<Sndr>(sndr)));
             }
 
-            template <snd::sender Sndr, typename E>
+            template <snd::sender_for<on_t> Sndr, typename E>
             auto transform_env(Sndr &&out_sndr, E &&env) noexcept // NOLINT
-                requires(snd::sender_for<decltype((out_sndr)), on_t>)
             {
                 // Note: optimization for no copy
                 using OutSndr = decltype(out_sndr);
@@ -116,9 +115,8 @@ namespace mcs::execution
                 }
             }
 
-            template <snd::sender Sndr, typename Env> // NOLINTNEXTLINE
+            template <snd::sender_for<on_t> Sndr, typename Env> // NOLINTNEXTLINE
             auto transform_sender(Sndr &&out_sndr, const Env &env) noexcept
-                requires(snd::sender_for<decltype((out_sndr)), on_t>)
             {
                 // Note: optimization for no copy
                 using OutSndr = decltype(out_sndr);

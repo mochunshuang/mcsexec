@@ -70,8 +70,8 @@ namespace mcs::execution
                                                               std::forward<Sndr>(sndr)));
             }
 
-            template <snd::sender Sndr, typename Env>
-                requires snd::sender_for<Sndr, let_async_scope_with_error_t<Errors...>>
+            template <snd::sender_for<let_async_scope_with_error_t<Errors...>> Sndr,
+                      typename Env>
             auto transform_env(Sndr &&sndr, Env &&env) noexcept // NOLINT
             {
                 return snd::general::JOIN_ENV(let_async_scope_env(sndr),

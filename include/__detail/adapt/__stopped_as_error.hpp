@@ -28,9 +28,9 @@ namespace mcs::execution
                 return {*this, std::forward<E>(e)};
             }
 
-            template <snd::sender Sndr, typename Env> // NOLINTNEXTLINE
+            template <snd::sender_for<stopped_as_error_t> Sndr,
+                      typename Env> // NOLINTNEXTLINE
             auto transform_sender(Sndr &&sndr, const Env & /*env*/) noexcept
-                requires(snd::sender_for<decltype((sndr)), stopped_as_error_t>)
             {
                 auto &&[_, err, child] = sndr;
                 using E = decltype(auto(err));

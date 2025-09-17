@@ -33,14 +33,14 @@ namespace mcs::execution
                     CD2(), snd::make_sender(*this, {}, std::forward<Sndrs>(sndrs)...));
             }
 
-            template <snd::sender Sndr, typename Env> // NOLINTNEXTLINE
-            auto transform_sender(Sndr &&sndr, const Env & /*env*/) noexcept
-                requires(snd::sender_for<decltype((sndr)), when_all_with_variant_t>)
+            template <snd::sender_for<when_all_with_variant_t> Sndr, typename Env>
+            auto transform_sender(Sndr &&sndr, const Env & /*env*/) noexcept // NOLINT
             {
                 return std::forward<Sndr>(sndr).apply(
                     []<typename... Child>(auto &&, auto &&,
                                           Child &&...child) noexcept(true) {
-                        return when_all(into_variant(std::forward_like<Sndr>(child))...);
+                        return when_all(into_variant(
+                            std::forward_like<Sndr>(std::forward<Child>(child)))...);
                     });
             }
         };
