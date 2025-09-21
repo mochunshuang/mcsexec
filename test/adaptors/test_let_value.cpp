@@ -396,6 +396,17 @@ int main()
         EXPECT(thread_id == t_id);
         EXPECT(thread_id == let_id);
     };
-
+    TEST("let_value with ex::task") = [] {
+        auto snd = ex::just(1)                                      //
+                   | ex::then([](int v) noexcept { return v * 2; }) //
+                   | ex::let_value([](int v) noexcept {
+                         return [](int v) noexcept -> ex::task<int> {
+                             co_return v * 3;
+                         }(v);
+                     }) //
+                   | ex::then([](int v) noexcept { return v * 2; });
+        auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
+        EXPECT(ret == 12);
+    };
     return 0;
 }

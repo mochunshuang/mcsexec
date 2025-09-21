@@ -1,0 +1,4 @@
+#pragma once
+
+#cmakedefine CMAKE_BUILD_TYPE "@CMAKE_BUILD_TYPE@"
+#cmakedefine MCS_ENABLE_LOG "@MCS_ENABLE_LOG@"

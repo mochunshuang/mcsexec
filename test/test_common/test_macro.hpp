@@ -96,7 +96,7 @@ namespace mcstest
         std::abort();
     }
 
-    struct Test
+    struct test
     {
         test_info info; // NOLINT
 
@@ -128,11 +128,11 @@ namespace mcstest
         std::string_view name,
         std::source_location location = std::source_location::current()) noexcept
     {
-        return Test{.info = test_info{.name = name, .location = location}};
+        return test{.info = test_info{.name = name, .location = location}};
     }
 }; // namespace mcstest
 
-#define TEST(name) mcstest::add_test(name) // NOLINT
+#define TEST(name) mcstest::add_test(name) // NOLINT // NOLINTNEXTLINE
 #define EXPECT(v) \
     mcstest::expect((v)) // NOLINT  ((v))确保传递的是一个完整的表达式而不是函数调用
 #define UNEXPECT(message) mcstest::unexpect(message) // NOLINT
