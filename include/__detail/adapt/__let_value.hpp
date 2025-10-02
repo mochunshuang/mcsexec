@@ -106,7 +106,7 @@ namespace mcs::execution
 
             template <snd::sender Sndr, typename Env>
                 requires(snd::sender_for<Sndr, __let_t>)
-            auto transform_env(Sndr &&sndr, Env &&env) noexcept // NOLINT
+            auto transform_env(Sndr &&sndr, Env &&env) const noexcept // NOLINT
             {
                 using E = adapt::let_env_t<Completion>;
                 // TODO(mcs): JOIN_ENV 低效见 p3396r0
@@ -318,7 +318,7 @@ namespace mcs::execution
                         {
                             auto fun = []<class... As>(Completion (*)(As...)) noexcept {
                                 return noexcept(
-                                    std::declval<Fn>()(std::declval<As>()...));
+                                    std::declval<Fn>()(std::declval<As &>()...));
                             };
                             return (fun(static_cast<Sigs *>(nullptr)) && ...);
                         }
@@ -425,10 +425,10 @@ namespace mcs::execution
             []<class Tag, class... As>(Tag (*)(As...)) {
                 if constexpr (std::is_same_v<Tag, Completion>)
                 {
-                    using Ret = decltype(std::declval<Fun>()(std::declval<As>()...));
+                    using sndr = decltype(std::declval<Fun>()(std::declval<As &>()...));
                     constexpr bool nothrow = // NOLINT
-                        noexcept(std::declval<Fun>()(std::declval<As>()...));
-                    return snd::completion_signatures_of_t<Ret>{} +
+                        noexcept(std::declval<Fun>()(std::declval<As &>()...));
+                    return snd::completion_signatures_of_t<sndr>{} +
                            eptr_completion_if<nothrow>;
                 }
                 else
@@ -447,17 +447,17 @@ namespace mcs::execution
             snd::__detail::basic_sender<adapt::__let_t<Completion>, Fun, Sndr>,
             Env...> = []() consteval {
             using CS = snd::completion_signatures_of_t<Sndr, Env...>;
-            auto fn = []<class... Ts>(Completion (*)(Ts...)) {
-                if constexpr (!std::invocable<Fun, Ts...>)
+            auto fn = []<class... Ts>(Completion (*)(Ts &...)) {
+                if constexpr (!std::invocable<Fun, Ts &...>)
                     throw diagnostics::invalid_completion_signature<
                         IN_TAG(adapt::__let_t<Completion>), WITH_SENDER(Sndr),
-                        WITH_FUNCTION(Fun), WITH_ARGUMENTS(Ts...),
+                        WITH_FUNCTION(Fun), WITH_ARGUMENTS(Ts & ...),
                         NOTE_INFO(
                             The_previous_completion_signature_does_not_match_the_current_function)>();
-                else if constexpr (!snd::sender<std::invoke_result_t<Fun, Ts...>>)
+                else if constexpr (!snd::sender<std::invoke_result_t<Fun, Ts &...>>)
                     throw diagnostics::invalid_completion_signature<
                         IN_TAG(adapt::__let_t<Completion>), WITH_FUNCTION(Fun),
-                        WITH_ARGUMENTS(Ts...),
+                        WITH_ARGUMENTS(Ts & ...),
                         NOTE_INFO(the_fun_return_type_is_not_a_sndr_in_let_xxx)>();
             };
             CS::check_sigs(overload_set{fn, [](auto) {

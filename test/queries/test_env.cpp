@@ -292,7 +292,33 @@ int main()
         while (not called)
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
-        assert(t_id == main_id); // TODO(mcs): BUGBUG 未定义行为
+        assert(t_id == thread_id);
+    };
+
+    TEST("get_scheduler from sndr") = [] {
+        auto has_scheduler_type = [](const ex::sender auto &sndr) constexpr {
+            return requires() { ex::queries::get_scheduler(ex::get_env(sndr)); };
+        };
+        auto env_has_scheduler_type = [](const auto &env) constexpr {
+            return requires() { ex::queries::get_scheduler(env); };
+        };
+        auto sndr0 = ex::just();
+        static_assert(std::is_same_v<decltype(ex::get_env(sndr0)), ex::env<>>);
+        static_assert(std::is_same_v<ex::empty_env, ex::env<>>);
+        // ex::queries::get_scheduler(ex::get_env(sndr0));
+        static_assert(not has_scheduler_type(sndr0));
+
+        ex::static_thread_pool<1> pool;
+        auto sndr1 = ex::starts_on(pool[0].get_scheduler(), std::move(ex::just()));
+        auto env = ex::get_env(sndr1); // NOTE: transform_env 才有用
+
+        static_assert(not has_scheduler_type(sndr1));
+        static_assert(
+            std::same_as<ex::snd::tag_of_t<decltype(std::move(sndr1))>, ex::starts_on_t>);
+        static_assert(ex::snd::sender_for<decltype(std::move(sndr1)), ex::starts_on_t>);
+        // NOTE: ex::starts_on 是 constexpr 变量 要求 transform_env 被 const 修饰
+        auto s_env = auto{ex::starts_on}.transform_env(std::move(sndr1), std::move(env));
+        static_assert(env_has_scheduler_type(s_env));
     };
 
     return 0;

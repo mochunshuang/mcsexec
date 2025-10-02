@@ -74,7 +74,7 @@ int main()
                 //        return ex::just_error(
                 //            std::make_error_code(std::errc::argument_out_of_domain));
                 //    });
-                ex::let_error([](std::exception_ptr &&) {
+                ex::let_error([](std::exception_ptr &) {
                     return ex::just_error(
                         std::make_error_code(std::errc::argument_out_of_domain));
                 });

@@ -36,6 +36,16 @@ struct discard_all_receiver
     }
 };
 
+static auto make_task() noexcept -> ex::task<int>
+{
+    co_return 1;
+}
+
+static auto make_task2() noexcept -> ex::task<int>
+{
+    co_return co_await make_task();
+}
+
 int main()
 {
     // NOTE: 和 ex::lazy 不同， 协程内部 co_await 上下午切换 可以是不同的线程池
@@ -475,6 +485,61 @@ int main()
     };
 
     ex::static_thread_pool<3> pool;
+
+    struct single_thread_context
+    {
+      private:
+        ex::run_loop loop;
+        ::std::thread thread{&single_thread_context::run, this};
+
+        static auto run(single_thread_context *self) -> void
+        {
+            self->loop.run();
+        }
+
+      public:
+        single_thread_context() = default;
+        ~single_thread_context()
+        {
+            this->finish();
+            this->thread.join();
+        }
+        auto get_scheduler()
+        {
+            return this->loop.get_scheduler();
+        }
+        void finish()
+        {
+            this->loop.finish();
+        }
+    };
+    single_thread_context context;
+    TEST("with while(i-->0) ") = [&] {
+        auto rc = mcs::this_thread::sync_wait([](auto &pool) -> ex::task<int> { // NOLINT
+            int i = 3;                                                          // NOLINT
+
+            std::cout << "enter task thread_id: " << std::this_thread::get_id() << '\n';
+            while (i-- > 0)
+            {
+                std::cout << "before co_await thread_id: " << std::this_thread::get_id()
+                          << '\n';
+                [[maybe_unused]] auto ret = co_await (
+                    ex::schedule(pool.get_scheduler()) | ex::then([=]() noexcept {
+                        std::cout
+                            << "inter co_await thread_id: " << std::this_thread::get_id()
+                            << '\n';
+                        std::this_thread::sleep_for(std::chrono::milliseconds(i));
+                        return i;
+                    }));
+                std::cout << "after co_await thread_id: " << std::this_thread::get_id()
+                          << '\n';
+            }
+            co_return 1;
+        }(context));
+        assert(rc);
+        auto [value] = rc.value_or(std::tuple{0});
+        EXPECT(value == 1);
+    };
     TEST("with while(i-->0) 2 ") = [&] {
         auto rc = mcs::this_thread::sync_wait([](auto &pool) -> ex::task<int> { // NOLINT
             int i = 3;                                                          // NOLINT
@@ -723,5 +788,30 @@ int main()
             EXPECT(ret == -1);
         }
     };
+    TEST("co_await ex::task") = [] {
+        auto task = []() noexcept -> ex::task<int> {
+            co_return co_await []() noexcept -> ex::task<int> {
+                co_return 1;
+            }();
+        }();
+        auto [ret] = mcs::this_thread::sync_wait(std::move(task)).value();
+        EXPECT(ret == 1);
+
+        {
+            auto task = []() noexcept -> ex::task<int> {
+                auto ret = co_await []() noexcept -> ex::task<int> {
+                    co_return 1;
+                }();
+                co_return ret;
+            }();
+            auto [ret] = mcs::this_thread::sync_wait(std::move(task)).value();
+            EXPECT(ret == 1);
+        }
+        {
+            auto [ret] = mcs::this_thread::sync_wait(make_task2()).value();
+            EXPECT(ret == 1);
+        }
+    };
+
     return 0;
 }

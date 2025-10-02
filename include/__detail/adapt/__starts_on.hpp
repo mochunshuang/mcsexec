@@ -34,7 +34,7 @@ namespace mcs::execution
             {
                 auto &&[_, sch, __] = std::forward<Sndr>(out_sndr);
                 return snd::general::JOIN_ENV(
-                    snd::general::SCHED_ENV(sch),
+                    snd::general::SCHED_ENV(std::forward_like<Sndr>(sch)),
                     snd::general::FWD_ENV(std::forward<Env>(env)));
             }
 

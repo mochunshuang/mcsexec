@@ -26,9 +26,10 @@ auto_add_test_by_dir("task")
 auto_add_test_by_dir("stop_token")
 auto_add_test_by_dir("diagnostics")
 auto_add_test_by_dir("scope")
+auto_add_test_by_dir("sched")
 
 # 定义自定义命令，用于构建所有目标：注意，要在build目录下
-# 等价于：E:\0_github_project\mcsexec\mcsexec\build> ctest --parallel 16 -C Debug
+# 等价于：E:/0_github_project/mcsexec/mcsexec/build> ctest --parallel 16 -C Debug
 # 不需要这个目标 因为和 cmaketool 启动并行测试冲突。依赖 DEPENDS all，没生成完就结束了
 # add_custom_target(run_all_tests
 # COMMAND ${CMAKE_COMMAND} -E echo "Running All Tests!"
@@ -37,4 +38,26 @@ auto_add_test_by_dir("scope")
 # COMMENT "Running all tests"
 # DEPENDS all
 # )
-add_executable(no_add_test ${CMAKE_SOURCE_DIR}/test/no_add_test/thread_local3_7.cpp)
+add_executable(no_add_test ${CMAKE_SOURCE_DIR}/test/no_add_test/mcslog2.cpp)
+target_compile_features(no_add_test PRIVATE cxx_std_23)
+
+if(false)
+    target_link_directories(no_add_test PRIVATE
+
+        "D:/mysoftware/LLVM_clang_19.1/LLVM/lib/clang/19/lib/windows"
+
+        # C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207/lib/x64
+    )
+
+    # https://clang.llvm.org/docs/UsersManual.html#finding-clang-runtime-libraries
+    target_compile_options(no_add_test PRIVATE
+        -fsanitize=address
+        -fno-omit-frame-pointer
+        -MD -O1 -g
+    )
+
+    target_link_libraries(no_add_test PRIVATE
+        clang_rt.asan_dynamic-x86_64
+        clang_rt.asan_dynamic_runtime_thunk-x86_64
+    )
+endif()

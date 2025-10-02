@@ -138,15 +138,17 @@ namespace mcs::execution::__task
                     }
                     else
                     {
-                        auto r(std::move(std::get<1>(variant_result)));
-                        recv::set_value(std::move(self->rcvr), std::move(r));
+                        recv::set_value(std::move(self->rcvr),
+                                        std::move(std::get<1>(variant_result)));
                     }
                     break;
                 case 2: // NOTE: tow type error //TODO(mcs) 如果多个，则无法解决
-                    recv::set_error(std::move(self->rcvr), std::get<2>(variant_result));
+                    recv::set_error(std::move(self->rcvr),
+                                    std::move(std::get<2>(variant_result)));
                     break;
                 case 3:
-                    recv::set_error(std::move(self->rcvr), std::get<3>(variant_result));
+                    recv::set_error(std::move(self->rcvr),
+                                    std::move(std::get<3>(variant_result)));
                     break;
                 }
             }

@@ -40,7 +40,7 @@ int main()
                               | ex::then([]() -> std::string {
                                     throw std::logic_error{"error description"};
                                 }) //
-                              | ex::let_error([](std::exception_ptr &&eptr) {
+                              | ex::let_error([](std::exception_ptr &eptr) {
                                     try
                                     {
                                         std::rethrow_exception(std::move(eptr));
@@ -74,7 +74,7 @@ int main()
         ex::sender auto snd =
             ex::just()                                            //
             | ex::then([] noexcept { return std::string("13"); }) //
-            | ex::let_error([&](std::exception_ptr) { return ex::just(0); });
+            | ex::let_error([&](std::exception_ptr &) { return ex::just(0); });
         using T = ex::snd::completion_signatures_of_t<decltype(snd)>;
         static_assert(std::is_same_v<T, cmplsigs::completion_signatures<recv::set_value_t(
                                             std::basic_string<char>)>>);

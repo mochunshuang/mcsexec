@@ -61,6 +61,19 @@ void test4(auto t)
     test3(t);
 }
 
+template <typename T>
+void test_static_false()
+{
+    if constexpr (std::is_same_v<T, int>)
+    {
+    }
+    else
+    {
+        // NOTE: 是允许的
+        static_assert(false, "the program is ill-formed");
+    }
+}
+
 int main()
 {
     check_type<int>();    // 正常编译，因为 T 是 int，满足 std::is_integral_v<T>
@@ -82,5 +95,8 @@ int main()
 
     test3(1); // 编译期不能异常，这个是不会变的
     // test4(1); // NOTE: 不写，还得必须catch，  + 概念才是最好的方式
+
+    test_static_false<int>();
+    // test_static_false<double>();
 }
 // NOLINTEND

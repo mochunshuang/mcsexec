@@ -137,7 +137,7 @@ int main()
     TEST("let_error CS 1") = [] {
         ex::sender auto snd [[maybe_unused]] =
             ex::just() | ex::then([]() {}) |
-            ex::let_error([](std::exception_ptr &&) { return ex::just(); });
+            ex::let_error([](std::exception_ptr &) { return ex::just(); });
         using T = decltype(snd);
         using CS = ex::snd::completion_signatures_of_t<T>;
         static_assert(
@@ -157,7 +157,7 @@ int main()
     TEST("let_error CS 3") = [] {
         ex::sender auto snd [[maybe_unused]] =
             ex::just() | ex::then([]() noexcept(false) {}) |
-            ex::let_error([](std::exception_ptr &&) { return ex::just(1.0); });
+            ex::let_error([](std::exception_ptr &) { return ex::just(1.0); });
         using T = decltype(snd);
         using CS = ex::snd::completion_signatures_of_t<T>;
         // NOTE: ex::then() may_throw or no_throw
@@ -170,7 +170,7 @@ int main()
         ex::sender auto snd [[maybe_unused]] =
             ex::just() | ex::then([]() noexcept(false) {}) |
             ex::let_error(
-                [](std::exception_ptr &&) noexcept(true) { return ex::just(1.0); });
+                [](std::exception_ptr &) noexcept(true) { return ex::just(1.0); });
         using T = decltype(snd);
         using CS = ex::snd::completion_signatures_of_t<T>;
         // NOTE: ex::then() may_throw or no_throw

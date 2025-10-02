@@ -2,6 +2,7 @@
 #include "../test_base_head.hpp"
 #include <cassert>
 #include <cstring>
+#include <memory>
 #include <string_view>
 
 int main()
@@ -408,5 +409,99 @@ int main()
         auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
         EXPECT(ret == 12);
     };
+
+    TEST("let_value with move_only") = [] {
+        auto snd =
+            ex::just(std::make_unique<int>(1))                                       //
+            | ex::then([](std::unique_ptr<int> v) noexcept { return *v.get() * 2; }) //
+            | ex::let_value([](int v) noexcept {
+                  return [](int v) noexcept -> ex::task<int> {
+                      co_return v * 3;
+                  }(v);
+              }) //
+            | ex::then([](int v) noexcept { return v * 2; });
+        auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
+        EXPECT(ret == 12);
+    };
+    TEST("let_value with move_only2") = [] {
+        auto snd = ex::just(move_only_type(1))                                     //
+                   | ex::then([](move_only_type v) noexcept { return v.val * 2; }) //
+                   | ex::let_value([](int v) noexcept {
+                         return [](int v) noexcept -> ex::task<int> {
+                             co_return v * 3;
+                         }(v);
+                     }) //
+                   | ex::then([](int v) noexcept { return v * 2; });
+        auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
+        EXPECT(ret == 12);
+    };
+
+    TEST("let_value with move_only_type") = [] {
+        {
+            move_only_type a(1);
+            move_only_type b = std::move(a);
+            move_only_type c = move_only_type{std::move(b)};
+            (void)c;
+        }
+        {
+            auto snd = ex::just(move_only_type(1)) //
+                       | ex::then([](move_only_type v) noexcept {
+                             return move_only_type{v.val * 2};
+                         });
+            auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
+            EXPECT(ret.val == 2);
+        }
+        {
+            auto snd = ex::just(move_construction_only_type(1)) //
+                       | ex::then([](move_construction_only_type v) noexcept {
+                             return move_construction_only_type{v.val * 2};
+                         });
+            auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
+            EXPECT(ret.val == 2);
+        }
+        // NOTE: with let_value
+        {
+            auto snd = ex::just(move_only_type(1)) //
+                       | ex::then([](move_only_type v) noexcept {
+                             return move_only_type{v.val * 2};
+                         }) //
+                       | ex::let_value([](move_only_type &v) noexcept {
+                             return ex::just(v.val * 3);
+                         });
+            auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
+            EXPECT(ret == 6);
+        }
+        auto snd = ex::just(move_only_type(1)) //
+                   | ex::then([](move_only_type v) noexcept {
+                         return move_only_type{v.val * 2};
+                     }) //
+                   |
+                   ex::let_value([](move_only_type &v) noexcept {
+                       return [](move_only_type v) noexcept -> ex::task<move_only_type> {
+                           co_return move_only_type{v.val * 3};
+                       }(std::move(v));
+                   }) //
+                   | ex::then([](move_only_type v) noexcept { return v.val * 2; });
+        auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
+        EXPECT(ret == 12);
+    };
+
+    TEST("let_value with move_construction_only_type") = [] {
+        auto snd =
+            ex::just(move_construction_only_type(1)) //
+            | ex::then([](move_construction_only_type v) noexcept {
+                  return move_construction_only_type{v.val * 2};
+              }) //
+            | ex::let_value([](move_construction_only_type &v) noexcept {
+                  return [](move_construction_only_type v) noexcept
+                             -> ex::task<move_construction_only_type> {
+                      co_return move_construction_only_type{v.val * 3};
+                  }(std::move(v));
+              }) //
+            | ex::then([](move_construction_only_type v) noexcept { return v.val * 2; });
+        auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
+        EXPECT(ret == 12);
+    };
+
     return 0;
 }
