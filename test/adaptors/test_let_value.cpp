@@ -1,7 +1,6 @@
 
 #include "../test_base_head.hpp"
 #include <cassert>
-#include <cstring>
 #include <memory>
 #include <string_view>
 #include <variant>
@@ -517,6 +516,7 @@ int main()
         op_type ops2;
 
         // NOTE: emplace_from 仅仅是标记的语法，零抽象开销。增强语义和可读性，代码就是注释
+        // NOTE: RVO: 让 mkop2()的结果，原地再 ops2 构造生成。no cocp and no move
         auto &ref = ops2.template emplace<decltype(mkop2())>(emplace_from{mkop2});
         EXPECT(called);
         EXPECT(ref.val == 1);
