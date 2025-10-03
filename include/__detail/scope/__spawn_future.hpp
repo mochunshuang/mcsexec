@@ -108,7 +108,8 @@ namespace mcs::execution::scope
         template <snd::sender Sndr, scope::async_scope_token Token>
         auto operator()(Sndr &&sndr, Token &&token) const noexcept
         {
-            return this(std::forward(sndr), std::forward<Token>(token), empty_env{});
+            return operator()(std::forward(sndr), std::forward<Token>(token),
+                              empty_env{});
         }
     };
     inline constexpr spawn_future_t spawn_future{}; // NOLINT
