@@ -65,6 +65,19 @@ struct move_construction_only_type
     int val; // NOLINT
 };
 
+struct no_copy_and_movable_type
+{
+    explicit no_copy_and_movable_type(int v) : val(v) {}
+    ~no_copy_and_movable_type() = default;
+
+    no_copy_and_movable_type(const no_copy_and_movable_type &) = delete;
+    no_copy_and_movable_type &operator=(const no_copy_and_movable_type &) = delete;
+
+    no_copy_and_movable_type &operator=(no_copy_and_movable_type &&) = default;
+    no_copy_and_movable_type(no_copy_and_movable_type &&) = default;
+    int val; // NOLINT
+};
+
 struct copy_and_movable_type
 {
     explicit copy_and_movable_type(int v) : val(v) {}

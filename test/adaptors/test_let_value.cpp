@@ -4,6 +4,7 @@
 #include <cstring>
 #include <memory>
 #include <string_view>
+#include <variant>
 
 int main()
 {
@@ -501,6 +502,24 @@ int main()
             | ex::then([](move_construction_only_type v) noexcept { return v.val * 2; });
         auto [ret] = mcs::this_thread::sync_wait(std::move(snd)).value();
         EXPECT(ret == 12);
+    };
+
+    // emplace_from
+    TEST("emplace_from") = [] {
+        using T = no_copy_and_movable_type;
+        using ex::snd::general::emplace_from;
+        bool called = false;
+        auto mkop2 = [&]() {
+            called = true;
+            return T{1};
+        };
+        using op_type = std::variant<std::monostate, T>;
+        op_type ops2;
+
+        // NOTE: emplace_from 仅仅是标记的语法，零抽象开销。增强语义和可读性，代码就是注释
+        auto &ref = ops2.template emplace<decltype(mkop2())>(emplace_from{mkop2});
+        EXPECT(called);
+        EXPECT(ref.val == 1);
     };
 
     return 0;
