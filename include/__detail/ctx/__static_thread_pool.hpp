@@ -71,17 +71,23 @@ namespace mcs::execution::ctx
                            run_loop.state.load() == run_loop::State::running)
                     {
                         // Note: overwrite run_loop::pop_front(). wake by push_back notify
-                        std::unique_lock lk(run_loop.mtx);
-                        run_loop.cv.wait(lk, [this] {
-                            return run_loop.head != nullptr ||
-                                   run_loop.state.load() == run_loop::State::finishing;
-                        });
-                        if (run_loop.head != nullptr)
+                        decltype(run_loop.head) task{nullptr};
                         {
-                            std::exchange(run_loop.head, run_loop.head->next)->execute();
-                            if (run_loop.head == nullptr)
-                                run_loop.tail = nullptr;
+                            std::unique_lock lk(run_loop.mtx);
+                            run_loop.cv.wait(lk, [this] {
+                                return run_loop.head != nullptr ||
+                                       run_loop.state.load() ==
+                                           run_loop::State::finishing;
+                            });
+                            if (run_loop.head != nullptr)
+                            {
+                                task = std::exchange(run_loop.head, run_loop.head->next);
+                                if (run_loop.head == nullptr)
+                                    run_loop.tail = nullptr;
+                            }
                         }
+                        if (task)
+                            task->execute();
                     }
                     // Note: Clean up the remaining work
                     while (not stoken.stop_requested() && run_loop.head != nullptr)
