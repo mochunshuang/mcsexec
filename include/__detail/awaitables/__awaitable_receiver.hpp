@@ -37,7 +37,7 @@ namespace mcs::execution
 
             template <class... Vs>
             void set_value(Vs &&...vs) && noexcept // NOLINT
-                requires ::std::constructible_from<result_type, decltype((vs))...>
+                requires ::std::constructible_from<result_type, Vs &&...>
             {
                 try
                 {
