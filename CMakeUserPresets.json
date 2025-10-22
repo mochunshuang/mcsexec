@@ -29,7 +29,7 @@
             "cacheVariables": {
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/",
                 "CMAKE_CXX_COMPILER": "D:/mysoftware/LLVM_clang_19.1/LLVM/bin/clang.exe",
-                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_MAKE_PROGRAM": "D:/mysoftware/ninja-win/ninja.exe"
             }
         },

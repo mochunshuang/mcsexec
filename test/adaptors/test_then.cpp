@@ -175,5 +175,50 @@ int main()
         // }
     };
 
+    TEST("then and then") = [] {
+        {
+            auto snd = ex::just() | ex::then([]() {
+                           {
+                               auto [ret] = mcs::this_thread::sync_wait(
+                                                ex::just() | ex::then([] { return 0; }))
+                                                .value();
+                               EXPECT(ret == 0);
+                           }
+                           {
+                               auto [ret] = mcs::this_thread::sync_wait(
+                                                ex::just() | ex::then([] { return 1; }))
+                                                .value();
+                               EXPECT(ret == 1);
+                           }
+                           return 2;
+                       });
+            auto [ret] = mcs::this_thread::sync_wait(snd).value();
+            EXPECT(ret == 2);
+        }
+        {
+            ex::static_thread_pool<1> pool;
+
+            auto snd = ex::just() | ex::then([&]() {
+                           {
+                               auto [ret] = mcs::this_thread::sync_wait(
+                                                ex::schedule(pool.get_scheduler()) |
+                                                ex::then([] { return 0; }))
+                                                .value();
+                               EXPECT(ret == 0);
+                           }
+                           {
+                               auto [ret] = mcs::this_thread::sync_wait(
+                                                ex::schedule(pool.get_scheduler()) |
+                                                ex::then([] { return 1; }))
+                                                .value();
+                               EXPECT(ret == 1);
+                           }
+                           return 2;
+                       });
+            auto [ret] = mcs::this_thread::sync_wait(snd).value();
+            EXPECT(ret == 2);
+        }
+    };
+
     return 0;
 }
