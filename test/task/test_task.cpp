@@ -297,8 +297,8 @@ int main()
                         std::cout
                             << "before co_await thread_id: " << std::this_thread::get_id()
                             << '\n';
-                        assert(not start_pool[0]
-                                       .is_waiting_task_state()); // NOTE: 还在执行任务中
+                        assert(start_pool[0]
+                                   .is_waiting_task_state()); // NOTE: 还在执行任务中
                         [[maybe_unused]] auto ret = co_await (
                             ex::schedule(pool[0].get_scheduler()) |
                             ex::then([&]() noexcept {

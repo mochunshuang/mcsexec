@@ -37,8 +37,8 @@ struct my_coroutine
             return {};
         }
 
-        T value;
-        T return_value_;
+        T value{-1};
+        T return_value_{-1};
     };
 
     // NOTE: core: promise_type +
@@ -83,6 +83,7 @@ struct AsyncAwaiter
     // NOTE: 第二次调度的时候 await_resume 会被调用
     auto await_resume()
     {
+        // NOTE: ready == true 将不会修改 h.promise().value 的值
         std::cout << "await_resume\n";
         return std::to_string(value + 1);
     }
@@ -119,7 +120,10 @@ int main()
         auto coro = task<true>();
         std::cout << "coro.resume()\n";
         coro.resume();
-        assert(coro.handle.promise().value == 10);
+
+        std::cout << "coro.handle.promise().value: " << coro.handle.promise().value
+                  << '\n';
+        assert(coro.handle.promise().value == -1);
 
         // std::cout << "coro.resume()\n";
         // NOTE: 因此 co_await 不保证 增加 resume() 次数
