@@ -38,7 +38,7 @@ auto_add_test_by_dir("sched")
 # COMMENT "Running all tests"
 # DEPENDS all
 # )
-add_executable(no_add_test ${CMAKE_SOURCE_DIR}/test/no_add_test/void_T4.cpp)
+add_executable(no_add_test ${CMAKE_SOURCE_DIR}/test/no_add_test/void_T3.cpp)
 target_compile_features(no_add_test PRIVATE cxx_std_23)
 
 if(false)
