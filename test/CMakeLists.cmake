@@ -14,19 +14,20 @@ auto_add_exec("exec")
 # add_executable(test_ut ${CMAKE_SOURCE_DIR}/test/hello/test_ut.cpp)
 # add_test(NAME test_ut COMMAND $<TARGET_FILE:test_ut>)
 auto_add_test_by_dir("hello")
-auto_add_test_by_dir("recv")
+
 auto_add_test_by_dir("adaptors")
-auto_add_test_by_dir("factories")
-auto_add_test_by_dir("cmplsigs")
-auto_add_test_by_dir("consumers")
 auto_add_test_by_dir("awaitables")
+auto_add_test_by_dir("cmplsigs")
 auto_add_test_by_dir("concept")
-auto_add_test_by_dir("queries")
-auto_add_test_by_dir("task")
-auto_add_test_by_dir("stop_token")
+auto_add_test_by_dir("consumers")
 auto_add_test_by_dir("diagnostics")
-auto_add_test_by_dir("scope")
+auto_add_test_by_dir("factories")
+auto_add_test_by_dir("queries")
+auto_add_test_by_dir("recv")
 auto_add_test_by_dir("sched")
+auto_add_test_by_dir("scope")
+auto_add_test_by_dir("stop_token")
+auto_add_test_by_dir("task")
 
 # 定义自定义命令，用于构建所有目标：注意，要在build目录下
 # 等价于：E:/0_github_project/mcsexec/mcsexec/build> ctest --parallel 16 -C Debug
@@ -38,7 +39,7 @@ auto_add_test_by_dir("sched")
 # COMMENT "Running all tests"
 # DEPENDS all
 # )
-add_executable(no_add_test ${CMAKE_SOURCE_DIR}/test/no_add_test/void_T3.cpp)
+add_executable(no_add_test ${CMAKE_SOURCE_DIR}/test/no_add_test/any_interface2.cpp)
 target_compile_features(no_add_test PRIVATE cxx_std_23)
 
 if(false)

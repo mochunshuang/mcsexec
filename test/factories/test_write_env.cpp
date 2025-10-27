@@ -158,7 +158,8 @@ int main()
         auto sched = pool.get_scheduler();
 
         auto sndr = ex::schedule(sched);
-        auto s = ex::get_scheduler(sndr.get_env());
+        // NOTE: get_completion_scheduler 和  get_scheduler 是不一样的。 Q的tag不一样
+        auto s = ex::get_completion_scheduler<ex::set_value_t>(sndr.get_env());
         using T = decltype(s);
         static_assert(std::is_same_v<mcs::execution::ctx::run_loop::scheduler, T>);
 
@@ -167,7 +168,7 @@ int main()
                                 ex::prop(ex::get_stop_token, ex::never_stop_token()));
 
         // NOTE: 那么 核心来了。 S3 还能找到 scheduler 这个信息吗？
-        auto e = ex::get_scheduler(s3.get_env());
+        auto e = ex::get_completion_scheduler<ex::set_value_t>(s3.get_env());
         static_assert(
             std::is_same_v<mcs::execution::ctx::run_loop::scheduler, decltype(e)>);
         auto e2 = ex::get_stop_token(s3.get_env());

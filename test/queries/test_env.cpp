@@ -138,12 +138,13 @@ int main()
             static_assert(
                 std::is_same_v<decltype(e), ex::run_loop::scheduler::sender::env>);
 
-            auto sched = ex::queries::get_scheduler(e);
+            auto sched = ex::queries::get_completion_scheduler<ex::set_value_t>(e);
             EXPECT(sched == pool.get_scheduler());
 
             auto then = sndr | ex::then([] {});
             auto then_e = ex::get_env(then);
-            auto then_sched = ex::queries::get_scheduler(then_e);
+            auto then_sched =
+                ex::queries::get_completion_scheduler<ex::set_value_t>(then_e);
 
             EXPECT(sched == then_sched); // NOTE 转发成功
 
@@ -151,7 +152,7 @@ int main()
                           ex::then([] {}) | ex::then([] {}) | ex::then([] {}) |
                           ex::then([] {}) | ex::then([] {}) | ex::then([] {});
             auto env = ex::get_env(sndrrr);
-            EXPECT(sched == ex::queries::get_scheduler(env));
+            EXPECT(sched == ex::queries::get_completion_scheduler<ex::set_value_t>(env));
 
             static_assert(
                 not std::is_same_v<decltype(env), ex::run_loop::scheduler::sender::env>);
