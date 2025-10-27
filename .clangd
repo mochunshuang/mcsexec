@@ -59,7 +59,7 @@ Diagnostics:
       # 常量
       readability-identifier-naming.ConstantCase: lower_case
       readability-identifier-naming.ConstantPrefix: k_
-      readability-identifier-naming.EnumCase: UPPER_CASE
+      readability-identifier-naming.EnumCase: UPPER_CASE,lower_case
       readability-identifier-naming.EnumConstantCase: UPPER_CASE
       # 宏定义
       readability-identifier-naming.MacroDefinitionCase: UPPER_CASE

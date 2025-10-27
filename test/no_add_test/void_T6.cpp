@@ -629,7 +629,7 @@ class TrackingAllocator
 
     TrackingAllocatorState *state;
 
-    TrackingAllocator() : state(new TrackingAllocatorState()) {}
+    TrackingAllocator() : state() {}
 
     TrackingAllocator(const TrackingAllocator &other) : state(other.state) {}
 

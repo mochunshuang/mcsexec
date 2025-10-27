@@ -41,7 +41,7 @@ namespace mcs::execution
 
                 // NOTE: 指定 inline_state 做实际操作
                 template <receiver Rcvr>
-                auto connect(Rcvr rcvr) noexcept(noexcept(auto(rcvr)))
+                constexpr auto connect(Rcvr rcvr) noexcept(noexcept(auto(rcvr)))
                     -> inline_state<std::decay_t<Rcvr>>
                 {
                     return {std::move(rcvr)};

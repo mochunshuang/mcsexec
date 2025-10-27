@@ -2,17 +2,43 @@
 
 #include "../../test_base_head.hpp"
 #include <algorithm>
+#include <bit>
+#include <cstddef>
 #include <utility>
 
 namespace mcs::execution::task_v2
 {
     namespace __detail
     {
-        struct schedule_wraper
+
+        template <typename Sch>
+        struct schedule_model
         {
-            using schedule_callback = int;
+            struct storage_ops
+            {
+                void *(*get_object)(void *storage) noexcept;
+                void (*destroy)(void *storage) noexcept;
+                void (*copy_construct)(void *dest, const void *src);
+                void (*move_construct)(void *dest, void *src) noexcept;
+                bool (*uses_heap_storage)() noexcept;
+            };
+        };
+
+        template <std::size_t size = 3 * sizeof(void *),
+                  std::size_t align = alignof(std::max_align_t)>
+        struct storage_schedule
+        {
+            static constexpr std::size_t BUFFER_SIZE = size;   // NOLINT
+            static constexpr std::size_t BUFFER_ALIGN = align; // NOLINT
+            union storage_union {
+                alignas(BUFFER_ALIGN) std::byte stack_buffer[BUFFER_SIZE]; // NOLINT
+                void *heap_ptr;
+            };
+
+            storage_union storage_; // NOLINT
         };
     }; // namespace __detail
+
     // [exec.task.scheduler]
     class task_scheduler // NOLINT
     {
@@ -62,10 +88,10 @@ namespace mcs::execution::task_v2
       public:
         using scheduler_concept = scheduler_t;
 
-        template <class Sch>
+        template <class Sch, class Allocator = std::allocator<std::byte>>
             requires(!std::same_as<task_scheduler, std::remove_cvref_t<Sch>>) &&
                     scheduler<Sch>
-        constexpr explicit task_scheduler(Sch sch) noexcept {};
+        explicit task_scheduler(Sch &&sch, Allocator alloc = {});
 
         sender schedule();
 
@@ -76,7 +102,7 @@ namespace mcs::execution::task_v2
         friend bool operator==(const task_scheduler &lhs, const Sch &rhs) noexcept;
 
       private:
-        // shared_ptr<void> sch_; // exposition only
+        __detail::storage_schedule<> sch_; // exposition only
     };
 
     // static_assert(mcs::execution::scheduler<task_scheduler>);

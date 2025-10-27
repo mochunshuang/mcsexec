@@ -700,13 +700,16 @@ int main()
         // assert(sndr == sndr2);
         // NOTE: 目前确实可以添加。 语法也正确。但是没变化，想改变或许依赖定义 ex::lazy
         // 第三参数。感觉设计失败
+        // NOTE: get_completion_scheduler 和  get_scheduler 是不一样的。 Q的tag不一样
         ex::sched::scheduler auto sched =
-            ex::queries::get_scheduler(ex::queries::get_env(sndr));
+            ex::queries::get_completion_scheduler<ex::set_value_t>(
+                ex::queries::get_env(sndr));
         [[maybe_unused]] auto snd = ex::starts_on(sched, ex::just());
         {
             ex::sched::scheduler auto sched2 =
-                ex::queries::get_scheduler(ex::queries::get_env(
-                    sndr | ex::then([]() { return; }) | ex::then([]() { return 1; })));
+                ex::queries::get_completion_scheduler<ex::set_value_t>(
+                    ex::queries::get_env(sndr | ex::then([]() { return; }) |
+                                         ex::then([]() { return 1; })));
 
             assert(sched == sched2);
         }
