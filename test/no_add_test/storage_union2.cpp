@@ -7,6 +7,11 @@
 #include <type_traits>
 #include <utility>
 
+#include <vector>
+#include <cassert>
+#include <array>
+#include <cstring>
+
 // NOLINTBEGIN
 
 struct set_value_t;
@@ -207,6 +212,9 @@ struct any_storage
         void (*copy_construct)(any_storage *dest, const any_storage *src);
         void (*move_construct)(any_storage *dest, any_storage *src) noexcept;
         void (*move_destroy)(any_storage *src) noexcept;
+        bool (*equals)(const any_storage *a, const any_storage *b) noexcept;
+        const std::type_info &(*type_info_T)() noexcept;
+        const std::type_info &(*type_info_Allocator)() noexcept;
     };
 
     allocator_storage_type allocator_;
@@ -381,13 +389,111 @@ struct any_storage
         }
     }
 
+    // 类型信息函数
+    template <typename T>
+    static const std::type_info &type_info_T_impl() noexcept
+    {
+        return typeid(T);
+    }
+
+    template <typename Allocator>
+    static const std::type_info &type_info_Allocator_impl() noexcept
+    {
+        return typeid(Allocator);
+    }
+
+    // 相等比较操作符
+    friend bool operator==(const any_storage &a, const any_storage &b) noexcept
+    {
+        // 1. 如果两个都是空的，相等
+        if (!a.ops_ && !b.ops_)
+            return true;
+
+        // 2. 如果只有一个为空，不相等
+        if (!a.ops_ || !b.ops_)
+            return false;
+
+        // 3. 比较类型信息
+        if (a.ops_->type_info_T() != b.ops_->type_info_T() ||
+            a.ops_->type_info_Allocator() != b.ops_->type_info_Allocator())
+            return false;
+
+        // 4. 类型完全相同，调用具体的比较函数
+        return a.ops_->equals(&a, &b);
+    }
+    friend bool operator!=(const any_storage &a, const any_storage &b) noexcept
+    {
+        return !(a == b);
+    }
+
+    // 获取类型信息
+    constexpr const std::type_info &stored_type() const noexcept
+    {
+        if (!ops_)
+            return typeid(void);
+        return ops_->type_info_T();
+    }
+
+    constexpr const std::type_info &allocator_type() const noexcept
+    {
+        if (!ops_)
+            return typeid(void);
+        return ops_->type_info_Allocator();
+    }
+
+    // 相等比较实现
+    template <typename T, typename Allocator>
+    constexpr static bool equals_impl(const any_storage *a, const any_storage *b) noexcept
+    {
+        if constexpr (std::is_empty_v<T>)
+            return true;
+        else
+        {
+            const T *obj_a = nullptr;
+            const T *obj_b = nullptr;
+
+            if constexpr (is_small<T>())
+            {
+                obj_a = a->template as_small<T>();
+                obj_b = b->template as_small<T>();
+            }
+            else
+            {
+                obj_a = a->template as_large<T>();
+                obj_b = b->template as_large<T>();
+            }
+            if (!obj_a || !obj_b)
+                return false;
+
+            // 智能比较策略
+            if constexpr (requires { *obj_a == *obj_b; })
+            {
+                return *obj_a == *obj_b;
+            }
+            else if constexpr (std::is_trivially_copyable_v<T> && is_small<T>())
+            {
+                // 平凡可复制的小对象：比较内存内容
+                return std::memcmp(obj_a, obj_b, sizeof(T)) == 0;
+            }
+            else
+            {
+                // 其他情况：比较指针（相同对象才相等）
+                return obj_a == obj_b;
+            }
+        }
+    }
+
     template <typename T, typename Allocator>
     static constexpr storage_ops create_ops() noexcept
     {
         return storage_ops{.destroy = &destroy_impl<T, Allocator>,
                            .copy_construct = &copy_construct_impl<T, Allocator>,
                            .move_construct = &move_construct_impl<T, Allocator>,
-                           .move_destroy = &move_destroy_impl<T, Allocator>};
+                           .move_destroy = &move_destroy_impl<T, Allocator>,
+                           .equals = &equals_impl<T, Allocator>,
+                           .type_info_T = &type_info_T_impl<std::decay_t<T>>,
+                           .type_info_Allocator =
+                               &type_info_Allocator_impl<std::decay_t<Allocator>>};
     }
 
     template <typename Obj, typename Allocator>
@@ -510,25 +616,25 @@ struct any_storage
     }
 };
 
-template <std::size_t size = 3 * sizeof(void *), size_t align = alignof(std::max_align_t)>
+template <std::size_t size = 1 * sizeof(void *), size_t align = alignof(std::max_align_t)>
 struct scheduler_storage : any_storage<size, align, "Sch">
 {
     using any_storage<size, align, "Sch">::any_storage;
 };
 
-template <std::size_t size = 3 * sizeof(void *), size_t align = alignof(std::max_align_t)>
+template <std::size_t size = 1 * sizeof(void *), size_t align = alignof(std::max_align_t)>
 struct sender_storage : any_storage<size, align, "Sndr">
 {
     using any_storage<size, align, "Sndr">::any_storage;
 };
 
-template <std::size_t size = 5 * sizeof(void *), size_t align = alignof(std::max_align_t)>
+template <std::size_t size = 8 * sizeof(void *), size_t align = alignof(std::max_align_t)>
 struct operation_storage : any_storage<size, align, "Oper">
 {
     using any_storage<size, align, "Oper">::any_storage;
 };
 
-template <std::size_t size = 2 * sizeof(void *), size_t align = alignof(std::max_align_t)>
+template <std::size_t size = 1 * sizeof(void *), size_t align = alignof(std::max_align_t)>
 struct receiver_storage : any_storage<size, align, "Recv">
 {
     using any_storage<size, align, "Recv">::any_storage;
@@ -605,6 +711,11 @@ struct receiver_any
         {
             recv->set_error(ec);
         }
+        else
+        {
+            std::cout << "recv->set_error(std::error_code{e}) invalid.\n";
+            std::terminate();
+        }
     }
     template <typename R>
     constexpr static void set_error_impl2(void *recv_storage,
@@ -614,6 +725,11 @@ struct receiver_any
         if constexpr (requires() { recv->set_error(e); })
         {
             recv->set_error(e);
+        }
+        else
+        {
+            std::cout << "recv->set_error(std::exception_ptr{e}) invalid.\n";
+            std::terminate();
         }
     }
 
@@ -765,6 +881,11 @@ struct scheduler_any
             constexpr concrete_operation(Sndr *sndr, R &&recv) noexcept
                 : op_(sndr->connect(std::move(recv)))
             {
+                std::cout << ">>>> concrete_operation 大小: " << sizeof(*this) << " 字节"
+                          << std::endl;
+                std::cout << "op_type 大小: " << sizeof(op_type) << " 字节" << std::endl;
+                std::cout << "operation_storage 缓冲区大小: "
+                          << operation_storage<>::buffer_size << " 字节" << std::endl;
             }
             constexpr void start() & noexcept
             {
@@ -795,12 +916,43 @@ struct scheduler_any
     {
         if (lhs.vtable_ != rhs.vtable_)
             return false;
-        return true; // NOTE: 得实现全部的再说
+        return lhs.sch_ == rhs.sch_;
     }
 
     template <class Sch>
         requires(!std::same_as<sender_any, Sch>)
-    friend bool operator==(const scheduler_any &lhs, const Sch &rhs) noexcept;
+    friend bool operator==(const scheduler_any &lhs, const Sch &rhs) noexcept
+    {
+        using StoredType = std::decay_t<Sch>;
+
+        // 类型检查和获取存储对象
+        if (lhs.sch_.stored_type() == typeid(void) ||
+            lhs.sch_.stored_type() != typeid(StoredType))
+        {
+            return false;
+        }
+
+        const StoredType *stored = nullptr;
+        if constexpr (scheduler_storage_type::is_small<StoredType>())
+        {
+            stored = lhs.sch_.template as_small<StoredType>();
+        }
+        else
+        {
+            stored = lhs.sch_.template as_large<StoredType>();
+        }
+
+        if (!stored)
+            return false;
+
+        // 编译期检查 operator== 是否存在
+        static_assert(
+            requires { *stored == rhs; },
+            "Type must implement operator== for comparison with scheduler_any");
+
+        // 运行时比较
+        return *stored == rhs;
+    }
 
   private:
     template <class Sch, typename Allocator>
@@ -852,12 +1004,68 @@ struct my_receiver
 void test_any_storage_memory_safety();
 
 // 在 main 函数中调用测试
+
+struct my_scheduler : scheduler
+{
+    int v = 0;
+
+    friend bool operator==(const my_scheduler &lhs, const my_scheduler &rhs) noexcept
+    {
+        return lhs.v == rhs.v;
+    }
+
+    friend bool operator!=(const my_scheduler &lhs, const my_scheduler &rhs) noexcept
+    {
+        return !(lhs == rhs);
+    }
+};
+
+struct my_scheduler2 : scheduler
+{
+    int *v = nullptr;
+
+    friend bool operator==(const my_scheduler2 &lhs, const my_scheduler2 &rhs) noexcept
+    {
+        return lhs.v == rhs.v;
+    }
+
+    friend bool operator!=(const my_scheduler2 &lhs, const my_scheduler2 &rhs) noexcept
+    {
+        return !(lhs == rhs);
+    }
+};
+
 int main()
 {
     std::cout << "=== 开始测试 scheduler_any ===\n";
 
     scheduler_any any{scheduler{}};
     auto sndr = any.schedule();
+    {
+        assert(typeid(int) == typeid(int &));
+        assert(typeid(my_scheduler) == typeid(my_scheduler &));
+        assert(typeid(my_scheduler) == typeid(const my_scheduler &));
+        assert(typeid(my_scheduler) != typeid(my_scheduler *));
+
+        scheduler_any any2{scheduler{}};
+        assert(any == any2); // empty
+        assert(any2 == any2);
+
+        scheduler_any any3{my_scheduler{.v = 1}};
+        scheduler_any any4{my_scheduler{}};
+        assert(any2 != any3);
+        assert(any4 != any3);
+
+        assert(any3 == my_scheduler{.v = 1});
+        assert(any3 != my_scheduler{.v = 2});
+
+        int a = 0;
+        int b = 0;
+        scheduler_any any5{my_scheduler2{.v = &a}};
+        assert(any5 == scheduler_any{my_scheduler2{.v = &a}});
+        assert(any5 != scheduler_any{my_scheduler2{.v = &b}});
+        assert(any5 != any3);
+    }
 
     my_receiver recv;
     auto op = sndr.connect(recv);
@@ -874,11 +1082,6 @@ int main()
 
     return 0;
 }
-
-#include <vector>
-#include <memory>
-#include <cassert>
-#include <array>
 
 // 测试用的小对象（适合栈存储）
 struct SmallObject
