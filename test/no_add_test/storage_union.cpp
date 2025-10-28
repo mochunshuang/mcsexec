@@ -640,28 +640,31 @@ struct scheduler_any
         };
         const vtable_t *sndr_vtable_;
         sender_storage_type sndr_;
+        scheduler_any *scheduler_;
 
         template <typename Sndr, typename Allocator>
-        constexpr sender_any(Sndr &&sndr, Allocator &&alloc)
+        constexpr sender_any(Sndr &&sndr, Allocator &&alloc, scheduler_any *sch)
             : sndr_vtable_{create_sender_vtable<Sndr, Allocator>()},
-              sndr_{std::forward<Sndr>(sndr), std::forward<Allocator>(alloc)}
+              sndr_{std::forward<Sndr>(sndr), std::forward<Allocator>(alloc)},
+              scheduler_{sch}
         {
         }
 
         struct env
         {
+            const sender_any *sndr_;
 
             [[nodiscard]] constexpr auto query( // NOLINT
                 get_completion_scheduler_t<set_value_t> /*unused*/) const noexcept
             {
-                // return task_scheduler{};
+                return *(sndr_->scheduler_);
             }
         };
 
         // NOLINTNEXTLINE
         [[nodiscard]] constexpr auto get_env() const noexcept -> env
         {
-            return {};
+            return {this};
         }
 
         template <typename R>
@@ -712,13 +715,13 @@ struct scheduler_any
 
     struct vtable_t
     {
-        sender_any (*schedule)(void *sched_storage) noexcept;
+        sender_any (*schedule)(void *sched_storage, scheduler_any *sch) noexcept;
     };
 
     constexpr sender_any schedule() noexcept
     {
         std::cout << "scheduler_any schedule() called\n";
-        return vtable_->schedule(&sch_);
+        return vtable_->schedule(&sch_, this);
     }
 
     template <class Sch, typename Allocator = std::allocator<std::byte>>
@@ -748,11 +751,12 @@ struct scheduler_any
     }
 
     template <class Sch, typename Allocator>
-    constexpr static sender_any schedule_impl(void *sched_storage) noexcept
+    constexpr static sender_any schedule_impl(void *sched_storage,
+                                              scheduler_any *sch) noexcept
     {
         auto *sched = scheduler_storage_type::get_pointer<Sch>(sched_storage);
         auto *alloc = scheduler_storage_type::get_allocator<Allocator>(sched_storage);
-        return sender_any(sched->schedule(), Allocator{*alloc});
+        return sender_any(sched->schedule(), Allocator{*alloc}, sch);
     }
 
     const vtable_t *vtable_;
@@ -773,6 +777,14 @@ struct my_receiver
     void set_stopped()
     {
         std::cout << "my_receiver set_stopped()\n";
+    }
+
+    [[nodiscard]] constexpr auto get_env() const noexcept
+    {
+        struct empty_env
+        {
+        };
+        return empty_env{};
     }
 };
 
