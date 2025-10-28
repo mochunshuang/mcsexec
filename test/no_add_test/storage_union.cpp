@@ -509,22 +509,79 @@ struct operation_storage : any_storage<size, align, "Oper">
     using any_storage<size, align, "Oper">::any_storage;
 };
 
-// sender_any 的签名是固定的，签名可以确定。但是 env_t呢？
-// NOTE: 类型擦除，总得手动还原....。 就是 env_any 也解决不了返回值传递的过程
-// NOTE: 如果  receiver 内部有成员呢？ 总之具体类型，替换，替代模板参数R是错误的
+template <std::size_t size = 3 * sizeof(void *), size_t align = alignof(std::max_align_t)>
+struct receiver_storage : any_storage<size, align, "Recv">
+{
+    using any_storage<size, align, "Recv">::any_storage;
+};
+
+// 类型擦除的 receiver
 struct receiver_any
 {
+    struct vtable_t
+    {
+        void (*set_value)(void *recv_storage) noexcept;
+        void (*set_error)(void *recv_storage, std::error_code) noexcept;
+        void (*set_stopped)(void *recv_storage) noexcept;
+    };
+
+    const vtable_t *recv_vtable_;
+    receiver_storage<> recv_storage_;
+
+    template <typename R, typename Allocator = std::allocator<std::byte>>
+    constexpr receiver_any(R &&recv, Allocator alloc = Allocator{})
+        : recv_vtable_{create_receiver_vtable<R>()},
+          recv_storage_{std::forward<R>(recv), std::forward<Allocator>(alloc)}
+    {
+    }
+
     void set_value()
     {
-        std::cout << "receiver set_value()\n";
+        std::cout << "receiver_any set_value()\n";
+        recv_vtable_->set_value(&recv_storage_);
     }
-    void set_error(std::error_code)
+
+    void set_error(std::error_code ec)
     {
-        std::cout << "receiver set_error()\n";
+        std::cout << "receiver_any set_error()\n";
+        recv_vtable_->set_error(&recv_storage_, ec);
     }
+
     void set_stopped()
     {
-        std::cout << "receiver set_stopped()\n";
+        std::cout << "receiver_any set_stopped()\n";
+        recv_vtable_->set_stopped(&recv_storage_);
+    }
+
+  private:
+    template <typename R>
+    constexpr static vtable_t *create_receiver_vtable()
+    {
+        static vtable_t vt = {.set_value = &set_value_impl<R>,
+                              .set_error = &set_error_impl<R>,
+                              .set_stopped = &set_stopped_impl<R>};
+        return &vt;
+    }
+
+    template <typename R>
+    constexpr static void set_value_impl(void *recv_storage) noexcept
+    {
+        R *recv = receiver_storage<>::get_pointer<R>(recv_storage);
+        recv->set_value();
+    }
+
+    template <typename R>
+    constexpr static void set_error_impl(void *recv_storage, std::error_code ec) noexcept
+    {
+        R *recv = receiver_storage<>::get_pointer<R>(recv_storage);
+        recv->set_error(ec);
+    }
+
+    template <typename R>
+    constexpr static void set_stopped_impl(void *recv_storage) noexcept
+    {
+        R *recv = receiver_storage<>::get_pointer<R>(recv_storage);
+        recv->set_stopped();
     }
 };
 
@@ -533,6 +590,7 @@ struct scheduler_any
     using scheduler_storage_type = scheduler_storage<>;
     using sender_storage_type = sender_storage<>;
     using operation_storage_type = operation_storage<>;
+    using receiver_storage_type = receiver_storage<>;
 
     struct operation_any
     {
@@ -578,7 +636,7 @@ struct scheduler_any
     {
         struct vtable_t
         {
-            operation_any (*connect)(void *sndr_storage, receiver_any &&recv) noexcept;
+            operation_any (*connect_info)(void *sndr_storage, void *recv) noexcept;
         };
         const vtable_t *sndr_vtable_;
         sender_storage_type sndr_;
@@ -588,13 +646,6 @@ struct scheduler_any
             : sndr_vtable_{create_sender_vtable<Sndr, Allocator>()},
               sndr_{std::forward<Sndr>(sndr), std::forward<Allocator>(alloc)}
         {
-        }
-
-        template <typename R>
-        constexpr auto connect(R) noexcept -> operation_any
-        {
-            std::cout << "sender_any connect() called\n";
-            return sndr_vtable_->connect(&sndr_, receiver_any{});
         }
 
         struct env
@@ -613,22 +664,33 @@ struct scheduler_any
             return {};
         }
 
+        template <typename R>
+        constexpr auto connect(R r) noexcept -> operation_any
+        {
+            std::cout << "sender_any connect() called\n";
+            // 创建类型擦除的 receiver
+            receiver_any recv_any{std::move(r)};
+            return sndr_vtable_->connect_info(&sndr_, &recv_any);
+        }
+
       private:
         template <typename Sndr, typename Allocator>
         constexpr static vtable_t *create_sender_vtable()
         {
-            static vtable_t vt = {.connect = &connect_impl<Sndr, Allocator>};
+            static vtable_t vt = {.connect_info = &connect_impl<Sndr, Allocator>};
             return &vt;
         }
 
         template <typename Sndr, typename Allocator>
         constexpr static operation_any connect_impl(void *sndr_storage,
-                                                    receiver_any &&recv) noexcept
+                                                    void *recv) noexcept
         {
             Sndr *sndr = sender_storage_type::get_pointer<Sndr>(sndr_storage);
             auto *alloc = sender_storage_type::get_allocator<Allocator>(sndr_storage);
+            auto *r = static_cast<receiver_any *>(recv);
+
             using concrete = concrete_operation<Sndr, receiver_any>;
-            return operation_any(concrete{sndr, std::move(recv)}, Allocator{*alloc});
+            return operation_any(concrete{sndr, std::move(*r)}, Allocator{*alloc});
         }
 
         template <typename Sndr, typename R>
@@ -697,6 +759,23 @@ struct scheduler_any
     scheduler_storage_type sch_;
 };
 
+// 测试用的具体 receiver
+struct my_receiver
+{
+    void set_value()
+    {
+        std::cout << "my_receiver set_value()\n";
+    }
+    void set_error(std::error_code)
+    {
+        std::cout << "my_receiver set_error()\n";
+    }
+    void set_stopped()
+    {
+        std::cout << "my_receiver set_stopped()\n";
+    }
+};
+
 int main()
 {
     std::cout << "=== 开始测试 scheduler_any ===\n";
@@ -704,7 +783,7 @@ int main()
     scheduler_any any{scheduler{}};
     auto sndr = any.schedule();
 
-    receiver_any recv;
+    my_receiver recv;
     auto op = sndr.connect(recv);
 
     std::cout << "=== 开始执行 operation ===\n";
