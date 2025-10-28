@@ -1,6 +1,6 @@
 #include "../test_base_head.hpp"
 
-struct receiver
+struct receiver_any
 {
     using receiver_concept = ex::receiver_t;
     int &value; // NOLINT
@@ -19,7 +19,7 @@ struct receiver
         return {};
     }
 };
-static_assert(ex::receiver<receiver>);
+static_assert(ex::receiver<receiver_any>);
 
 int main()
 {
@@ -44,7 +44,7 @@ int main()
         auto state{
             // NOLINTNEXTLINE
             ex::connect(std::move(sched_sender) | ex::then([]() noexcept { return 17; }),
-                        receiver{value})};
+                        receiver_any{value})};
         static_assert(operation_state<decltype(state)>);
 
         assert(value == 0);
