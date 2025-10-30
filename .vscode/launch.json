@@ -82,15 +82,15 @@
             ],
             "externalConsole": true
         },
-       {
-        "name": "lldb single",
-        "type": "lldb-mi",
-        "request": "launch",
-        "target": "${fileDirname}/output/${fileBasenameNoExtension}.exe",
-        "cwd": "${workspaceRoot}",
-        "valuesFormatting": "parseText"
-       },
-       {
+        {
+            "name": "lldb single",
+            "type": "lldb-mi",
+            "request": "launch",
+            "target": "${fileDirname}/output/${fileBasenameNoExtension}.exe",
+            "cwd": "${workspaceRoot}",
+            "valuesFormatting": "parseText"
+        },
+        {
             "name": "(gdb) single",
             "type": "cppdbg",
             "request": "launch",
@@ -101,7 +101,7 @@
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
-            "miDebuggerPath": "D:/mysoftware/gcc-v14.2.0-mingw-v12.0.0-x86_64/bin/gdb.exe",
+            "miDebuggerPath": "D:/mysoftware/x86_64-14.2.0-release-posix-seh-ucrt-rt_v12/mingw64/bin/gdb.exe",
             "setupCommands": [
                 {
                     "description": "为 gdb 启用整齐打印",

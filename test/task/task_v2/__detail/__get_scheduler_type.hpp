@@ -9,7 +9,7 @@ namespace mcs::execution::task_v2::__detail
         if constexpr (requires { typename Environment::scheduler_type; })
             return std::type_identity<typename Environment::scheduler_type>{};
         else
-            return std::type_identity<task_scheduler>{}; // task_scheduler 应该是不对的
+            return std::type_identity<task_scheduler>{};
     }())::type;
 
 }; // namespace mcs::execution::task_v2::__detail

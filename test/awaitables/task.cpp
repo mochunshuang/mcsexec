@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <stdexcept>
 #include <system_error>
@@ -51,12 +52,13 @@ struct task_value_sig<void>
 // NOTE: operation_state_task 函数体统一由 connect_awaitable 定义
 // NOTE: operation_state_task 内部将: co_await std::move(sndr);
 // NOTE: std::move(sndr) -> await_transform -> task -> task::await_transform
-// NOTE: -> sender_awaitable -> await_suspend(task::handle) -> opstate::start(task_state)
-// NOTE: 一旦 task_state 完成 应该要 resume operation_state_task 进行 结果往下投递
-// NOTE: awaitable_receiver 知道 task_state 的完成，然后 continuation 继续唤醒协程
-// NOTE: 变成 sender_awaitable 然后 sndr 都固定和 awaitable_receiver 连接
-// NOTE: 即：co_await -> await_transform -> sender_awaitable，
-// NOTE: 当 sender_awaitable的操作完成，awaitable_receiver 继续 continuation8 恢复协程
+// NOTE: -> sender_awaitable -> await_suspend(task::handle) ->
+// opstate::start(task_state) NOTE: 一旦 task_state 完成 应该要 resume
+// operation_state_task 进行 结果往下投递 NOTE: awaitable_receiver 知道 task_state
+// 的完成，然后 continuation 继续唤醒协程 NOTE: 变成 sender_awaitable 然后 sndr
+// 都固定和 awaitable_receiver 连接 NOTE: 即：co_await -> await_transform ->
+// sender_awaitable， NOTE: 当 sender_awaitable的操作完成，awaitable_receiver 继续
+// continuation8 恢复协程
 template <typename T = void>
 struct task
 {
@@ -82,6 +84,7 @@ struct task
             void await_suspend(std::coroutine_handle<> /*unused*/) noexcept // NOLINT
             {
                 // NOTE: this promise operation last
+                std::cout << "promise_type:final_awaiter::await_suspend \n";
                 promise->state->complete(promise->state, promise->result);
             }
             static constexpr void await_resume() noexcept {} // NOLINT
@@ -241,9 +244,75 @@ struct task
 
 static_assert(ex::sender<task<int>>);
 
+struct my_receiver
+{
+    using receiver_concept = mcs::execution::receiver_t;
+
+    auto set_value(int v) && noexcept -> void // NOLINT
+    {
+        std::cout << "my_receiver: " << v << '\n';
+    }
+
+    template <typename E> // NOLINTNEXTLINE
+    auto set_error(E &&e) && noexcept -> void
+    {
+    }
+
+    void set_stopped() && noexcept // NOLINT
+    {
+    }
+
+    constexpr auto get_env() const noexcept // NOLINT
+    {
+        struct my_env
+        {
+        };
+        return my_env{};
+    }
+};
+static_assert(ex::receiver<my_receiver>);
+
+auto test_task() -> ::task<int>
+{
+    co_return co_await ex::just(17); // NOLINT
+}
+
 int main()
 {
+    // NOTE: await_transform -> sender_awaitable{std::forward<Expr>(expr), p};
+    //  NOTE: sndr + co_await 表达式变成 sender_awaitable
+    //  NOTE: awaitable_receiver 是 sender_awaitable 的 recver
+    //  NOTE: 转发 task的 event => [ continuation.promise().get_env() ]
+    /*
+            tag(queries::get_env(continuation.promise()),
+                           std::forward<Args>(args)...);
+//NOTE: task<int> 会被 resume 很多次。一个 sndr 一次resume。
+    */
+    std::cout << "==================== my_receiver start============================\n";
+    TEST("task<int> ") = [] {
+        auto sndr = test_task();
+        static_assert(std::is_same_v<::task<int>, decltype(sndr)>);
 
+        // note: 类型擦除，传递返回值？每个函数都是独立的，传递不了的
+        // NOTE: 目前的方法绝对是失败的
+        auto op = ex::conn::connect(std::move(sndr), std::move(my_receiver{}));
+        using O = decltype(op);
+        static_assert(std::is_same_v<O, task<int>::state<my_receiver>>);
+        ex::opstate::start(op);
+    };
+    std::cout << "\n-----------------------------------------------------\n";
+    TEST("task<int> 2") = [] {
+        // NOTE: sndr 仅仅提交一次结果
+        auto sndr = [] noexcept -> ::task<int> { // NOLINT
+            int v = co_await ex::just(1);        // NOLINT
+
+            co_return co_await (ex::just(v) | ex::then([](int v) { return v * 2; }));
+        };
+        auto op = ex::conn::connect(std::move(sndr()), std::move(my_receiver{}));
+        ex::opstate::start(op);
+    };
+    std::cout << "=================== my_receiver end======================\n";
+#if 0
     TEST("task<int> ") = [] {
         auto rc = mcs::this_thread::sync_wait([] -> task<int> { // NOLINT
             co_return 17;                                       // NOLINT
@@ -449,6 +518,7 @@ int main()
         EXPECT(task_id == pool[0].thread_id());
         EXPECT(task_id == then_id);
     };
+#endif
 
     std::cout << "main done\n";
     return 0;

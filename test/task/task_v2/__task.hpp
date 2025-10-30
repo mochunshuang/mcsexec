@@ -64,11 +64,13 @@ namespace mcs::execution::task_v2
             {
                 return std::coroutine_handle<promise_type>::from_promise(*this);
             }
+            // TODO: SCHED(*this). scheduler_type 在 St
             static constexpr auto initial_suspend() noexcept
             {
                 return std::suspend_always{};
             }
 
+            // TODO STATE(*this) 有关
             static constexpr auto final_suspend() noexcept
             {
                 struct final_awaiter
@@ -100,10 +102,14 @@ namespace mcs::execution::task_v2
             }
             constexpr std::coroutine_handle<> unhandled_stopped() noexcept
             {
+                // TODO RCVR(*this)
+                //  Completes the asynchronous operation associated with STATE(*this) by
+                //  invoking set_stopped(std::move(RCVR(*this))).
                 state_->unhandled_stopped(state_);
                 return std::noop_coroutine();
             }
 
+            // TODO RCVR(*this) 有关
             template <class E>
             constexpr auto yield_value(with_error<E> error) noexcept // NOLINT
                 requires requires() {
@@ -114,7 +120,7 @@ namespace mcs::execution::task_v2
             }
 
             template <sender Sender>
-            auto await_transform(Sender &&sndr) noexcept
+            auto await_transform(Sender &&sndr) noexcept -> decltype(auto)
             {
                 if constexpr (std::same_as<inline_scheduler, scheduler_type>)
                 {
@@ -122,15 +128,20 @@ namespace mcs::execution::task_v2
                 }
                 else
                 {
-                    // TODO SCHED form interface_base class cant 
+                    // TODO SCHED(*this)
+                    // NOTE: affine_on 并没有具体实现要做什么。 sched 是空 如何处理？
+                    // NOTE: 暂时别动。并没有设计好
+                    // NOTE: 在那启动在哪结束不保证的化，很难处理的
                     return awaitables::as_awaitable(
                         affine_on(std::forward<Sender>(sndr), SCHED(*this)), *this);
                 }
             }
             // NOLINTEND
+            // NOTE: co_await change_coroutine_scheduler<Sch>{};的表达式处理
             template <class Sch>
-            auto await_transform(change_coroutine_scheduler<Sch> sch)
+            auto await_transform(change_coroutine_scheduler<Sch> sch) -> decltype(auto)
             {
+                // TODO(mcs): SCHED(*this)
                 return awaitables::as_awaitable(
                     factories::just(
                         std::exchange(SCHED(*this), scheduler_type(sch.scheduler))),
@@ -141,6 +152,24 @@ namespace mcs::execution::task_v2
             {
                 struct env
                 {
+                    // env.query(get_scheduler) returns scheduler_type(SCHED(*this))
+                    // env.query(get_allocator) returns alloc.
+                    // env.query(get_stop_token) returns token
+
+                    // For any other query q and arguments a... a call to env.query(q,
+                    // a...) returns STATE(*this).environment.query(q, a...) if this
+                    // expression is well-formed and forwarding_query(q) is well-formed
+                    // and is true. Otherwise env.query(q, a...) is ill-formed.
+                    // STATE(*this).environment 在 STATE 中。
+                    // NOTE: 直觉是类型转化。 promise_type 也是异步操作对象
+                    // NOTE: 切片如何解决？
+                    // NOTE: 这里要返回 join_able 的对象。 CONNECT的时候需要确定
+                    // NOTE: connect是最后的机会。所有的操作也在这个时候定型了
+                    // NOTE: STATE 是根据模板参数 R 构建的
+
+                    // NOTE: 类型信息无法跨越
+
+                    // NOTE: 仅仅是 R 不可知。
                 };
                 return env{};
             }
@@ -166,7 +195,8 @@ namespace mcs::execution::task_v2
             stop_source_type source_; // exposition only
             stop_token_type token_;   // exposition only
             error_variant errors_;    // exposition only
-            __detail::state_base *state_{};
+            scheduler_type scheduler_;
+            Environment environment_; // exposition only
 
             friend struct final_awaiter;
 
@@ -176,15 +206,14 @@ namespace mcs::execution::task_v2
 
         // [task.state]
         template <recv::receiver R>
-        struct state : __detail::state_base
+        struct state
         {
           public:
             using operation_state_concept = operation_state_t;
 
             template <class Rcvr>
             constexpr state(std::coroutine_handle<promise_type> h, Rcvr &&rcvr) noexcept
-                : state_base{.completion = &do_completion}, handle_(std::move(h)),
-                  rcvr_(std::forward<Rcvr>(rcvr)),
+                : handle_(std::move(h)), rcvr_(std::forward<Rcvr>(rcvr)),
                   own_env_{[](auto &rcvr) constexpr noexcept {
                       if constexpr (requires() { own_env_t{queries::get_env(rcvr)}; })
                           return own_env_t{queries::get_env(rcvr)};
@@ -192,20 +221,21 @@ namespace mcs::execution::task_v2
                           return own_env_t{};
                       else
                           static_assert(false, "the own_env_t is ill-formed");
-                  }(rcvr_)},
-                  environment_{[](auto &rcvr, auto &own_env) constexpr noexcept {
-                      if constexpr (requires() { Environment{own_env}; })
-                          return Environment{own_env};
-                      else if constexpr (requires() {
-                                             Environment{queries::get_env(rcvr)};
-                                         })
-                          return Environment{queries::get_env(rcvr)};
-                      else if constexpr (requires() { Environment{}; })
-                          return Environment{};
-                      else
-                          static_assert(false, "the Environment is ill-formed");
-                  }(rcvr_, own_env_)}
+                  }(rcvr_)}
             {
+                h.promise().environment_ = [](auto &rcvr,
+                                              auto &own_env) constexpr noexcept {
+                    if constexpr (requires() { Environment{own_env}; })
+                        return Environment{own_env};
+                    else if constexpr (requires() {
+                                           Environment{queries::get_env(rcvr)};
+                                       })
+                        return Environment{queries::get_env(rcvr)};
+                    else if constexpr (requires() { Environment{}; })
+                        return Environment{};
+                    else
+                        static_assert(false, "the Environment is ill-formed");
+                }(rcvr_, own_env_);
             }
             constexpr ~state() noexcept
             {
@@ -233,25 +263,24 @@ namespace mcs::execution::task_v2
             void start() & noexcept
             {
                 auto &prom = handle_.promise();
+                static_assert(
+                    std::is_same_v<decltype(prom), std::coroutine_handle<promise_type>>);
                 prom.state_ = this;
 
                 if constexpr (requires {
-                                  scheduler_ = scheduler_type{
+                                  prom.scheduler_ = scheduler_type{
                                       queries::get_scheduler(queries::get_env(rcvr_))};
                               })
-                    scheduler_ =
+                    prom.scheduler_ =
                         scheduler_type{queries::get_scheduler(queries::get_env(rcvr_))};
-                else if constexpr (requires { scheduler_ = scheduler_type{}; })
-                    scheduler_ = scheduler_type{};
+                else if constexpr (requires { prom.scheduler_ = scheduler_type{}; })
+                    prom.scheduler_ = scheduler_type{};
                 else
                     static_assert(false, "the scheduler_type is ill-formed");
-#if 0 // TODO(mcs): 不理解 如何代理
-      // stoptoken::stoppable_callback_for 概念
+
                 on_stop_.emplace(
                     std::move(queries::get_stop_token(queries::get_env(rcvr_))),
                     forward_stop_request{prom.source_});
-#endif
-                // NOTE: set promise的一些成员
                 handle_.resume();
             }
 
@@ -270,10 +299,9 @@ namespace mcs::execution::task_v2
             std::coroutine_handle<promise_type> handle_; // exposition only
             std::remove_cvref_t<R> rcvr_;                // exposition only
             own_env_t own_env_;                          // exposition only// NOLINT
-            Environment environment_;                    // exposition only
-            scheduler_type scheduler_;
-            stop_callback on_stop_; // NOLINT
 
+            stop_callback on_stop_; // NOLINT
+#if 0
             constexpr static void do_completion(state_base *ptr) noexcept // NOLINT
             {
                 auto &self = *static_cast<state<R> *>(ptr);
@@ -302,6 +330,7 @@ namespace mcs::execution::task_v2
                 auto &self = *static_cast<state<R> *>(ptr);
                 recv::set_stopped(std::move(self.rcvr_));
             }
+#endif
         };
 
         task(const task &) = delete;
@@ -324,6 +353,9 @@ namespace mcs::execution::task_v2
         template <recv::receiver R>
         constexpr state<R> connect(R &&recv) noexcept
         {
+            // NOTE: 最后的类型全部已知的机会。 state<R> 和 promise_type 是相关联的
+            // NOTE: promise_type 目前的 get_env() 依赖 R 的构建。
+            // NOTE: 如何让两个类型有机组合像一个类一样？
             assert(bool(handle_)); // Preconditions: bool(handle) is true.
             return {std::exchange(handle_, {}), std::forward<R>(recv)};
         }
